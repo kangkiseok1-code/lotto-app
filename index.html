@@ -102,6 +102,9 @@
   .numgrid button.fav{background:var(--gold-soft);border-color:var(--gold)}
   .plist .it{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
   .plist .it:last-child{border:none}
+  .plist .it.won{background:linear-gradient(90deg,#fff6dd,#fffdf6);border-left:4px solid var(--gold);border-bottom:none;border-radius:8px;padding:10px 10px 10px 9px;margin:4px 0}
+  .winbadge{display:inline-flex;align-items:center;gap:4px;background:var(--gold);color:#fff;font-weight:800;font-size:12.5px;border-radius:8px;padding:4px 11px;margin-top:4px;box-shadow:0 1px 4px rgba(184,145,46,.4)}
+  .winrow{background:linear-gradient(90deg,#fff6dd,#fffdf6);border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin:8px 0}
   .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
     padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;z-index:40;pointer-events:none;white-space:nowrap}
   .toast.show{opacity:.95}
@@ -705,16 +708,27 @@ function setOddEven(v){ recOpts.oddEven=v; renderTab(); }
 async function setRecentN(v){ recOpts.recentN=v; if(v>0 && recentDraws.length<5){ await loadRecentDraws(5); } renderTab(); }
 
 /* ---- 구매 ---- */
+// 구매 1건의 결과 상태 (당첨=강조 배지 / 꽝·일치개수 / 추첨 대기)
+function purchaseResultHtml(p){
+  if(p.won) return `<div style="margin-top:4px"><span class="winbadge">🎉 ${p.won_rank?p.won_rank+'등':'당첨'}${p.won_amount?' · '+Number(p.won_amount).toLocaleString()+'원':''}</span></div>`;
+  if(p.numbers&&p.numbers.length===6){
+    const d=draws[p.round||inferRound(p.purchased_at)];
+    if(d){ const matched=p.numbers.filter(n=>d.numbers.includes(n)).length, bonus=p.numbers.includes(d.bonus_no);
+      return `<div class="muted" style="font-size:12px;margin-top:2px">낙첨 · ${matched}개 일치${bonus?' +보너스':''}</div>`; }
+    return `<div class="muted" style="font-size:12px;margin-top:2px">추첨 대기</div>`;
+  }
+  return `<div class="muted" style="font-size:12px;margin-top:2px">결과 대기</div>`;
+}
 function viewBuy(){
   const list=purchases.map(p=>{
     const dt=new Date(p.purchased_at);
     const when=`${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    return `<div class="it tap" onclick="editPurchase('${p.id}')">
+    return `<div class="it tap${p.won?' won':''}" onclick="editPurchase('${p.id}')">
       <div style="flex:1">
         <div style="font-weight:600;font-size:13.5px">${when}${p.round?` <span class="muted" style="font-weight:400">· ${p.round}회</span>`:''}</div>
         ${dayChip(p.purchased_at)}
         ${p.numbers&&p.numbers.length?`<div style="font-size:12px;margin-top:2px">번호 ${p.numbers.join(', ')}</div>`:''}
-        ${p.won?`<div style="font-size:12px;color:var(--gold);margin-top:2px">🎉 당첨 ${p.won_amount?Number(p.won_amount).toLocaleString()+'원':''} ${p.won_rank?('· '+p.won_rank+'등'):''}</div>`:`<div class="muted" style="font-size:12px;margin-top:2px">결과 대기</div>`}
+        ${purchaseResultHtml(p)}
       </div>
       <div class="muted" style="font-size:18px">›</div>
     </div>`;
@@ -769,10 +783,10 @@ function scanGamesHtml(r,draw){
   return r.games.map((g,i)=>{
     const balls=g.map(n=>{ const hit=draw&&draw.numbers.includes(n), bonus=draw&&n===draw.bonus_no;
       return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${LOTTO_BALL(n)};color:#333;text-shadow:none${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
-    let res='';
-    if(draw){ const rank=rankOf(g,draw), matched=g.filter(n=>draw.numbers.includes(n)).length, bonus=g.includes(draw.bonus_no);
-      res=`<div style="font-size:12.5px;margin-top:3px">${rank>0?`🎉 <b style="color:var(--gold)">${rank}등</b> · ${Number(prizeFor(rank,draw)).toLocaleString()}원`:`꽝 · ${matched}개 일치${bonus?' +보너스':''}`}</div>`; }
-    return `<div style="margin:8px 0"><div class="balls" style="justify-content:flex-start">${String.fromCharCode(65+i)}. ${balls}</div>${res}</div>`;
+    let res='', rank=0;
+    if(draw){ rank=rankOf(g,draw); const matched=g.filter(n=>draw.numbers.includes(n)).length, bonus=g.includes(draw.bonus_no);
+      res=`<div style="margin-top:5px">${rank>0?`<span class="winbadge">🎉 ${rank}등 · ${Number(prizeFor(rank,draw)).toLocaleString()}원</span>`:`<span class="muted" style="font-size:12.5px">낙첨 · ${matched}개 일치${bonus?' +보너스':''}</span>`}</div>`; }
+    return `<div class="${rank>0?'winrow':''}" style="margin:8px 0${rank>0?'':';padding:0'}"><div class="balls" style="justify-content:flex-start">${String.fromCharCode(65+i)}. ${balls}</div>${res}</div>`;
   }).join('');
 }
 function scanShell(inner,title){
@@ -967,6 +981,7 @@ async function savePurchaseEdit(id){
   });
   // 최신순 정렬 유지
   purchases.sort((a,b)=>new Date(b.purchased_at)-new Date(a.purchased_at));
+  await autoCheckWins();   // 번호+회차 입력분은 공식 결과와 자동 대조
   toast('저장했어요'); renderTab();
 }
 async function deletePurchase(id){
@@ -1024,9 +1039,9 @@ function viewResult(){
     const rank=rankOf(p.numbers,d); const matched=p.numbers.filter(n=>d.numbers.includes(n)).length;
     const bonus=p.numbers.includes(d.bonus_no);
     const nums=p.numbers.map(n=>d.numbers.includes(n)?`<b style="color:var(--gold)">${n}</b>`:(n===d.bonus_no?`<b style="color:var(--su)">${n}</b>`:n)).join(', ');
-    return `<div class="it"><div style="flex:1"><b>${when}</b> · ${d.draw_no}회
+    return `<div class="it${rank>0?' won':''}"><div style="flex:1"><b>${when}</b> · ${d.draw_no}회
       <div class="muted" style="font-size:12px">번호 ${nums}</div>
-      <div style="font-size:12.5px;margin-top:2px">${rank>0?`🎉 <b style="color:var(--gold)">${rank}등</b> · ${Number(prizeFor(rank,d)).toLocaleString()}원`:`꽝 · ${matched}개 일치${bonus?' +보너스':''}`}</div>
+      ${rank>0?`<div style="margin-top:4px"><span class="winbadge">🎉 ${rank}등 · ${Number(prizeFor(rank,d)).toLocaleString()}원</span></div>`:`<div class="muted" style="font-size:12.5px;margin-top:2px">낙첨 · ${matched}개 일치${bonus?' +보너스':''}</div>`}
     </div></div>`;
   }).join(''):'<p class="muted" style="font-size:13px">구매 기록에 6개 번호를 입력하면 자동으로 당첨을 확인해드려요. (구매 이력에서 기록을 눌러 번호 입력)</p>';
   return `<div class="section on card">
