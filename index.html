@@ -751,11 +751,16 @@ let scanResult=null;   // {round, games:[[6]], raw}
 function parseTicketQR(text){
   const vm=String(text).match(/[?&]v=([^&\s]+)/);
   const v=(vm?vm[1]:String(text)).trim();
-  const round=parseInt((v.match(/\d{4}/)||[])[0],10)||null;   // 앞 4자리 = 회차(잠정)
-  // 'q'(또는 자동/수동 표기문자)로 분리 → 순수 12자리(6번호×2) 토큰만 게임으로 채택
-  const games=v.split(/[^0-9]/).filter(t=>/^\d{12}$/.test(t))
-    .map(t=>{const ns=[];for(let i=0;i<12;i+=2)ns.push(parseInt(t.slice(i,i+2),10));return ns;})
-    .filter(ns=>ns.every(n=>n>=1&&n<=45)&&new Set(ns).size===6);
+  const round=parseInt((v.match(/\d{4}/)||[])[0],10)||null;   // 앞 4자리 = 회차
+  // 'q' 등으로 구간 분리 → 각 구간의 '뒤 12자리'(6번호×2)만 취해 게임 인식
+  //  (앞에 회차·방식표기 '자동' 등이 붙어도 무시됨). 6개 모두 1~45·중복없음일 때만 채택.
+  const games=[];
+  v.split(/[^0-9]+/).forEach(seg=>{
+    if(seg.length<12) return;
+    const tail=seg.slice(-12); if(!/^\d{12}$/.test(tail)) return;
+    const ns=[]; for(let i=0;i<12;i+=2) ns.push(parseInt(tail.slice(i,i+2),10));
+    if(ns.every(n=>n>=1&&n<=45) && new Set(ns).size===6) games.push(ns);
+  });
   return {round,games,raw:v};
 }
 let scanMode='buy';    // 'buy'=구매기록 저장 / 'check'=당첨 즉석 확인
