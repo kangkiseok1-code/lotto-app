@@ -539,7 +539,7 @@ function renderProfileForm(){
         <div><label class="f">성별</label><select id="gender"><option value="">선택</option><option value="M"${p.gender==='M'?' selected':''}>남</option><option value="F"${p.gender==='F'?' selected':''}>여</option></select></div>
       </div>
       <label class="f" style="margin-top:10px">태어난 지역 (진태양시 보정, 선택)</label>
-      <select id="city"><option value="">보정 안 함</option>${Object.keys(S.CITY_LNG||{}).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select id="city"><option value="">보정 안 함</option>${(S.CITY_GROUPS||[]).map(([g,m])=>`<optgroup label="${esc(g)}">${Object.keys(m).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</optgroup>`).join('')}</select>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
     </div>
   </div>`;

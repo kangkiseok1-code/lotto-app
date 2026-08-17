@@ -2590,7 +2590,19 @@ var OhaengEngine = (() => {
       var manseLunarToSolar = manse.lunarToSolar;
       var YUPA = require_yupa_constants();
       var REL = require_relations();
-      var CITY_LNG = { "\uC11C\uC6B8": 126.98, "\uBD80\uC0B0": 129.08, "\uB300\uAD6C": 128.6, "\uC778\uCC9C": 126.71, "\uAD11\uC8FC": 126.85, "\uB300\uC804": 127.38, "\uC6B8\uC0B0": 129.31, "\uC218\uC6D0": 127.03, "\uCC3D\uC6D0": 128.68, "\uC81C\uC8FC": 126.53, "\uAC15\uB989": 128.9, "\uC804\uC8FC": 127.15 };
+      var CITY_GROUPS = [
+        ["\uD2B9\uBCC4\xB7\uAD11\uC5ED\uC2DC", { "\uC11C\uC6B8": 126.98, "\uBD80\uC0B0": 129.08, "\uB300\uAD6C": 128.6, "\uC778\uCC9C": 126.71, "\uAD11\uC8FC": 126.85, "\uB300\uC804": 127.38, "\uC6B8\uC0B0": 129.31, "\uC138\uC885": 127.29 }],
+        ["\uACBD\uAE30", { "\uC218\uC6D0": 127.03, "\uC131\uB0A8": 127.14, "\uACE0\uC591": 126.83, "\uC6A9\uC778": 127.18, "\uBD80\uCC9C": 126.78, "\uC548\uC0B0": 126.83, "\uC548\uC591": 126.95, "\uD3C9\uD0DD": 127.09, "\uC758\uC815\uBD80": 127.05, "\uD30C\uC8FC": 126.78 }],
+        ["\uAC15\uC6D0", { "\uCD98\uCC9C": 127.73, "\uC6D0\uC8FC": 127.92, "\uAC15\uB989": 128.9, "\uC18D\uCD08": 128.59 }],
+        ["\uCDA9\uBD81", { "\uCCAD\uC8FC": 127.49, "\uCDA9\uC8FC": 127.93, "\uC81C\uCC9C": 128.19 }],
+        ["\uCDA9\uB0A8", { "\uCC9C\uC548": 127.15, "\uC544\uC0B0": 127, "\uC11C\uC0B0": 126.45, "\uB2F9\uC9C4": 126.63 }],
+        ["\uC804\uBD81", { "\uC804\uC8FC": 127.15, "\uC775\uC0B0": 126.96, "\uAD70\uC0B0": 126.74, "\uC815\uC74D": 126.86 }],
+        ["\uC804\uB0A8", { "\uBAA9\uD3EC": 126.39, "\uC5EC\uC218": 127.66, "\uC21C\uCC9C": 127.49, "\uAD11\uC591": 127.7 }],
+        ["\uACBD\uBD81", { "\uD3EC\uD56D": 129.36, "\uACBD\uC8FC": 129.22, "\uAD6C\uBBF8": 128.34, "\uC548\uB3D9": 128.73, "\uAE40\uCC9C": 128.11 }],
+        ["\uACBD\uB0A8", { "\uCC3D\uC6D0": 128.68, "\uC9C4\uC8FC": 128.08, "\uAE40\uD574": 128.87, "\uD1B5\uC601": 128.43, "\uAC70\uC81C": 128.62, "\uC591\uC0B0": 129.04 }],
+        ["\uC81C\uC8FC", { "\uC81C\uC8FC": 126.53, "\uC11C\uADC0\uD3EC": 126.56 }]
+      ];
+      var CITY_LNG = Object.fromEntries(CITY_GROUPS.flatMap(([, m]) => Object.entries(m)));
       var GAN = ["\uAC11", "\uC744", "\uBCD1", "\uC815", "\uBB34", "\uAE30", "\uACBD", "\uC2E0", "\uC784", "\uACC4"];
       var GAN_HANJA = ["\u7532", "\u4E59", "\u4E19", "\u4E01", "\u620A", "\u5DF1", "\u5E9A", "\u8F9B", "\u58EC", "\u7678"];
       var JI_HANJA = ["\u5B50", "\u4E11", "\u5BC5", "\u536F", "\u8FB0", "\u5DF3", "\u5348", "\u672A", "\u7533", "\u9149", "\u620C", "\u4EA5"];
@@ -3004,6 +3016,7 @@ var OhaengEngine = (() => {
       }
       module.exports = {
         CITY_LNG,
+        CITY_GROUPS,
         GAN,
         GAN_HANJA,
         JI_HANJA,
