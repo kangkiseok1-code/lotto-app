@@ -226,8 +226,8 @@ function monthData(y,m){
   const scores=[]; for(let d=1;d<=days;d++)scores.push(dayScore(y,m,d));
   const vals=scores.map(s=>s.score); const mn=Math.min(...vals),mx=Math.max(...vals);
   const norm=v=>mx===mn?0:(v-mn)/(mx-mn);
-  // 목돈 후보일: 재성이 길신으로 들어오거나(신강), 재성이 있으면서 그달 발복 상위권(신약이 재를 감당)
-  const isMoney=s=>s.jaeFavToday||(s.jaePresent&&s.score>0&&norm(s.score)>=0.6);
+  // 목돈 후보일: 재성이 길신으로 들어오거나(신강), 재성이 있으면서 그달 발복 상위 30%(신약이 재를 감당)
+  const isMoney=s=>s.jaeFavToday||(s.jaePresent&&s.score>0&&norm(s.score)>=0.7);
   const moneyDays=scores.map((s,i)=>isMoney(s)?i+1:0).filter(Boolean);
   return {days,scores,norm,isMoney,moneyDays};
 }
@@ -749,7 +749,7 @@ function viewRec(){
     <div class="row" style="flex-wrap:wrap;gap:6px">${oe('auto','자동')}${oe('3:3','3:3')}${oe('4:2','4:2')}${oe('2:4','2:4')}</div>
     <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호’는 지난 회차에서 1개만 채택(2개 이상 중복될 확률이 낮다는 판단), ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
   </div>
-  ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 인연·좋아하는 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
+  ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 나만의 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
 }
 function toggleRecOpt(k){ recOpts[k]=!recOpts[k]; renderTab(); }
@@ -769,17 +769,28 @@ function purchaseResultHtml(p){
   return `<div class="muted" style="font-size:12px;margin-top:2px">결과 대기</div>`;
 }
 function viewBuy(){
-  const list=purchases.map(p=>{
-    const dt=new Date(p.purchased_at);
+  // 한 장(스캔한 티켓) 단위로 묶기 — 같은 ticket이면 A~E 줄로 함께 표시
+  const order=[], groups={};
+  purchases.forEach(p=>{ const key=p.ticket||p.id;
+    if(!groups[key]){ groups[key]=[]; order.push(key); }
+    groups[key].push(p); });
+  const list=order.map(key=>{
+    const g=groups[key].slice().sort((a,b)=>(a.line||0)-(b.line||0));
+    const head=g[0], dt=new Date(head.purchased_at);
     const when=`${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    return `<div class="it tap${p.won?' won':''}" onclick="editPurchase('${p.id}')">
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:13.5px">${when}${p.round?` <span class="muted" style="font-weight:400">· ${p.round}회</span>`:''}</div>
-        ${dayChip(p.purchased_at)}
-        ${p.numbers&&p.numbers.length?`<div style="font-size:12px;margin-top:2px">번호 ${p.numbers.join(', ')}</div>`:''}
-        ${purchaseResultHtml(p)}
-      </div>
-      <div class="muted" style="font-size:18px">›</div>
+    const anyWon=g.some(p=>p.won), multi=g.length>1;
+    const lines=g.map((p,i)=>{
+      const label=multi?`${String.fromCharCode(65+i)}. `:'';
+      const nums=p.numbers&&p.numbers.length?`${label}번호 ${p.numbers.join(', ')}`:`${label}<span class="muted">번호 없음</span>`;
+      return `<div class="tap${p.won?' won':''}" onclick="editPurchase('${p.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;${i?'border-top:1px solid var(--line)':''}">
+        <div style="flex:1"><div style="font-size:12.5px">${nums}</div>${purchaseResultHtml(p)}</div>
+        <div class="muted" style="font-size:16px">›</div>
+      </div>`;
+    }).join('');
+    return `<div class="it${anyWon?' won':''}" style="display:block">
+      <div style="font-weight:600;font-size:13.5px">${when}${head.round?` <span class="muted" style="font-weight:400">· ${head.round}회</span>`:''}${multi?` <span class="muted" style="font-weight:400">· ${g.length}게임</span>`:''}</div>
+      ${dayChip(head.purchased_at)}
+      ${lines}
     </div>`;
   }).join('')||'<p class="muted" style="font-size:13px">아직 구매 기록이 없어요.</p>';
   const todayCount=purchases.filter(p=>new Date(p.purchased_at).toDateString()===now.toDateString()).length;
@@ -801,14 +812,17 @@ function parseTicketQR(text){
   const vm=String(text).match(/[?&]v=([^&\s]+)/);
   const v=(vm?vm[1]:String(text)).trim();
   const round=parseInt((v.match(/\d{4}/)||[])[0],10)||null;   // 앞 4자리 = 회차
-  // 'q' 등으로 구간 분리 → 각 구간의 '뒤 12자리'(6번호×2)만 취해 게임 인식
-  //  (앞에 회차·방식표기 '자동' 등이 붙어도 무시됨). 6개 모두 1~45·중복없음일 때만 채택.
+  // 'q' 등으로 구간 분리 → 각 구간에서 12자리(6번호×2) 게임을 '전부' 추출.
+  //  앞의 회차·방식표기 등 잉여는 12의 배수가 되도록 앞에서 잘라 무시.
+  //  한 구간에 게임이 여러 개 붙어 있어도 12자리씩 끊어 모두 인식(누락 방지).
   const games=[];
+  const asGame=s=>{ if(!/^\d{12}$/.test(s))return null;
+    const ns=[]; for(let i=0;i<12;i+=2) ns.push(parseInt(s.slice(i,i+2),10));
+    return (ns.every(n=>n>=1&&n<=45)&&new Set(ns).size===6)?ns:null; };
   v.split(/[^0-9]+/).forEach(seg=>{
     if(seg.length<12) return;
-    const tail=seg.slice(-12); if(!/^\d{12}$/.test(tail)) return;
-    const ns=[]; for(let i=0;i<12;i+=2) ns.push(parseInt(tail.slice(i,i+2),10));
-    if(ns.every(n=>n>=1&&n<=45) && new Set(ns).size===6) games.push(ns);
+    let s=seg; const rem=s.length%12; if(rem) s=s.slice(rem);   // 앞쪽 잉여 제거
+    for(let i=0;i+12<=s.length;i+=12){ const g=asGame(s.slice(i,i+12)); if(g) games.push(g); }
   });
   return {round,games,raw:v};
 }
@@ -883,16 +897,19 @@ function renderScanCheck(){
   }
   $('#body').innerHTML=scanShell(body,'📷 용지 당첨 확인');
 }
+function newTicketId(n){ return n>1?'t'+Date.now()+Math.random().toString(36).slice(2,6):null; }
 async function saveScanned(){
   const r=scanResult; if(!r||!r.games||!r.games.length)return;
-  for(const g of r.games){ await dbAddPurchase({numbers:g, round:r.round||null}); }
+  const iso=new Date().toISOString(), tid=newTicketId(r.games.length);   // 한 장의 여러 게임 = 같은 티켓
+  for(let i=0;i<r.games.length;i++){ await dbAddPurchase({numbers:r.games[i], round:r.round||null, purchased_at:iso, ticket:tid, line:i}); }
   await autoCheckWins();
   toast(`${r.games.length}게임 저장 완료`); scanResult=null; tab='buy'; renderTab();
 }
 async function saveScannedWithDate(){
   const r=scanResult; if(!r||!r.games||!r.games.length)return;
   const dtv=$('#scan_dt').value; const iso=dtv?new Date(dtv).toISOString():new Date().toISOString();
-  for(const g of r.games){ await dbAddPurchase({numbers:g, round:r.round||null, purchased_at:iso}); }
+  const tid=newTicketId(r.games.length);
+  for(let i=0;i<r.games.length;i++){ await dbAddPurchase({numbers:r.games[i], round:r.round||null, purchased_at:iso, ticket:tid, line:i}); }
   await autoCheckWins();
   toast('당첨 기록 저장 완료 🎉'); scanResult=null; tab='buy'; renderTab();
 }
@@ -1044,27 +1061,23 @@ async function deletePurchase(id){
 }
 
 /* ---- 내숫자 ---- */
-let numKind='fate';
 function viewNum(){
-  const grid=Array.from({length:45},(_,i)=>i+1).map(n=>{
-    const cls=myNumbers.fate.includes(n)?'fate':myNumbers.favorite.includes(n)?'fav':'';
-    return `<button class="${cls}" onclick="toggleNum(${n})">${n}</button>`;
-  }).join('');
+  const isSaved=n=>myNumbers.fate.includes(n)||myNumbers.favorite.includes(n);
+  const grid=Array.from({length:45},(_,i)=>i+1).map(n=>
+    `<button class="${isSaved(n)?'fate':''}" onclick="toggleNum(${n})">${n}</button>`).join('');
+  const saved=[...new Set([...myNumbers.fate,...myNumbers.favorite])].sort((a,b)=>a-b);
   return `<div class="section on card">
     <h2 style="margin:0 0 6px">내 숫자</h2>
-    <div class="row" style="margin-bottom:10px">
-      <button class="btn sm ${numKind==='fate'?'':'ghost'}" onclick="numKind='fate';renderTab()">인연 있는 숫자</button>
-      <button class="btn sm ${numKind==='favorite'?'':'ghost'}" onclick="numKind='favorite';renderTab()">좋아하는 숫자</button>
-    </div>
-    <p class="muted" style="font-size:12px;margin:0 0 10px">숫자를 눌러 <b>${numKind==='fate'?'인연':'좋아하는'}</b> 숫자로 저장/해제. (인연=<span style="color:var(--gold)">골드</span>, 좋아하는=<span style="color:#8a6d16">연골드</span>)</p>
+    <p class="muted" style="font-size:12.5px;margin:0 0 12px;line-height:1.6">
+      인연이 있거나 좋아하는 <b>나만의 숫자</b>를 저장해 두세요. 저장한 숫자는 <b>추천 번호를 뽑을 때 가중치가 높아져</b> 더 자주 포함됩니다.<br>숫자를 눌러 저장/해제하세요.</p>
     <div class="numgrid">${grid}</div>
+    ${saved.length?`<p class="muted" style="font-size:12.5px;margin:12px 0 0">저장한 숫자 · <b style="color:var(--gold)">${saved.join(', ')}</b></p>`:''}
   </div>`;
 }
 async function toggleNum(n){
-  // 한 숫자는 한 종류만: 반대편에 있으면 옮김
-  const other=numKind==='fate'?'favorite':'fate';
-  if(myNumbers[other].includes(n)) await dbToggleNumber(n,other);
-  await dbToggleNumber(n,numKind); renderTab();
+  // 단일 카테고리: 저장돼 있으면(구버전 '좋아하는' 포함) 해제, 없으면 저장
+  const k=myNumbers.favorite.includes(n)?'favorite':'fate';
+  await dbToggleNumber(n,k); renderTab();
 }
 
 /* ---- 결과 ---- */
