@@ -439,7 +439,7 @@ async function init(){
 async function afterAuth(){
   DEMO=!user;
   profile=await dbLoadProfile();
-  if(!profile){ renderProfileForm(); return; }
+  if(!profile){ renderLanding(); return; }
   buildSaju();
   const nums=await dbLoadNumbers();
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),
@@ -474,6 +474,34 @@ async function sendMagic(){
   const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
   if(error){toast('오류: '+error.message);return;}
   toast('메일함을 확인해 로그인 링크를 눌러주세요');
+}
+
+/* ============ 화면: 첫 페이지(랜딩) ============ */
+function landingFeature(ic,t,d){
+  return `<div class="row" style="gap:12px;align-items:flex-start">
+    <div style="width:36px;height:36px;border-radius:10px;background:#faf6ec;color:var(--gold);display:grid;place-items:center;font-size:18px;flex-shrink:0">${ic}</div>
+    <div><div style="font-weight:700;font-size:14px">${t}</div><div class="muted" style="font-size:12.5px;line-height:1.45">${d}</div></div>
+  </div>`;
+}
+function renderLanding(){
+  $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px">
+    <div style="text-align:center">
+      <div class="seal" style="width:80px;height:80px;border-radius:22px;font-size:46px;margin:0 auto 18px">緣</div>
+      <h1 style="font-size:34px;margin:0 0 4px">오행 로또</h1>
+      <p class="muted" style="font-size:14px;margin:0 0 26px">사주 재물운으로 보는 나의 로또</p>
+    </div>
+    <div class="card" style="margin:0">
+      <div style="display:flex;flex-direction:column;gap:15px">
+        ${landingFeature('▦','재물운 달력','내 사주로 목돈 들어올 날·좋은 시간대를 달력에 표시')}
+        ${landingFeature('◆','사주 번호 추천','용희신 오행 기반 5줄 추천 + 원하는 패턴 반영')}
+        ${landingFeature('◎','당첨 자동 확인','용지 QR 스캔·직접 입력을 공식 결과와 자동 대조')}
+        ${landingFeature('☰','수익·신호 분석','누적 수익과 내 신호(사주·직감·꿈) 적중 분석')}
+      </div>
+      <button class="btn wide" style="margin-top:22px;padding:15px;font-size:16px" onclick="renderProfileForm()">시작하기</button>
+      <p class="muted" style="font-size:11.5px;text-align:center;margin:10px 0 0">먼저 내 사주(생년월일시)를 한 번만 입력하면 돼요.</p>
+      <p class="disclaimer">번호·날짜 추천은 사주 참고용이며 당첨을 보장하지 않습니다.</p>
+    </div>
+  </div>`;
 }
 
 /* ============ 화면: 사주 입력 ============ */
