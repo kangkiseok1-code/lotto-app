@@ -1,0 +1,1086 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>오행 로또 · 재물운 달력</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<style>
+  :root{
+    --gold:#b8912e; --gold-soft:#e9d9a8; --ink:#22201b; --sub:#6b6559;
+    --line:#eadfc6; --bg:#fbf8f1; --card:#ffffff;
+    --mok:#2e7d5b; --hwa:#c0392b; --to:#b8860b; --geum:#7f8c8d; --su:#2c3e50;
+    --shadow:0 2px 14px rgba(80,60,10,.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    line-height:1.5;padding-bottom:76px}
+  h1,h2,h3{font-family:"Cormorant Garamond",serif;font-weight:600;letter-spacing:.01em}
+  .wrap{max-width:520px;margin:0 auto;padding:16px}
+  header.app{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
+  header.app .seal{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#fff;
+    display:grid;place-items:center;font-family:serif;font-size:20px;box-shadow:var(--shadow)}
+  header.app .t{font-size:15px;font-weight:700}
+  header.app .s{font-size:11px;color:var(--sub)}
+  header.app .sp{flex:1}
+  .btn{border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:10px;
+    padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.12s}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:#fff;color:var(--gold)}
+  .btn.sm{padding:7px 11px;font-size:12.5px;border-radius:8px}
+  .btn.wide{width:100%}
+  .btn:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;
+    box-shadow:var(--shadow);margin-bottom:14px}
+  .muted{color:var(--sub)}
+  .row{display:flex;gap:8px;align-items:center}
+  input,select{font:inherit;padding:10px 11px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink);width:100%}
+  label.f{display:block;font-size:12px;color:var(--sub);margin:0 0 4px 2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+  /* 오행 배지 */
+  .el{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700}
+  .el.목{background:var(--mok)} .el.화{background:var(--hwa)} .el.토{background:var(--to)}
+  .el.금{background:var(--geum)} .el.수{background:var(--su)}
+
+  /* 로또 공 */
+  .ball{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;
+    font-weight:800;font-size:18px;box-shadow:inset 0 -3px 6px rgba(0,0,0,.18),0 2px 5px rgba(0,0,0,.15)}
+  .balls{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+  .ball .sub{font-size:9px;font-weight:600;opacity:.85;margin-top:-3px}
+
+  /* 달력 */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .cal-head h2{margin:0;font-size:22px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cal-dow{text-align:center;font-size:11px;color:var(--sub);padding:2px 0}
+  .cal-cell{aspect-ratio:1/1.08;border-radius:10px;border:1px solid var(--line);background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;overflow:hidden;padding-bottom:7px}
+  .cal-cell.empty{border:none;background:transparent;cursor:default}
+  .cal-cell .d{font-size:13px;font-weight:700;color:var(--ink)}
+  .cal-cell .heat{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);height:4px;
+    background:var(--gold);border-radius:2px;max-width:80%}
+  .cal-cell.today{outline:2px solid #2c3e50;outline-offset:-2px}
+  .cal-cell.money{border-color:var(--gold)}
+  .cal-cell.money::after{content:"錢";position:absolute;top:2px;right:2px;background:var(--ink);color:#fff;
+    border-radius:4px;padding:0 3px;font-size:8px;font-family:serif;line-height:1.6}
+  .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:#f3ecd8;color:#8a6d16;border-radius:16px;padding:3px 9px;font-size:12px;margin:0 4px 4px 0}
+  .chip button{border:none;background:none;color:#8a6d16;cursor:pointer;font-size:13px;padding:0;line-height:1}
+  textarea{font:inherit;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);width:100%;resize:vertical;min-height:64px}
+  .prof-sub{font-size:12.5px;font-weight:700;margin:2px 0 5px;color:var(--ink)}
+  .statrow{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}
+  .statrow .lab{width:52px;color:var(--sub);flex-shrink:0}
+  .statrow .track{flex:1;height:9px;background:#f0e9d7;border-radius:5px;overflow:hidden}
+  .statrow .fill{height:100%;background:var(--gold);border-radius:5px}
+  .statrow .val{width:82px;text-align:right;color:var(--sub);flex-shrink:0}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .tile{background:#faf6ec;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .tile .k{font-size:11px;color:var(--sub)}
+  .tile .v{font-size:18px;font-weight:800;margin-top:3px;color:var(--ink)}
+  .tile .v.pos{color:#2e7d5b} .tile .v.neg{color:var(--hwa)}
+  .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);margin-top:10px;flex-wrap:wrap}
+  .legend .bar{height:9px;width:90px;border-radius:5px;
+    background:linear-gradient(90deg,#fff, #f0e2b6, var(--gold))}
+
+  /* 하단 탭 */
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
+    display:flex;max-width:520px;margin:0 auto;z-index:20}
+  nav.tabs button{flex:1;border:none;background:none;padding:9px 0 11px;color:var(--sub);
+    font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav.tabs button.on{color:var(--gold);font-weight:700}
+  nav.tabs .ic{font-size:19px;line-height:1}
+
+  .section{display:none}.section.on{display:block}
+  .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;
+    background:#f3ecd8;color:#8a6d16}
+  .numgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+  .numgrid button{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:#fff;
+    font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
+  .numgrid button.fate{background:var(--gold);color:#fff;border-color:var(--gold)}
+  .numgrid button.fav{background:var(--gold-soft);border-color:var(--gold)}
+  .plist .it{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .plist .it:last-child{border:none}
+  .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;z-index:40;pointer-events:none;white-space:nowrap}
+  .toast.show{opacity:.95}
+  .day-detail{font-size:13px}
+  .sijin{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+  .sijin .s{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;font-size:11px}
+  .sijin .s.good{background:#f3f8f4;border-color:var(--mok);color:var(--mok);font-weight:700}
+  /* 만세력 */
+  .manse{display:flex;gap:6px;text-align:center}
+  .manse .col{flex:1;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .manse .cap{background:#faf6ec;font-size:11px;color:var(--sub);padding:4px 0}
+  .manse .ss{font-size:10.5px;color:var(--sub);padding:5px 0 3px;min-height:22px}
+  .manse .gz{color:#fff;padding:7px 2px}
+  .manse .gz .h{font-size:23px;font-family:"Cormorant Garamond",serif;line-height:1.02;display:block}
+  .manse .gz .k{font-size:10px;opacity:.92}
+  .manse .jjg{font-size:10px;color:var(--sub);padding:4px 2px;line-height:1.5;min-height:20px}
+  .manse .jjg .b{color:var(--ink);font-weight:700;text-decoration:underline}
+  .manse .stage{font-size:10px;color:var(--sub);padding:2px 0 5px}
+  .daychip{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .daychip b{color:var(--ink)}
+  .daychip .m{color:var(--gold);font-weight:700}
+  .plist .it.tap{cursor:pointer} .plist .it.tap:active{background:#faf6ec}
+  a.link{color:var(--gold);cursor:pointer;text-decoration:underline}
+  .disclaimer{font-size:11px;color:var(--sub);text-align:center;margin:10px 0 4px}
+</style>
+
+<div id="root"><div class="wrap" style="text-align:center;padding-top:80px">불러오는 중…</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="engine.browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="jsQR.min.js"></script>
+<input type="file" id="qrFile" accept="image/*" capture="environment" style="display:none" onchange="handleQRFile(this)">
+<canvas id="qrCanvas" style="display:none"></canvas>
+<script>
+/* ============ 설정 ============ */
+const SUPABASE_URL  = 'https://bbjifrxofwtkqbbyotgw.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiamlmcnhvZnd0a3FiYnlvdGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTk3NDYsImV4cCI6MjA5ODgzNTc0Nn0.Ae4a2b5aZN0WHQf1ZlD8KQIqqwJKAU7cQ_h1RZGDilg';
+const E = window.OhaengEngine;
+const S = E.saju, T = E.transit, TL = E.timeline, TS = E.twelveStages;
+// 로컬 모드(=이 기기 저장, 로그인 안 함)가 기본. 클라우드 로그인하면 꺼짐. afterAuth/init에서 갱신.
+let DEMO = true;
+let sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+
+/* ============ 상태 ============ */
+let user=null, profile=null, saju=null, favorSet=new Set(), jaeElem=null, jaeFav=false;
+let myNumbers={fate:[], favorite:[]};
+let purchases=[];
+let luckyDays=new Set();   // 'YYYY-MM-DD' 운 좋았던 날
+let dreams={};             // {'YYYY-MM-DD': {note, tags:[]}}
+let recNonce=0;
+const now=new Date();
+let calView={y:now.getFullYear(), m:now.getMonth()+1};
+let tab='cal';
+
+/* ============ 하도 수리오행 (끝자리) ============ */
+const HADO={1:'수',6:'수',2:'화',7:'화',3:'목',8:'목',4:'금',9:'금',5:'토',0:'토'};
+const hadoElem=n=>HADO[n%10];
+const EL_COL={목:'var(--mok)',화:'var(--hwa)',토:'var(--to)',금:'var(--geum)',수:'var(--su)'};
+
+/* ============ 유틸 ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+const dkey=(y,m,d)=>`${y}-${p2(m)}-${p2(d)}`;
+const dkeyOf=iso=>{const t=new Date(iso);return dkey(t.getFullYear(),t.getMonth()+1,t.getDate());};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function seedFrom(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+
+/* ============ 엔진 계산 ============ */
+function buildSaju(){
+  const p=profile;
+  saju=S.computeSaju(p.birth_year,p.birth_month,p.birth_day,
+    (p.birth_hour==null?'':p.birth_hour),
+    {minute:(p.birth_minute==null?'':p.birth_minute),calendar:p.calendar||'solar',leap:!!p.leap,city:p.city||undefined});
+  const d=saju.deep;
+  favorSet=new Set([...(d.yongsin||[]),...(d.heeshin||[]),...(d.yongheeshin||[])]);
+  jaeElem=S.KE_[saju.dayMasterElem];      // 일간이 극하는 오행 = 재성
+  jaeFav=favorSet.has(jaeElem);
+}
+// 특정 날짜의 재물운/발복 점수
+function dayScore(y,m,d){
+  const t=T.transitPillars(y,m,d);
+  const extra=[
+    {label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
+    {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8},
+  ];
+  const r=TL.scoreTimeline(saju.pillars,saju.deep,null,null,extra);
+  const jae=r.incoming.filter(x=>x.sibsin==='재성');
+  const jaeFavToday=jae.some(x=>x.favorable);
+  return {score:r.yongheeScore, jaeFavToday, jaePresent:jae.length>0, jae, incoming:r.incoming,
+          day:t.day, month:t.month, rootClash:r.rootClash};
+}
+// 한 달치 점수 + 목돈 후보일 판정(달력/상세 공용)
+function monthData(y,m){
+  const days=new Date(y,m,0).getDate();
+  const scores=[]; for(let d=1;d<=days;d++)scores.push(dayScore(y,m,d));
+  const vals=scores.map(s=>s.score); const mn=Math.min(...vals),mx=Math.max(...vals);
+  const norm=v=>mx===mn?0:(v-mn)/(mx-mn);
+  // 목돈 후보일: 재성이 길신으로 들어오거나(신강), 재성이 있으면서 그달 발복 상위권(신약이 재를 감당)
+  const isMoney=s=>s.jaeFavToday||(s.jaePresent&&s.score>0&&norm(s.score)>=0.6);
+  const moneyDays=scores.map((s,i)=>isMoney(s)?i+1:0).filter(Boolean);
+  return {days,scores,norm,isMoney,moneyDays};
+}
+
+/* ============ 번호 추천 ============ */
+let recOpts={carry:false, consec:false, sameTail:false, recentN:0, oddEven:'auto'};
+let recentDraws=[];   // 최근 회차 draw 객체(최신순)
+async function loadRecentDraws(k){
+  recentDraws=[]; if(!latestDraw) return;
+  for(let i=0;i<k;i++){ const d=await getDraw(latestDraw.draw_no-i); if(d) recentDraws.push(d); }
+}
+// 최근 5회 당첨번호 중 '중복되지 않은'(딱 한 번만 나온) 번호들
+function recentNonRepeat(){
+  const cnt={}; recentDraws.slice(0,5).forEach(d=>d.numbers.forEach(n=>cnt[n]=(cnt[n]||0)+1));
+  return Object.keys(cnt).filter(n=>cnt[n]===1).map(Number);
+}
+const isEven=n=>n%2===0;
+const hasConsec=a=>{const s=[...a].sort((x,y)=>x-y);return s.some((n,i)=>i>0&&n===s[i-1]+1);};
+const sameTailPair=a=>{const seen={};return a.some(n=>{const t=n%10;if(seen[t])return true;seen[t]=1;return false;});};
+function baseWeights(){
+  const W={};
+  for(let n=1;n<=45;n++){const el=hadoElem(n);let w=1;
+    if(favorSet.has(el))w*=3; if(el===jaeElem&&jaeFav)w*=1.6;
+    if(myNumbers.fate.includes(n))w*=2.5; if(myNumbers.favorite.includes(n))w*=1.8; W[n]=w;}
+  return W;
+}
+// 사주 기반(가중치) + 선택 패턴 제약을 만족하는 6개 생성
+function recommend(y,m,nonce){
+  const W=baseWeights();
+  const rng=mulberry32(seedFrom((user?user.id:'demo')+':'+y+':'+m+':'+nonce+':'+JSON.stringify(recOpts)));
+  const pick=(pool)=>{ if(!pool||!pool.length)return null; const tot=pool.reduce((a,n)=>a+W[n],0); let r=rng()*tot,i=0; while(i<pool.length-1&&r>W[pool[i]]){r-=W[pool[i]];i++;} return pool[i]; };
+  const oe = recOpts.oddEven==='3:3'?[3,3]:recOpts.oddEven==='4:2'?[4,2]:recOpts.oddEven==='2:4'?[2,4]:null; // [짝,홀]
+  const carryPool=latestDraw?latestDraw.numbers:[];
+  const nrPool=recentNonRepeat();
+  function attempt(){
+    const set=new Set(); const add=n=>{ if(n!=null&&!set.has(n)&&set.size<6) set.add(n); };
+    if(recOpts.carry){ add(pick(carryPool.filter(n=>!set.has(n)))); }
+    if(recOpts.recentN>0){ let p=nrPool.filter(n=>!set.has(n)); let c=recOpts.recentN; while(c-->0&&p.length){const n=pick(p); add(n); p=p.filter(x=>x!==n);} }
+    if(recOpts.consec){ let cand=[]; for(let b=1;b<=44;b++) if(!set.has(b)&&!set.has(b+1)) cand.push(b);
+      if(cand.length){ const tot=cand.reduce((a,b)=>a+W[b]+W[b+1],0); let r=rng()*tot,i=0; while(i<cand.length-1&&r>W[cand[i]]+W[cand[i]+1]){r-=W[cand[i]]+W[cand[i]+1];i++;} add(cand[i]); add(cand[i]+1); } }
+    if(recOpts.sameTail){ const dg=Math.floor(rng()*10); let p=[]; for(let n=1;n<=45;n++) if(n%10===dg&&!set.has(n)) p.push(n);
+      for(let k=0;k<2&&p.length;k++){ const n=pick(p); add(n); p=p.filter(x=>x!==n); } }
+    let guard=0;
+    while(set.size<6 && guard++<300){
+      let pool=[]; for(let n=1;n<=45;n++) if(!set.has(n)) pool.push(n);
+      if(oe){ const arr=[...set],ev=arr.filter(isEven).length,od=arr.length-ev;
+        if(ev>=oe[0]) pool=pool.filter(n=>!isEven(n)); else if(od>=oe[1]) pool=pool.filter(isEven); }
+      const n=pick(pool); if(n==null)break; add(n);
+    }
+    return [...set];
+  }
+  function violations(a){
+    let v=0; if(a.length!==6) v+=10;
+    if(oe){ if(a.filter(isEven).length!==oe[0]) v++; }
+    if(recOpts.consec && !hasConsec(a)) v++;
+    if(recOpts.sameTail && !sameTailPair(a)) v++;
+    if(recOpts.carry && carryPool.length && !a.some(n=>carryPool.includes(n))) v++;
+    if(recOpts.recentN>0){ if(a.filter(n=>nrPool.includes(n)).length<Math.min(recOpts.recentN,nrPool.length)) v++; }
+    return v;
+  }
+  let best=null,bestV=1e9;
+  for(let i=0;i<800;i++){ const a=attempt(); const v=violations(a);
+    if(v===0){ best=a; break; }
+    if(v<bestV){ bestV=v; best=a; } }
+  return (best||[]).slice(0,6).sort((a,b)=>a-b).map(n=>({n,el:hadoElem(n)}));
+}
+// 표시용: 현재 세트가 각 선택 패턴을 충족했는지
+function recStatus(nums){
+  const a=nums.map(x=>x.n), st=[];
+  if(recOpts.carry) st.push({label:'전주 번호 포함', ok:!!(latestDraw&&a.some(n=>latestDraw.numbers.includes(n)))});
+  if(recOpts.recentN>0){ const nr=recentNonRepeat(); st.push({label:`최근5회 비중복 ${recOpts.recentN}개`, ok:a.filter(n=>nr.includes(n)).length>=Math.min(recOpts.recentN,nr.length)&&nr.length>0}); }
+  if(recOpts.consec) st.push({label:'연속 쌍', ok:hasConsec(a)});
+  if(recOpts.sameTail) st.push({label:'같은 뒷자리 쌍', ok:sameTailPair(a)});
+  if(recOpts.oddEven!=='auto'){ const ev=a.filter(isEven).length; st.push({label:`짝:홀 ${recOpts.oddEven}`, ok:`${ev}:${6-ev}`===recOpts.oddEven}); }
+  return st;
+}
+
+/* ============ 저장소 (Supabase / 데모=localStorage) ============ */
+const LS='lotto_demo_';
+async function dbLoadProfile(){
+  if(DEMO){const j=localStorage.getItem(LS+'profile');return j?JSON.parse(j):null;}
+  const {data}=await sb.from('lotto_profile').select('*').eq('user_id',user.id).maybeSingle();
+  return data;
+}
+async function dbSaveProfile(p){
+  if(DEMO){localStorage.setItem(LS+'profile',JSON.stringify(p));return;}
+  p.user_id=user.id; p.updated_at=new Date().toISOString();
+  await sb.from('lotto_profile').upsert(p);
+}
+async function dbLoadNumbers(){
+  if(DEMO){const j=localStorage.getItem(LS+'nums');return j?JSON.parse(j):[];}
+  const {data}=await sb.from('lotto_numbers').select('*').eq('user_id',user.id);
+  return data||[];
+}
+async function dbToggleNumber(n,kind){
+  const list=myNumbers[kind];
+  if(DEMO){
+    if(list.includes(n)) myNumbers[kind]=list.filter(x=>x!==n); else list.push(n);
+    localStorage.setItem(LS+'nums',JSON.stringify(
+      [...myNumbers.fate.map(x=>({number:x,kind:'fate'})),...myNumbers.favorite.map(x=>({number:x,kind:'favorite'}))]));
+    return;
+  }
+  if(list.includes(n)){ await sb.from('lotto_numbers').delete().match({user_id:user.id,number:n,kind}); myNumbers[kind]=list.filter(x=>x!==n);}
+  else{ await sb.from('lotto_numbers').insert({user_id:user.id,number:n,kind}); list.push(n);}
+}
+async function dbLoadPurchases(){
+  if(DEMO){const j=localStorage.getItem(LS+'buys');return j?JSON.parse(j):[];}
+  const {data}=await sb.from('lotto_purchases').select('*').eq('user_id',user.id).order('purchased_at',{ascending:false});
+  return data||[];
+}
+async function dbAddPurchase(extra){
+  const rec={purchased_at:new Date().toISOString(),won:false,...(extra||{})};
+  if(DEMO){rec.id='d'+Date.now()+Math.random().toString(36).slice(2,6); purchases.unshift(rec); localStorage.setItem(LS+'buys',JSON.stringify(purchases));return;}
+  const {data}=await sb.from('lotto_purchases').insert({...rec,user_id:user.id}).select().single();
+  purchases.unshift(data);
+}
+async function dbUpdatePurchase(id,patch){
+  const i=purchases.findIndex(p=>p.id===id); if(i>=0)Object.assign(purchases[i],patch);
+  if(DEMO){localStorage.setItem(LS+'buys',JSON.stringify(purchases));return;}
+  await sb.from('lotto_purchases').update(patch).eq('id',id);
+}
+async function dbDeletePurchase(id){
+  purchases=purchases.filter(p=>p.id!==id);
+  if(DEMO){localStorage.setItem(LS+'buys',JSON.stringify(purchases));return;}
+  await sb.from('lotto_purchases').delete().eq('id',id);
+}
+// 운 좋았던 날
+async function dbLoadLucky(){
+  if(DEMO){return new Set(JSON.parse(localStorage.getItem(LS+'lucky')||'[]'));}
+  const {data}=await sb.from('lotto_lucky_days').select('day').eq('user_id',user.id);
+  return new Set((data||[]).map(x=>x.day));
+}
+async function dbToggleLucky(day){
+  if(luckyDays.has(day)){ luckyDays.delete(day);
+    if(!DEMO) await sb.from('lotto_lucky_days').delete().match({user_id:user.id,day});
+  }else{ luckyDays.add(day);
+    if(!DEMO) await sb.from('lotto_lucky_days').insert({user_id:user.id,day});
+  }
+  if(DEMO) localStorage.setItem(LS+'lucky',JSON.stringify([...luckyDays]));
+}
+// 꿈 기록
+async function dbLoadDreams(){
+  if(DEMO){return JSON.parse(localStorage.getItem(LS+'dreams')||'{}');}
+  const {data}=await sb.from('lotto_dreams').select('day,note,tags').eq('user_id',user.id);
+  const o={}; (data||[]).forEach(r=>o[r.day]={note:r.note,tags:r.tags||[]}); return o;
+}
+async function dbSaveDream(day,note,tags){
+  dreams[day]={note,tags};
+  if(DEMO){localStorage.setItem(LS+'dreams',JSON.stringify(dreams));return;}
+  await sb.from('lotto_dreams').upsert({user_id:user.id,day,note,tags,updated_at:new Date().toISOString()});
+}
+async function dbDeleteDream(day){
+  delete dreams[day];
+  if(DEMO){localStorage.setItem(LS+'dreams',JSON.stringify(dreams));return;}
+  await sb.from('lotto_dreams').delete().match({user_id:user.id,day});
+}
+
+/* ============ 로또 당첨결과 (커뮤니티 소스, CORS 허용) ============ */
+const DRAW_SRC='https://smok95.github.io/lotto/results/';
+let draws={};        // {회차: {draw_no,numbers,bonus_no,date,divisions}}
+let latestDraw=null;
+try{ draws=JSON.parse(localStorage.getItem('lotto_draws_cache')||'{}'); }catch(e){}
+function saveDraws(){ try{ localStorage.setItem('lotto_draws_cache',JSON.stringify(draws)); }catch(e){} }
+async function fetchDraw(n){
+  const r=await fetch(DRAW_SRC+n+'.json'); if(!r.ok) return null;
+  const d=await r.json(); if(!d||!d.numbers) return null;
+  draws[d.draw_no]=d; saveDraws(); return d;
+}
+async function getDraw(n){ if(draws[n]) return draws[n]; try{ return await fetchDraw(n); }catch(e){ return null; } }
+async function loadLatestDraw(){
+  try{ const r=await fetch(DRAW_SRC+'latest.json'); if(!r.ok) return;
+    const d=await r.json(); if(d&&d.numbers){ draws[d.draw_no]=d; latestDraw=d; saveDraws(); } }
+  catch(e){ /* 오프라인 등 — 캐시 최신값 사용 */
+    const keys=Object.keys(draws).map(Number); if(keys.length) latestDraw=draws[Math.max(...keys)]; }
+}
+// 구매일 → 응당 참여 회차 (추첨=토요일 밤, 그 이전 구매는 당일 회차). latestDraw 기준 주간 역산.
+function inferRound(iso){
+  if(!latestDraw) return null;
+  const ref=new Date(latestDraw.date); const p=new Date(iso);
+  const weeks=Math.ceil(((p-ref)/(7*86400000))-1e-6);
+  return Math.max(1, latestDraw.draw_no+weeks);
+}
+// 당첨 등수: 6=1등, 5+보너스=2등, 5=3등, 4=4등, 3=5등, 그외 0
+function rankOf(picked, d){
+  if(!picked||picked.length!==6||!d) return 0;
+  const set=new Set(d.numbers); const m=picked.filter(n=>set.has(n)).length;
+  const bonus=picked.includes(d.bonus_no);
+  if(m===6) return 1; if(m===5&&bonus) return 2; if(m===5) return 3; if(m===4) return 4; if(m===3) return 5; return 0;
+}
+function prizeFor(rank,d){
+  if(rank<1) return 0;
+  if(d&&d.divisions&&d.divisions[rank-1]&&d.divisions[rank-1].prize) return d.divisions[rank-1].prize;
+  return rank===4?50000:rank===5?5000:0;   // 4·5등 고정
+}
+// 내 구매(번호 6개 입력분) 자동 당첨 확인 → 결과를 구매기록에 반영
+async function autoCheckWins(){
+  let changed=false;
+  for(const p of purchases){
+    if(!p.numbers||p.numbers.length!==6) continue;
+    const round=p.round||inferRound(p.purchased_at); if(!round) continue;
+    const d=await getDraw(round); if(!d) continue;   // 아직 추첨 전이면 null
+    const rank=rankOf(p.numbers,d);
+    const patch={round, won:rank>0, won_rank:rank||null, won_amount:rank>0?prizeFor(rank,d):null};
+    if(p.round!==patch.round||p.won!==patch.won||p.won_rank!==patch.won_rank||p.won_amount!==patch.won_amount){
+      await dbUpdatePurchase(p.id,patch); changed=true;
+    }
+  }
+  return changed;
+}
+const LOTTO_BALL=n=>n<=10?'#fbc400':n<=20?'#69c8f2':n<=30?'#ff7272':n<=40?'#aaa':'#b0d840';
+
+/* ============ 초기화 / 인증 ============ */
+async function init(){
+  // 클라우드 세션이 있으면 로그인 상태로, 없으면 로컬 모드로 그대로 시작(로그인 강제 안 함).
+  if(sb){
+    try{
+      const {data:{session}}=await sb.auth.getSession();
+      user=session?session.user:null; DEMO=!user;
+      sb.auth.onAuthStateChange((_e,s)=>{const u=s?s.user:null; if((u&&!user)||(!u&&user)){user=u; DEMO=!user; afterAuth();}});
+    }catch(e){ user=null; DEMO=true; }
+  }
+  await afterAuth();
+}
+async function afterAuth(){
+  DEMO=!user;
+  profile=await dbLoadProfile();
+  if(!profile){ renderProfileForm(); return; }
+  buildSaju();
+  const nums=await dbLoadNumbers();
+  myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),
+             favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
+  purchases=await dbLoadPurchases();
+  luckyDays=await dbLoadLucky();
+  dreams=await dbLoadDreams();
+  await loadLatestDraw();
+  await autoCheckWins();
+  renderApp();
+}
+
+/* ============ 화면: 로그인 ============ */
+function renderLogin(){
+  $('#root').innerHTML=`<div class="wrap">
+    <header class="app"><div class="seal">緣</div><div><div class="t">오행 로또</div><div class="s">클라우드 로그인 (선택)</div></div></header>
+    <div class="card" style="margin-top:16px">
+      ${profile?'<button class="btn ghost sm" onclick="afterAuth()" style="margin-bottom:12px">‹ 뒤로</button>':''}
+      <h2 style="margin:0 0 6px">여러 기기에서 동기화</h2>
+      <p class="muted" style="font-size:13px;margin-top:0">이 앱은 <b>로그인 없이 이 기기에 저장</b>돼 바로 쓸 수 있어요. 폰·PC 등 여러 기기에서 같은 기록을 보려면 이메일로 로그인하세요.</p>
+      <label class="f">이메일</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+      <button class="btn wide" style="margin-top:10px"${sb?'':' disabled'} onclick="sendMagic()">로그인 링크 받기</button>
+      ${sb?'':'<p class="muted" style="font-size:12px;margin-top:8px">인터넷 연결이 없어 로그인은 지금 불가합니다. 로컬 저장으로 계속 쓰실 수 있어요.</p>'}
+      <p class="disclaimer">번호·날짜 추천은 사주(명리) 기반 참고용이며 당첨을 보장하지 않습니다.</p>
+    </div>
+  </div>`;
+}
+async function sendMagic(){
+  if(!sb){toast('지금은 로그인할 수 없어요');return;}
+  const email=$('#email').value.trim(); if(!email){toast('이메일을 입력해주세요');return;}
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
+  if(error){toast('오류: '+error.message);return;}
+  toast('메일함을 확인해 로그인 링크를 눌러주세요');
+}
+
+/* ============ 화면: 사주 입력 ============ */
+function renderProfileForm(){
+  const p=profile||{};
+  $('#root').innerHTML=`<div class="wrap">
+    <header class="app"><div class="seal">緣</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
+    <div class="card">
+      <div class="grid3">
+        <div><label class="f">년</label><input id="by" type="number" value="${p.birth_year||''}" placeholder="1986"></div>
+        <div><label class="f">월</label><input id="bm" type="number" value="${p.birth_month||''}" placeholder="9"></div>
+        <div><label class="f">일</label><input id="bd" type="number" value="${p.birth_day||''}" placeholder="17"></div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div><label class="f">시 (모르면 비움)</label><input id="bh" type="number" value="${p.birth_hour==null?'':p.birth_hour}" placeholder="8"></div>
+        <div><label class="f">분</label><input id="bmin" type="number" value="${p.birth_minute==null?'':p.birth_minute}" placeholder="30"></div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div><label class="f">양력/음력</label><select id="cal"><option value="solar"${(p.calendar||'solar')==='solar'?' selected':''}>양력</option><option value="lunar"${p.calendar==='lunar'?' selected':''}>음력</option></select></div>
+        <div><label class="f">성별</label><select id="gender"><option value="">선택</option><option value="M"${p.gender==='M'?' selected':''}>남</option><option value="F"${p.gender==='F'?' selected':''}>여</option></select></div>
+      </div>
+      <label class="f" style="margin-top:10px">태어난 지역 (진태양시 보정, 선택)</label>
+      <select id="city"><option value="">보정 안 함</option>${Object.keys(S.CITY_LNG||{}).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</select>
+      <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
+    </div>
+  </div>`;
+}
+async function saveProfile(){
+  const v=id=>$('#'+id).value.trim();
+  const by=+v('by'),bm=+v('bm'),bd=+v('bd');
+  if(!by||!bm||!bd){toast('생년월일을 입력해주세요');return;}
+  const p={birth_year:by,birth_month:bm,birth_day:bd,
+    birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
+    calendar:v('cal'),leap:false,gender:v('gender')||null,city:v('city')||null};
+  await dbSaveProfile(p); profile=p; buildSaju();
+  const nums=await dbLoadNumbers();
+  myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
+  purchases=await dbLoadPurchases();
+  await loadLatestDraw(); await autoCheckWins();
+  toast('저장했어요'); renderApp();
+}
+
+/* ============ 화면: 메인 ============ */
+function renderApp(){
+  $('#root').innerHTML=`<div class="wrap">
+    <header class="app"><div class="seal">緣</div><div><div class="t">오행 로또</div><div class="s">${sajuLine()}</div></div><div class="sp"></div></header>
+    <div id="body"></div>
+  </div>
+  <nav class="tabs">
+    ${[['cal','달력','▦'],['rec','추천','◆'],['buy','구매','＄'],['res','결과','◎'],['ins','분석','☰'],['num','내숫자','＃'],['me','나','人']]
+      .map(([k,l,i])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><span class="ic">${i}</span>${l}</button>`).join('')}
+  </nav>`;
+  renderTab();
+}
+function go(t){tab=t;document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('on',['cal','rec','buy','res','ins','num','me'][i]===t));renderTab();}
+function sajuLine(){
+  const d=saju.deep;
+  return `일간 ${saju.dayMasterElem} · ${d.status} · 용신 ${(d.yongsin||[]).join('/')}`;
+}
+// 만세력 한 기둥 카드 (십성·간지 오행색·지장간 본기밑줄·12운성)
+function manseCol(pos,pil,dayGan,isDay){
+  if(!pil) return `<div class="col"><div class="cap">${pos}</div><div class="ss">—</div>
+    <div class="gz" style="background:#d8d2c4"><span class="h">·</span><span class="k">시간 미상</span></div>
+    <div class="jjg"></div><div class="stage"></div></div>`;
+  const ganElem=S.GAN_ELEM[pil.gan], jiElem=S.JI_ELEM[pil.ji];
+  const top=isDay?'일간(我)':S.sibsinOf(dayGan,pil.gan);
+  const jjg=S.JIJANGGAN_ORDERED[S.JI[pil.ji]]||[];
+  const bongi=jjg[jjg.length-1];
+  const ssBottom=bongi?S.sibsinOf(dayGan,S.GAN.indexOf(bongi)):'';
+  const stage=TS.twelveStage(dayGan,pil.ji);
+  return `<div class="col">
+    <div class="cap">${pos}</div>
+    <div class="ss">${top}</div>
+    <div class="gz" style="background:${EL_COL[ganElem]}"><span class="h">${S.GAN_HANJA[pil.gan]}</span><span class="k">${S.GAN[pil.gan]}·${ganElem}</span></div>
+    <div class="gz" style="background:${EL_COL[jiElem]}"><span class="h">${S.JI_HANJA[pil.ji]}</span><span class="k">${S.JI[pil.ji]}·${jiElem}</span></div>
+    <div class="jjg">${jjg.map((g,i)=>i===jjg.length-1?`<span class="b">${g}</span>`:g).join(' ')}</div>
+    <div class="ss" style="min-height:0">${ssBottom}</div>
+    <div class="stage">${stage}</div>
+  </div>`;
+}
+// 구매일 '일 기운' 칩 — 일진 + 재물 발복 점수 + 목돈 여부
+function dayChip(iso){
+  const dt=new Date(iso), y=dt.getFullYear(), m=dt.getMonth()+1, d=dt.getDate();
+  const md=monthData(y,m); const s=md.scores[d-1]; const money=md.isMoney(s);
+  return `<div class="daychip">일진 <b>${s.day.hangul}</b> · 재물 발복 <b>${s.score.toFixed(1)}</b>${money?' · <span class="m">錢 목돈일</span>':(s.jaePresent?' · 재물기운 O':'')}</div>`;
+}
+function renderTab(){
+  const b=$('#body');
+  if(tab==='cal')b.innerHTML=viewCalendar();
+  else if(tab==='rec')b.innerHTML=viewRec();
+  else if(tab==='buy')b.innerHTML=viewBuy();
+  else if(tab==='num')b.innerHTML=viewNum();
+  else if(tab==='res')b.innerHTML=viewResult();
+  else if(tab==='ins')b.innerHTML=viewInsights();
+  else if(tab==='me')b.innerHTML=viewMe();
+}
+
+/* ---- 달력 ---- */
+function viewCalendar(){
+  editDream=null;
+  const {y,m}=calView;
+  const first=new Date(y,m-1,1).getDay();
+  const {days,scores,norm,isMoney,moneyDays}=monthData(y,m);
+  // 구매 이력이 있는 날 → 마커 (당첨 있으면 🎉, 아니면 🎫)
+  const buyByDay={};
+  purchases.forEach(p=>{const k=dkeyOf(p.purchased_at); if(!buyByDay[k])buyByDay[k]={won:false}; if(p.won)buyByDay[k].won=true;});
+  let cells='';
+  for(let i=0;i<first;i++)cells+=`<div class="cal-cell empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const s=scores[d-1],t=norm(s.score);
+    const bg=`rgba(184,145,46,${(0.04+t*0.16).toFixed(2)})`;
+    const isToday=(y===now.getFullYear()&&m===now.getMonth()+1&&d===now.getDate());
+    const money=isMoney(s);
+    const dk=dkey(y,m,d), lucky=luckyDays.has(dk), hasDream=!!dreams[dk], buy=buyByDay[dk];
+    const marks=(buy?(buy.won?'🎉':'🎫'):'')+(lucky?'✨':'')+(hasDream?'💭':'');
+    cells+=`<div class="cal-cell${isToday?' today':''}${money?' money':''}" style="background:${bg}" onclick="dayDetail(${y},${m},${d})">
+      <div class="d">${d}</div><div class="marks">${marks}</div>
+      <div class="heat" style="width:${Math.round((0.14+t*0.86)*80)}%"></div></div>`;
+  }
+  const luckyList=[],dreamList=[],buyList=[];
+  for(let d=1;d<=days;d++){const dk=dkey(y,m,d);if(luckyDays.has(dk))luckyList.push(d);if(dreams[dk])dreamList.push(d);if(buyByDay[dk])buyList.push(d);}
+  return `<div class="section on card">
+    <div class="cal-head">
+      <button class="btn ghost sm" onclick="calMove(-1)">‹</button>
+      <h2>${y}. ${m}</h2>
+      <button class="btn ghost sm" onclick="calMove(1)">›</button>
+    </div>
+    <div class="cal-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
+    <div class="legend"><span>발복</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="height:4px;width:14px;background:var(--gold);border-radius:2px;display:inline-block"></span>약<span style="height:4px;width:44px;background:var(--gold);border-radius:2px;display:inline-block"></span>강</span><span style="margin-left:4px">· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · 🎫구매 · 🎉당첨 · ✨운좋은날 · 💭꿈</span></div>
+    ${buyList.length?`<p class="muted" style="font-size:12.5px;margin:10px 0 0">🎫 구매한 날: <b>${buyList.join(', ')}일</b></p>`:''}
+    ${moneyDays.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">錢 목돈 후보일: <b style="color:var(--gold)">${moneyDays.join(', ')}일</b></p>`:''}
+    ${luckyList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">✨ 운 좋았던 날: <b>${luckyList.join(', ')}일</b></p>`:''}
+    ${dreamList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">💭 꿈 기록: <b>${dreamList.join(', ')}일</b></p>`:''}
+    <p class="muted" style="font-size:12px;margin:8px 0 0">날짜를 누르면 운 좋았던 날 체크·꿈 기록을 남길 수 있어요.</p>
+  </div>
+  <p class="disclaimer">색이 진할수록 사주상 재물 발복 기운이 큰 날입니다. 참고용이며 당첨 보장이 아닙니다.</p>`;
+}
+function calMove(dir){let{y,m}=calView;m+=dir;if(m<1){m=12;y--}if(m>12){m=1;y++}calView={y,m};renderTab();}
+const GILMONG=['돼지','대통령','조상','똥','대변','불','물','홍수','용','뱀','구렁이','돈','금','보석','연예인','아기','물고기','잉어','고래','호랑이','피','부처','신령','로또'];
+let editDream=null;
+function dayDetail(y,m,d){
+  const md=monthData(y,m); const s=md.scores[d-1]; const money=md.isMoney(s);
+  const dk=dkey(y,m,d), lucky=luckyDays.has(dk);
+  const dayBuys=purchases.filter(p=>dkeyOf(p.purchased_at)===dk);
+  const dayWon=dayBuys.filter(p=>p.won);
+  if(!editDream||editDream.day!==dk){ const ex=dreams[dk]; editDream={day:dk,note:ex?(ex.note||''):'',tags:ex?[...(ex.tags||[])]:[]}; }
+  const hits=[...new Set(GILMONG.filter(k=>(editDream.note+' '+editDream.tags.join(' ')).includes(k)))];
+  const sijinNames=['자(23~01)','축(01~03)','인(03~05)','묘(05~07)','진(07~09)','사(09~11)','오(11~13)','미(13~15)','신(15~17)','유(17~19)','술(19~21)','해(21~23)'];
+  const JI_ELEM=S.JI_ELEM, JI=S.JI;
+  const sijin=sijinNames.map((nm,idx)=>{const el=JI_ELEM[idx];const good=favorSet.has(el);return `<div class="s${good?' good':''}">${nm}<br><span style="opacity:.7">${el}</span></div>`;}).join('');
+  const bestSijin=sijinNames.map((nm,idx)=>({nm,good:favorSet.has(JI_ELEM[idx])})).filter(x=>x.good).map(x=>x.nm.split('(')[0]);
+  const html=`<div class="section on">
+    <button class="btn ghost sm" onclick="renderTab()">‹ 달력으로</button>
+    <div class="card" style="margin-top:12px">
+      <h2 style="margin:0 0 2px">${y}. ${m}. ${d}</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">일진 <b>${s.day.hangul}</b> · 월운 <b>${s.month.hangul}</b></p>
+      <div class="row" style="gap:14px">
+        <div><div class="muted" style="font-size:11px">재물 발복 점수</div><div style="font-size:26px;font-weight:800;color:var(--gold)">${s.score.toFixed(1)}</div></div>
+        <div>${money?'<span class="pill">錢 목돈 후보일</span>':'<span class="muted" style="font-size:12px">일반일</span>'}</div>
+      </div>
+      ${s.rootClash?`<p style="color:var(--hwa);font-size:12px;margin:8px 0 0">⚠ 뿌리충(${esc(s.rootClash.detail)}) — 변동/지출 주의 날</p>`:''}
+      ${dayBuys.length?`<p style="font-size:12.5px;margin:10px 0 0">🎫 이 날 구매 <b>${dayBuys.length}건</b>${dayWon.length?` · <b style="color:var(--gold)">🎉 당첨 ${dayWon.length}건</b>`:''}</p>`:''}
+      <h3 style="margin:16px 0 2px;font-size:16px">추천 시간대</h3>
+      <p class="muted" style="font-size:12px;margin:0">용희신(${[...favorSet].join('·')}) 기운의 시진이 재물 기운에 유리합니다${bestSijin.length?` → <b style="color:var(--mok)">${bestSijin.join(', ')}시</b>`:''}</p>
+      <div class="sijin">${sijin}</div>
+    </div>
+    <div class="card">
+      <div class="row"><h3 style="margin:0;flex:1;font-size:16px">이 날의 기록</h3>
+        <button class="btn ${lucky?'':'ghost'} sm" onclick="toggleLuckyDay(${y},${m},${d})">${lucky?'✨ 운 좋았던 날':'운 좋았던 날 체크'}</button></div>
+      <label class="f" style="margin-top:12px">💭 꿈 기록</label>
+      <textarea id="dreamNote" placeholder="꿈 내용 (예: 돼지가 품에 안겼다)" oninput="editDream.note=this.value">${esc(editDream.note)}</textarea>
+      <label class="f" style="margin-top:10px">태그 (동물·사물·인물·종류)</label>
+      <div>${editDream.tags.map((t,i)=>`<span class="chip">${esc(t)}<button onclick="removeDreamTag(${i},${y},${m},${d})">×</button></span>`).join('')||'<span class="muted" style="font-size:12px">태그 없음</span>'}</div>
+      <div class="row" style="margin-top:6px"><input id="dreamTag" placeholder="예: 돼지, 물, 조상" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addDreamTag(${y},${m},${d})}"><button class="btn sm" onclick="addDreamTag(${y},${m},${d})">추가</button></div>
+      ${hits.length?`<p style="font-size:12.5px;color:var(--gold);margin:10px 0 0">✨ 길몽 기운: <b>${hits.join(' · ')}</b> — 전통 해몽상 재물·행운 상징이에요(참고용).</p>`:''}
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm" onclick="saveDreamEntry(${y},${m},${d})">꿈 저장</button>
+        ${dreams[dk]?`<button class="btn ghost sm" onclick="removeDreamEntry(${y},${m},${d})">꿈 삭제</button>`:''}
+      </div>
+    </div>
+  </div>`;
+  $('#body').innerHTML=html;
+}
+function toggleLuckyDay(y,m,d){ (async()=>{ await dbToggleLucky(dkey(y,m,d)); dayDetail(y,m,d); })(); }
+function addDreamTag(y,m,d){
+  const el=$('#dreamTag'), v=el.value.trim(); editDream.note=$('#dreamNote').value;
+  if(v) v.split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>{ if(!editDream.tags.includes(t)) editDream.tags.push(t); });
+  dayDetail(y,m,d);
+}
+function removeDreamTag(i,y,m,d){ editDream.note=$('#dreamNote').value; editDream.tags.splice(i,1); dayDetail(y,m,d); }
+async function saveDreamEntry(y,m,d){
+  const note=$('#dreamNote').value.trim();
+  if(!note && !editDream.tags.length){ toast('꿈 내용이나 태그를 입력해주세요'); return; }
+  await dbSaveDream(dkey(y,m,d),note,editDream.tags); toast('꿈을 저장했어요'); dayDetail(y,m,d);
+}
+async function removeDreamEntry(y,m,d){ await dbDeleteDream(dkey(y,m,d)); editDream=null; toast('꿈 기록을 삭제했어요'); dayDetail(y,m,d); }
+
+/* ---- 추천 ---- */
+function viewRec(){
+  const {y,m}=calView;
+  const lines=[0,1,2,3,4].map(i=>recommend(y,m,recNonce+'-'+i));
+  const lineHtml=(label,picks)=>`<div class="row" style="gap:8px;margin:9px 0;align-items:center">
+      <span style="width:15px;font-weight:800;color:var(--sub);flex-shrink:0">${label}</span>
+      <div style="display:flex;gap:6px;flex:1;justify-content:space-between">${picks.map(p=>`<div class="ball" style="width:40px;height:40px;font-size:15px;background:${EL_COL[p.el]}">${p.n}<span class="sub">${p.el}</span></div>`).join('')}</div>
+    </div>`;
+  const balls=lines.map((l,i)=>lineHtml(String.fromCharCode(65+i),l)).join('');
+  // 선택 패턴이 5줄 중 몇 줄에 충족됐는지 집계
+  const statuses=lines.map(l=>recStatus(l));
+  const labels=statuses[0]?statuses[0].map(x=>x.label):[];
+  const agg=labels.map((label,idx)=>({label,ok:statuses.filter(st=>st[idx]&&st[idx].ok).length,total:lines.length}));
+  const statusHtml=agg.length?`<div style="margin-top:8px">${agg.map(x=>{const all=x.ok===x.total;return `<span class="chip" style="background:${all?'#eef6ee':x.ok?'#fbf6e6':'#fdf3f2'};color:${all?'#2e7d5b':x.ok?'#8a6d16':'#c0392b'}">${all?'✓':x.ok?'△':'✗'} ${x.label} ${x.ok}/${x.total}</span>`;}).join('')}</div>${agg.some(x=>x.ok<x.total)?'<p class="muted" style="font-size:11.5px;margin:4px 0 0">△·✗ = 일부 줄은 선택 패턴이 충돌해 다 못 담았어요. 패턴을 줄이거나 다시 뽑아보세요.</p>':''}`:'';
+  const tog=(key,label)=>`<button class="btn sm ${recOpts[key]?'':'ghost'}" onclick="toggleRecOpt('${key}')">${label}</button>`;
+  const cnt=(v,label)=>`<button class="btn sm ${recOpts.recentN===v?'':'ghost'}" onclick="setRecentN(${v})">${label}</button>`;
+  const oe=(v,label)=>`<button class="btn sm ${recOpts.oddEven===v?'':'ghost'}" onclick="setOddEven('${v}')">${label}</button>`;
+  return `<div class="section on card">
+    <div class="row"><h2 style="margin:0;flex:1">${m}월 추천 (A~E 5줄)</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
+    <div style="margin:12px 0 4px">${balls}</div>
+    ${statusHtml}
+    <p class="muted" style="font-size:12.5px;margin-top:12px">
+      기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`}
+    </p>
+  </div>
+  <div class="section on card">
+    <h3 style="margin:0 0 2px;font-size:16px">패턴 선택 <span class="muted" style="font-weight:400;font-size:12px">· 켜면 추천에 반영</span></h3>
+    <label class="f" style="margin-top:10px">조합 패턴</label>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${tog('carry','전주 번호 1개')}${tog('consec','연속 쌍 (11·12)')}${tog('sameTail','같은 뒷자리 (21·31)')}</div>
+    <label class="f" style="margin-top:12px">최근 5회 비중복 번호 채택</label>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${cnt(0,'없음')}${cnt(2,'2개')}${cnt(3,'3개')}${cnt(4,'4개')}</div>
+    <label class="f" style="margin-top:12px">짝수 : 홀수 비율</label>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${oe('auto','자동')}${oe('3:3','3:3')}${oe('4:2','4:2')}${oe('2:4','2:4')}</div>
+    <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호’는 지난 회차에서 1개만 채택(2개 이상 중복될 확률이 낮다는 판단), ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
+  </div>
+  ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 인연·좋아하는 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
+  <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
+}
+function toggleRecOpt(k){ recOpts[k]=!recOpts[k]; renderTab(); }
+function setOddEven(v){ recOpts.oddEven=v; renderTab(); }
+async function setRecentN(v){ recOpts.recentN=v; if(v>0 && recentDraws.length<5){ await loadRecentDraws(5); } renderTab(); }
+
+/* ---- 구매 ---- */
+function viewBuy(){
+  const list=purchases.map(p=>{
+    const dt=new Date(p.purchased_at);
+    const when=`${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    return `<div class="it tap" onclick="editPurchase('${p.id}')">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13.5px">${when}${p.round?` <span class="muted" style="font-weight:400">· ${p.round}회</span>`:''}</div>
+        ${dayChip(p.purchased_at)}
+        ${p.numbers&&p.numbers.length?`<div style="font-size:12px;margin-top:2px">번호 ${p.numbers.join(', ')}</div>`:''}
+        ${p.won?`<div style="font-size:12px;color:var(--gold);margin-top:2px">🎉 당첨 ${p.won_amount?Number(p.won_amount).toLocaleString()+'원':''} ${p.won_rank?('· '+p.won_rank+'등'):''}</div>`:`<div class="muted" style="font-size:12px;margin-top:2px">결과 대기</div>`}
+      </div>
+      <div class="muted" style="font-size:18px">›</div>
+    </div>`;
+  }).join('')||'<p class="muted" style="font-size:13px">아직 구매 기록이 없어요.</p>';
+  const todayCount=purchases.filter(p=>new Date(p.purchased_at).toDateString()===now.toDateString()).length;
+  return `<div class="section on card" style="text-align:center">
+    <h2 style="margin:0 0 4px">로또 샀어요</h2>
+    <p class="muted" style="font-size:12.5px;margin:0 0 12px">용지를 찍으면 회차·번호가 자동으로 들어가요${todayCount?` · 오늘 ${todayCount}회`:''}</p>
+    <button class="btn wide" style="padding:16px;font-size:16px" onclick="scanTicket('buy')">📷 용지 스캔으로 기록</button>
+    <button class="btn ghost wide" style="margin-top:8px" onclick="buyNow()">＋ 시간만 빠르게 기록</button>
+  </div>
+  <div class="section on card"><h3 style="margin:0 0 6px;font-size:16px">구매 이력</h3><div class="plist">${list}</div></div>
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:2px">쌓인 기록의 손익·습관·신호 분석은 <b>분석 ☰</b> 탭에서 볼 수 있어요.</p>`;
+}
+async function buyNow(){ await dbAddPurchase(); toast('구매 기록 완료'); renderTab(); }
+
+/* ---- 용지 QR 스캔 → 번호 자동 기입 ---- */
+let scanResult=null;   // {round, games:[[6]], raw}
+// 동행복권 종이 용지 QR 표준 파서 (실물로 캘리브레이션 예정)
+function parseTicketQR(text){
+  const vm=String(text).match(/[?&]v=([^&\s]+)/);
+  const v=(vm?vm[1]:String(text)).trim();
+  const round=parseInt((v.match(/\d{4}/)||[])[0],10)||null;   // 앞 4자리 = 회차(잠정)
+  // 'q'(또는 자동/수동 표기문자)로 분리 → 순수 12자리(6번호×2) 토큰만 게임으로 채택
+  const games=v.split(/[^0-9]/).filter(t=>/^\d{12}$/.test(t))
+    .map(t=>{const ns=[];for(let i=0;i<12;i+=2)ns.push(parseInt(t.slice(i,i+2),10));return ns;})
+    .filter(ns=>ns.every(n=>n>=1&&n<=45)&&new Set(ns).size===6);
+  return {round,games,raw:v};
+}
+let scanMode='buy';    // 'buy'=구매기록 저장 / 'check'=당첨 즉석 확인
+function scanTicket(mode){ scanMode=mode||'buy'; if(!window.jsQR){toast('QR 모듈 로드 실패');return;} const el=document.getElementById('qrFile'); el.value=''; el.click(); }
+function handleQRFile(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  const img=new Image();
+  img.onload=()=>{ (async()=>{
+    const cv=document.getElementById('qrCanvas'), max=1000;
+    const scale=Math.min(1,max/Math.max(img.width,img.height));
+    cv.width=Math.round(img.width*scale); cv.height=Math.round(img.height*scale);
+    const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,cv.width,cv.height);
+    const data=ctx.getImageData(0,0,cv.width,cv.height);
+    const code=window.jsQR(data.data,cv.width,cv.height);
+    URL.revokeObjectURL(img.src);
+    if(!code){ scanResult={error:'QR을 찾지 못했어요. 용지의 QR코드가 또렷하게 나오도록 다시 찍어주세요.'}; }
+    else{ scanResult=parseTicketQR(code.data); scanResult.qrText=code.data;
+      if(scanMode==='check' && scanResult.round){ try{ await getDraw(scanResult.round); }catch(e){} } }
+    renderScanConfirm();
+  })(); };
+  img.onerror=()=>{ scanResult={error:'이미지를 읽지 못했어요.'}; renderScanConfirm(); };
+  img.src=URL.createObjectURL(f);
+}
+function scanGamesHtml(r,draw){
+  return r.games.map((g,i)=>{
+    const balls=g.map(n=>{ const hit=draw&&draw.numbers.includes(n), bonus=draw&&n===draw.bonus_no;
+      return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${LOTTO_BALL(n)};color:#333;text-shadow:none${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
+    let res='';
+    if(draw){ const rank=rankOf(g,draw), matched=g.filter(n=>draw.numbers.includes(n)).length, bonus=g.includes(draw.bonus_no);
+      res=`<div style="font-size:12.5px;margin-top:3px">${rank>0?`🎉 <b style="color:var(--gold)">${rank}등</b> · ${Number(prizeFor(rank,draw)).toLocaleString()}원`:`꽝 · ${matched}개 일치${bonus?' +보너스':''}`}</div>`; }
+    return `<div style="margin:8px 0"><div class="balls" style="justify-content:flex-start">${String.fromCharCode(65+i)}. ${balls}</div>${res}</div>`;
+  }).join('');
+}
+function scanShell(inner,title){
+  const r=scanResult;
+  return `<div class="section on">
+    <button class="btn ghost sm" onclick="renderTab()">‹ 뒤로</button>
+    <div class="card" style="margin-top:12px">
+      <h2 style="margin:0 0 10px">${title||'📷 용지 스캔 결과'}</h2>
+      ${inner}
+      ${r&&r.qrText?`<details style="margin-top:14px"><summary class="muted" style="font-size:12px;cursor:pointer">QR 원문 보기(파서 조정용)</summary><p style="font-size:11px;word-break:break-all;color:var(--sub);margin:6px 0 0">${esc(r.qrText)}</p></details>`:''}
+      <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket(scanMode)">다시 찍기</button>
+    </div>
+  </div>`;
+}
+function renderScanConfirm(){
+  const r=scanResult;
+  if(r.error){ $('#body').innerHTML=scanShell(`<p style="color:var(--hwa);font-size:13px">${esc(r.error)}</p>`); return; }
+  if(!r.games||!r.games.length){ $('#body').innerHTML=scanShell(`<p style="color:var(--hwa);font-size:13px">번호를 해석하지 못했어요. 아래 QR 원문을 참고해 파서를 조정할게요.</p>`); return; }
+  if(scanMode==='check') return renderScanCheck();
+  const body=`<p style="font-size:13px;margin:0 0 8px">${r.round?`<b>${r.round}회</b> · `:''}${r.games.length}게임 인식</p>`
+    +scanGamesHtml(r,null)
+    +`<button class="btn wide" style="margin-top:12px" onclick="saveScanned()">이 번호로 구매 기록 저장</button>`;
+  $('#body').innerHTML=scanShell(body);
+}
+function renderScanCheck(){
+  const r=scanResult; const draw=r.round?draws[r.round]:null;
+  const anyWin=draw&&r.games.some(g=>rankOf(g,draw)>0);
+  const nowd=new Date(), pad=n=>String(n).padStart(2,'0');
+  const dtl=`${nowd.getFullYear()}-${pad(nowd.getMonth()+1)}-${pad(nowd.getDate())}T${pad(nowd.getHours())}:${pad(nowd.getMinutes())}`;
+  let body=`<p style="font-size:13px;margin:0 0 6px">${r.round?`<b>${r.round}회</b> 당첨 확인`:'회차 미인식'}</p>`;
+  if(draw){
+    body+=`<div class="muted" style="font-size:12px;margin:0 0 4px">당첨번호 ${draw.numbers.join(', ')} + 보너스 ${draw.bonus_no}</div>`+scanGamesHtml(r,draw);
+    body+= anyWin
+      ? `<div class="card" style="background:#faf6ec;margin-top:12px"><p style="font-size:13.5px;margin:0 0 8px">🎉 당첨됐어요! <b>언제 구입</b>했는지 기록해둘까요?</p>
+          <label class="f">구매 일시</label><input id="scan_dt" type="datetime-local" value="${dtl}">
+          <button class="btn wide" style="margin-top:10px" onclick="saveScannedWithDate()">구매일로 당첨 기록 저장</button></div>`
+      : `<p class="muted" style="font-size:12.5px;margin-top:12px">아쉽지만 당첨이 아니에요.</p><button class="btn ghost sm" onclick="saveScanned()">그래도 구매 기록으로 저장</button>`;
+  } else {
+    body+=scanGamesHtml(r,null)+`<p class="muted" style="font-size:12.5px;margin-top:10px">${r.round?`${r.round}회는 아직 추첨 전이거나 결과를 못 불러왔어요.`:'회차를 못 읽었어요.'} 구매 기록으로 저장하면 추첨 후 자동으로 확인해드려요.</p><button class="btn ghost sm" onclick="saveScanned()">구매 기록으로 저장</button>`;
+  }
+  $('#body').innerHTML=scanShell(body,'📷 용지 당첨 확인');
+}
+async function saveScanned(){
+  const r=scanResult; if(!r||!r.games||!r.games.length)return;
+  for(const g of r.games){ await dbAddPurchase({numbers:g, round:r.round||null}); }
+  await autoCheckWins();
+  toast(`${r.games.length}게임 저장 완료`); scanResult=null; tab='buy'; renderTab();
+}
+async function saveScannedWithDate(){
+  const r=scanResult; if(!r||!r.games||!r.games.length)return;
+  const dtv=$('#scan_dt').value; const iso=dtv?new Date(dtv).toISOString():new Date().toISOString();
+  for(const g of r.games){ await dbAddPurchase({numbers:g, round:r.round||null, purchased_at:iso}); }
+  await autoCheckWins();
+  toast('당첨 기록 저장 완료 🎉'); scanResult=null; tab='buy'; renderTab();
+}
+// 구매 패턴 분석 (요일·시간·재물발복점수·특이일 vs 당첨)
+function analyzePurchases(){
+  const cache={}; const md=(y,m)=>cache[y+'-'+m]||(cache[y+'-'+m]=monthData(y,m));
+  const mk=()=>({c:0,w:0});
+  const A={total:purchases.length,winCount:0,totalWon:0,bestRank:null,
+    dow:Array.from({length:7},mk),
+    time:{'새벽':mk(),'오전':mk(),'오후':mk(),'저녁':mk()},
+    score:{'낮음':mk(),'보통':mk(),'높음':mk()},
+    money:mk(),lucky:mk(),dream:mk()};
+  purchases.forEach(p=>{
+    const dt=new Date(p.purchased_at),y=dt.getFullYear(),m=dt.getMonth()+1,d=dt.getDate();
+    const won=!!p.won; if(won){A.winCount++;A.totalWon+=(+p.won_amount||0); if(p.won_rank&&(!A.bestRank||p.won_rank<A.bestRank))A.bestRank=p.won_rank;}
+    const bump=o=>{o.c++; if(won)o.w++;};
+    bump(A.dow[dt.getDay()]);
+    const h=dt.getHours(); bump(A.time[h<6?'새벽':h<12?'오전':h<18?'오후':'저녁']);
+    const mm=md(y,m),s=mm.scores[d-1],sc=s?s.score:0;
+    bump(A.score[sc<1?'낮음':sc<2?'보통':'높음']);
+    if(s&&mm.isMoney(s))bump(A.money);
+    if(luckyDays.has(dkey(y,m,d)))bump(A.lucky);
+    if(dreams[dkey(y,m,d)])bump(A.dream);
+  });
+  A.winRate=A.total?Math.round(A.winCount/A.total*100):0;
+  return A;
+}
+function distHtml(obj,keys){
+  const max=Math.max(1,...keys.map(k=>obj[k].c));
+  return keys.map(k=>{const o=obj[k];
+    return `<div class="statrow"><span class="lab">${k}</span><span class="track"><span class="fill" style="width:${Math.round(o.c/max*100)}%"></span></span><span class="val">${o.c}회${o.w?` · 🎉${o.w}`:''}</span></div>`;
+  }).join('');
+}
+const CHANCE_MATCH=6*6/45;      // 무작위 1장 기대 적중 개수 = 0.8
+// 신호별 '평균 적중 개수' 집계 (번호 6개 입력 + 결과 확정된 구매만)
+function signalMatches(){
+  const cache={}; const md=(y,m)=>cache[y+'-'+m]||(cache[y+'-'+m]=monthData(y,m));
+  const G={전체:[],발복높음:[],발복보통:[],발복낮음:[],목돈일:[],일반일:[],운좋은날:[],길몽꾼날:[]};
+  purchases.forEach(p=>{
+    if(!p.numbers||p.numbers.length!==6) return;
+    const round=p.round||inferRound(p.purchased_at); const draw=draws[round]; if(!draw) return;
+    const matched=p.numbers.filter(n=>draw.numbers.includes(n)).length;
+    const dt=new Date(p.purchased_at),y=dt.getFullYear(),m=dt.getMonth()+1,d=dt.getDate(),dk=dkey(y,m,d);
+    G.전체.push(matched);
+    const mm=md(y,m),s=mm.scores[d-1],sc=s?s.score:0;
+    (sc>=2?G.발복높음:sc>=1?G.발복보통:G.발복낮음).push(matched);
+    (s&&mm.isMoney(s)?G.목돈일:G.일반일).push(matched);
+    if(luckyDays.has(dk)) G.운좋은날.push(matched);
+    const dr=dreams[dk]; if(dr && GILMONG.some(k=>((dr.note||'')+' '+(dr.tags||[]).join(' ')).includes(k))) G.길몽꾼날.push(matched);
+  });
+  return G;
+}
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+function matchRow(label,arr,baseAvg){
+  if(!arr.length) return `<div class="statrow"><span class="lab" style="width:64px">${label}</span><span class="track"></span><span class="val" style="width:120px">표본 없음</span></div>`;
+  const a=avg(arr), pct=Math.min(100,Math.round(a/3*100));
+  const up=baseAvg!=null && a>baseAvg+0.001, dn=baseAvg!=null && a<baseAvg-0.001;
+  return `<div class="statrow"><span class="lab" style="width:64px">${label}</span><span class="track"><span class="fill" style="width:${pct}%"></span></span><span class="val" style="width:120px">평균 ${a.toFixed(2)}개 <span class="muted">(${arr.length}건)</span> ${up?'▲':dn?'▼':''}</span></div>`;
+}
+function viewInsights(){
+  const A=analyzePurchases();
+  if(!A.total) return `<div class="section on card"><h2 style="margin:0 0 6px">분석</h2><p class="muted" style="font-size:13px;margin:0">구매·결과 기록이 쌓이면 여기서 <b>손익·습관</b>과 <b>내 신호(사주·직감·꿈)가 얼마나 맞았는지</b>를 보여드려요. ‘구매’ 탭에서 기록을 남겨보세요.</p></div>`;
+  const dowObj={}; ['일','월','화','수','목','금','토'].forEach((n,i)=>dowObj[n]=A.dow[i]);
+  const rankBars=[1,2,3,4,5].map(r=>({r,c:purchases.filter(p=>p.won&&p.won_rank===r).length}));
+  const rankObj={}; rankBars.forEach(x=>rankObj[x.r+'등']={c:x.c,w:0}); rankObj['꽝']={c:purchases.filter(p=>!p.won).length,w:0};
+  // 신호별 평균 적중
+  const G=signalMatches(); const base=avg(G.전체);
+  const withNums=G.전체.length;
+  const signals=[['발복 높음',G.발복높음],['발복 보통',G.발복보통],['발복 낮음',G.발복낮음],['목돈일',G.목돈일],['일반일',G.일반일],['운 좋은날',G.운좋은날],['길몽 꾼날',G.길몽꾼날]];
+  // 신호 랭킹: 표본 있는 신호 중 평균 적중 높은 순 (일반일/발복보통/낮음 제외 = 긍정 신호만)
+  const posSignals=[['발복 높음',G.발복높음],['목돈일',G.목돈일],['운 좋은날',G.운좋은날],['길몽 꾼날',G.길몽꾼날]]
+    .filter(s=>s[1].length>0).map(s=>({label:s[0],avg:avg(s[1]),n:s[1].length}))
+    .sort((a,b)=>b.avg-a.avg);
+  return `<div class="section on card">
+    <h2 style="margin:0 0 10px">💰 수익 · 습관</h2>
+    <div class="tiles">
+      <div class="tile"><div class="k">총 구매</div><div class="v">${A.total}건</div></div>
+      <div class="tile"><div class="k">당첨</div><div class="v">${A.winCount}회</div></div>
+      <div class="tile" style="grid-column:1/3"><div class="k">누적 수익 (당첨금)</div><div class="v" style="color:var(--gold)">${A.totalWon.toLocaleString()}원</div></div>
+    </div>
+    <div class="prof-sub">등수 분포</div>${distHtml(rankObj,['1등','2등','3등','4등','5등','꽝'])}
+    <div class="prof-sub" style="margin-top:12px">요일별 구매</div>${distHtml(dowObj,['일','월','화','수','목','금','토'])}
+    <div class="prof-sub" style="margin-top:12px">시간대별 구매</div>${distHtml(A.time,['새벽','오전','오후','저녁'])}
+    <p class="muted" style="font-size:11px;margin:10px 0 0">🎉는 그 칸에서 당첨된 횟수예요.</p>
+  </div>
+  <div class="section on card">
+    <h2 style="margin:0 0 4px">🎯 내 신호가 맞았나</h2>
+    <p class="muted" style="font-size:12px;margin:0 0 10px">번호 6개를 입력한 구매 <b>${withNums}건</b> 기준, 조건별 <b>회차당 평균 적중 개수</b>. 무작위 기대값은 <b>${CHANCE_MATCH.toFixed(2)}개</b> — 이보다 높으면 ▲.</p>
+    ${withNums? `${signals.map(([l,a])=>matchRow(l,a,base)).join('')}
+      <div class="statrow" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:8px"><span class="lab" style="width:64px">전체 평균</span><span class="track"><span class="fill" style="width:${Math.min(100,Math.round(base/3*100))}%;background:var(--sub)"></span></span><span class="val" style="width:120px">평균 ${base.toFixed(2)}개</span></div>
+      ${posSignals.length?`<div class="prof-sub" style="margin-top:14px">🏆 내 신호 랭킹</div>
+        <p style="font-size:13px;margin:4px 0 0">가장 잘 맞은 신호: <b style="color:var(--gold)">${posSignals[0].label}</b> (평균 ${posSignals[0].avg.toFixed(2)}개, ${posSignals[0].n}건)${posSignals[0].avg>base?` · 전체보다 <b style="color:#2e7d5b">+${(posSignals[0].avg-base).toFixed(2)}</b>`:''}</p>
+        <ol style="font-size:12.5px;color:var(--sub);margin:6px 0 0;padding-left:18px">${posSignals.map(s=>`<li>${s.label} — ${s.avg.toFixed(2)}개 (${s.n}건)</li>`).join('')}</ol>`:''}`
+    : '<p class="muted" style="font-size:13px;margin:0">구매 기록에 <b>번호 6개</b>를 입력하면(구매 이력에서 기록 누르기), 결과와 대조해 신호별 적중을 계산해드려요.</p>'}
+    <p class="muted" style="font-size:11px;margin:12px 0 0">⚠️ 로또는 매 회차가 독립이라, 이건 예측이 아니라 <b>내 기록의 사후 검증(재미)</b>이에요. 표본이 적으면 우연입니다.</p>
+  </div>`;
+}
+// 구매 기록 수정 화면
+function editPurchase(id){
+  const p=purchases.find(x=>x.id===id); if(!p)return;
+  const dt=new Date(p.purchased_at);
+  const pad=n=>String(n).padStart(2,'0');
+  const dtl=`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  $('#body').innerHTML=`<div class="section on">
+    <button class="btn ghost sm" onclick="renderTab()">‹ 구매 이력</button>
+    <div class="card" style="margin-top:12px">
+      <h2 style="margin:0 0 10px">구매 기록 수정</h2>
+      ${dayChip(p.purchased_at)}
+      <label class="f" style="margin-top:12px">구매 일시</label>
+      <input id="e_dt" type="datetime-local" value="${dtl}">
+      <div class="grid2" style="margin-top:10px">
+        <div><label class="f">회차 (선택)</label><input id="e_round" type="number" value="${p.round||''}" placeholder="예: 1132"></div>
+        <div><label class="f">구매 번호 (선택)</label><input id="e_nums" value="${p.numbers?p.numbers.join(','):''}" placeholder="3,11,22,..."></div>
+      </div>
+      <label class="f" style="margin-top:12px"><input type="checkbox" id="e_won" ${p.won?'checked':''} style="width:auto;margin-right:6px" onchange="document.getElementById('wonbox').style.display=this.checked?'block':'none'"> 당첨됐어요</label>
+      <div id="wonbox" style="display:${p.won?'block':'none'}">
+        <div class="grid2" style="margin-top:6px">
+          <div><label class="f">당첨 금액(원)</label><input id="e_amt" type="number" value="${p.won_amount||''}" placeholder="5000"></div>
+          <div><label class="f">등수</label><input id="e_rank" type="number" value="${p.won_rank||''}" placeholder="5"></div>
+        </div>
+      </div>
+      <label class="f" style="margin-top:12px">메모 (선택)</label>
+      <input id="e_memo" value="${esc(p.memo||'')}" placeholder="예: 편의점에서 자동">
+      <button class="btn wide" style="margin-top:14px" onclick="savePurchaseEdit('${id}')">저장</button>
+      <button class="btn ghost wide" style="margin-top:8px;border-color:var(--hwa);color:var(--hwa)" onclick="deletePurchase('${id}')">이 기록 삭제</button>
+    </div>
+  </div>`;
+}
+async function savePurchaseEdit(id){
+  const v=x=>$('#'+x).value.trim();
+  const dtv=v('e_dt'); if(!dtv){toast('구매 일시를 입력해주세요');return;}
+  const nums=v('e_nums').split(/[^0-9]+/).map(x=>+x).filter(x=>x>=1&&x<=45);
+  const won=$('#e_won').checked;
+  await dbUpdatePurchase(id,{
+    purchased_at:new Date(dtv).toISOString(),
+    round:v('e_round')?+v('e_round'):null,
+    numbers:nums.length?nums:null,
+    won, won_amount:won&&v('e_amt')?+v('e_amt'):null, won_rank:won&&v('e_rank')?+v('e_rank'):null,
+    memo:v('e_memo')||null,
+  });
+  // 최신순 정렬 유지
+  purchases.sort((a,b)=>new Date(b.purchased_at)-new Date(a.purchased_at));
+  toast('저장했어요'); renderTab();
+}
+async function deletePurchase(id){
+  if(!confirm('이 구매 기록을 삭제할까요?'))return;
+  await dbDeletePurchase(id); toast('삭제했어요'); renderTab();
+}
+
+/* ---- 내숫자 ---- */
+let numKind='fate';
+function viewNum(){
+  const grid=Array.from({length:45},(_,i)=>i+1).map(n=>{
+    const cls=myNumbers.fate.includes(n)?'fate':myNumbers.favorite.includes(n)?'fav':'';
+    return `<button class="${cls}" onclick="toggleNum(${n})">${n}</button>`;
+  }).join('');
+  return `<div class="section on card">
+    <h2 style="margin:0 0 6px">내 숫자</h2>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sm ${numKind==='fate'?'':'ghost'}" onclick="numKind='fate';renderTab()">인연 있는 숫자</button>
+      <button class="btn sm ${numKind==='favorite'?'':'ghost'}" onclick="numKind='favorite';renderTab()">좋아하는 숫자</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0 0 10px">숫자를 눌러 <b>${numKind==='fate'?'인연':'좋아하는'}</b> 숫자로 저장/해제. (인연=<span style="color:var(--gold)">골드</span>, 좋아하는=<span style="color:#8a6d16">연골드</span>)</p>
+    <div class="numgrid">${grid}</div>
+  </div>`;
+}
+async function toggleNum(n){
+  // 한 숫자는 한 종류만: 반대편에 있으면 옮김
+  const other=numKind==='fate'?'favorite':'fate';
+  if(myNumbers[other].includes(n)) await dbToggleNumber(n,other);
+  await dbToggleNumber(n,numKind); renderTab();
+}
+
+/* ---- 결과 ---- */
+function drawBalls(d){
+  const b=d.numbers.map(n=>`<div class="ball" style="background:${LOTTO_BALL(n)};color:#333;text-shadow:none">${n}</div>`).join('');
+  return `<div class="balls">${b}<div style="display:grid;place-items:center;font-size:22px;color:var(--sub)">+</div><div class="ball" style="background:${LOTTO_BALL(d.bonus_no)};color:#333;text-shadow:none">${d.bonus_no}</div></div>`;
+}
+function drawCard(d){
+  if(!d) return '<p class="muted" style="font-size:13px">불러오지 못했어요.</p>';
+  const dt=d.date?String(d.date).slice(0,10):'';
+  const f=d.divisions&&d.divisions[0];
+  return `<div style="text-align:center">
+    <div class="muted" style="font-size:12px">${dt}</div>
+    <h2 style="margin:2px 0 6px">${d.draw_no}회</h2>
+    ${drawBalls(d)}
+    ${f?`<p class="muted" style="font-size:12px;margin:8px 0 0">1등 ${Number(f.prize).toLocaleString()}원 · ${f.winners}명</p>`:''}
+  </div>`;
+}
+function viewResult(){
+  const wins=purchases.filter(p=>p.numbers&&p.numbers.length===6);
+  const myWinsHtml=wins.length?wins.map(p=>{
+    const round=p.round||inferRound(p.purchased_at);
+    const d=draws[round];
+    const dt=new Date(p.purchased_at); const when=`${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()}`;
+    if(!d) return `<div class="it"><div style="flex:1"><b>${when}</b> · ${round||'?'}회<div class="muted" style="font-size:12px">번호 ${p.numbers.join(', ')} · 추첨 대기</div></div></div>`;
+    const rank=rankOf(p.numbers,d); const matched=p.numbers.filter(n=>d.numbers.includes(n)).length;
+    const bonus=p.numbers.includes(d.bonus_no);
+    const nums=p.numbers.map(n=>d.numbers.includes(n)?`<b style="color:var(--gold)">${n}</b>`:(n===d.bonus_no?`<b style="color:var(--su)">${n}</b>`:n)).join(', ');
+    return `<div class="it"><div style="flex:1"><b>${when}</b> · ${d.draw_no}회
+      <div class="muted" style="font-size:12px">번호 ${nums}</div>
+      <div style="font-size:12.5px;margin-top:2px">${rank>0?`🎉 <b style="color:var(--gold)">${rank}등</b> · ${Number(prizeFor(rank,d)).toLocaleString()}원`:`꽝 · ${matched}개 일치${bonus?' +보너스':''}`}</div>
+    </div></div>`;
+  }).join(''):'<p class="muted" style="font-size:13px">구매 기록에 6개 번호를 입력하면 자동으로 당첨을 확인해드려요. (구매 이력에서 기록을 눌러 번호 입력)</p>';
+  return `<div class="section on card">
+    <button class="btn wide" style="padding:14px;font-size:15px;margin-bottom:12px" onclick="scanTicket('check')">📷 용지로 당첨 확인</button>
+    <div class="row"><h2 style="margin:0;flex:1">최신 회차</h2><button class="btn ghost sm" onclick="refreshDraw()">새로고침</button></div>
+    <div id="latestBox" style="margin-top:8px">${latestDraw?drawCard(latestDraw):'<p class="muted" style="font-size:13px">불러오는 중… 인터넷 연결을 확인해주세요.</p>'}</div>
+  </div>
+  <div class="section on card">
+    <h3 style="margin:0 0 8px;font-size:16px">지난 회차 조회</h3>
+    <div class="row"><input id="roundInput" type="number" placeholder="회차 (예: 1200)" style="flex:1"><button class="btn sm" onclick="lookupRound()">조회</button></div>
+    <div id="lookupBox" style="margin-top:10px"></div>
+  </div>
+  <div class="section on card">
+    <h3 style="margin:0 0 8px;font-size:16px">내 번호 당첨 확인</h3>
+    <div class="plist">${myWinsHtml}</div>
+  </div>
+  <p class="disclaimer">당첨번호 출처: 커뮤니티 데이터(smok95/lotto). 공식 결과는 동행복권에서 확인하세요.</p>`;
+}
+async function refreshDraw(){ await loadLatestDraw(); await autoCheckWins(); toast('갱신했어요'); renderTab(); }
+async function lookupRound(){
+  const n=+document.getElementById('roundInput').value; if(!n){toast('회차 번호를 입력해주세요');return;}
+  document.getElementById('lookupBox').innerHTML='<p class="muted" style="font-size:13px">불러오는 중…</p>';
+  const d=await getDraw(n);
+  document.getElementById('lookupBox').innerHTML=d?drawCard(d):'<p class="muted" style="font-size:13px">해당 회차를 찾지 못했어요.</p>';
+}
+
+/* ---- 나 ---- */
+function viewMe(){
+  const p=saju.pillars, d=saju.deep, dayGan=p.day.gan;
+  return `<div class="section on card">
+    <h2 style="margin:0 0 8px">내 사주 만세력</h2>
+    <div class="manse">
+      ${manseCol('시주',p.hour,dayGan,false)}
+      ${manseCol('일주',p.day,dayGan,true)}
+      ${manseCol('월주',p.month,dayGan,false)}
+      ${manseCol('연주',p.year,dayGan,false)}
+    </div>
+    <p class="muted" style="font-size:10.5px;margin:8px 0 0;text-align:center">십성(위) · 간지(오행색) · 지장간(본기 밑줄) · 지지십성 · 12운성</p>
+    <div style="margin-top:14px;font-size:13.5px;line-height:1.9">
+      <div>일간 · <b>${saju.dayMasterElem}</b></div>
+      <div>신강/신약 · <b>${d.status}</b>${d.gangyakGrade&&d.gangyakGrade!==d.status?` (${d.gangyakGrade})`:''}</div>
+      <div>용신 · <b style="color:var(--gold)">${(d.yongsin||[]).join(' / ')||'—'}</b>${(d.yongsin||[]).length>1?' <span class="muted" style="font-size:11px">(복수 후보)</span>':''}</div>
+      <div>희신 · ${(d.heeshin||[]).join(' / ')||'—'}</div>
+      <div>재성(재물) 오행 · <b style="color:${EL_COL[jaeElem]}">${jaeElem}</b> ${jaeFav?'<span class="pill">길신</span>':'<span class="muted" style="font-size:11px">신약이라 부조 우선</span>'}</div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost sm" onclick="renderProfileForm()">사주 수정</button>
+      ${user?'<button class="btn ghost sm" onclick="logout()">로그아웃</button>':'<button class="btn ghost sm" onclick="renderLogin()">클라우드 로그인</button>'}
+    </div>
+    <p class="muted" style="font-size:11.5px;margin:10px 0 0">${user?`☁ 클라우드 동기화 중${user.email?' · '+esc(user.email):''}`:'📱 이 기기에 저장 중 — 로그인하면 여러 기기에서 동기화돼요.'}</p>
+    <p class="disclaimer">재물운 달력·번호는 위 용신/재성 분석을 근거로 계산됩니다.</p>
+  </div>`;
+}
+async function logout(){ try{ if(sb) await sb.auth.signOut(); }catch(e){} user=null; DEMO=true; toast('로그아웃 — 이 기기 저장으로 전환'); afterAuth(); }
+
+init();
+</script>
