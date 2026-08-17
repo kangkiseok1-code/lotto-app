@@ -1,7 +1,13 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>오행 로또 · 재물운 달력</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#b8912e">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="오행로또">
 <style>
   :root{
     --gold:#b8912e; --gold-soft:#e9d9a8; --ink:#22201b; --sub:#6b6559;
@@ -1103,4 +1109,9 @@ function viewMe(){
 async function logout(){ try{ if(sb) await sb.auth.signOut(); }catch(e){} user=null; DEMO=true; toast('로그아웃 — 이 기기 저장으로 전환'); afterAuth(); }
 
 init();
+
+// PWA 서비스워커 등록 (홈 아이콘·오프라인)
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
 </script>
