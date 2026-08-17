@@ -1,6 +1,6 @@
 // 오행 로또 서비스워커 — 앱 셸 오프라인 캐시
 // HTML은 network-first(항상 최신, 오프라인 시 캐시), 그 외 same-origin은 stale-while-revalidate.
-const CACHE = 'ohaeng-lotto-v2';
+const CACHE = 'ohaeng-lotto-v3';
 const CORE = [
   './', './index.html', './engine.browser.js', './jsQR.min.js',
   './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'
