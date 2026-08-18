@@ -2650,17 +2650,12 @@ var OhaengEngine = (() => {
         });
         const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: JI[c.ji] })));
         const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: GAN[c.gan] })));
-        const rank = { \uC0BC\uD569: 4, \uBC29\uD569: 3, \uC721\uD569: 2, \uBC18\uD569: 1 };
         const branchOverride = {}, branchDamp = {}, stemOverride = {}, stemDamp = {}, applied = [];
-        [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).sort((a, b) => rank[b.type] - rank[a.type]).forEach((h) => {
-          let won = false;
+        [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).forEach((h) => {
           h.ids.forEach((id) => {
-            if (!branchOverride[id]) {
-              branchOverride[id] = { elem: h.elem };
-              won = true;
-            }
+            (branchOverride[id] = branchOverride[id] || { elems: [] }).elems.push(h.elem);
           });
-          if (won) applied.push({ text: `${h.jis.join("")} ${h.type}`, elem: h.elem });
+          applied.push({ text: `${h.jis.join("")} ${h.type}`, elem: h.elem });
         });
         st.hap.forEach((h) => {
           let won = false;
@@ -2797,8 +2792,12 @@ var OhaengEngine = (() => {
           }
           const wj = YUPA.POSITION_WEIGHT.\uC9C0\uC9C0[POS[k]];
           const bF = bDamp[k] || 1;
-          if (bOv[k]) wPower[bOv[k].elem] += wj * bF;
-          else (YUPA.JIJANGGAN_RYUKRYANG[JI[pillars[k].ji]] || []).forEach(([g, ratio]) => {
+          if (bOv[k]) {
+            const els = bOv[k].elems, share = wj * bF / els.length;
+            els.forEach((e) => {
+              wPower[e] += share;
+            });
+          } else (YUPA.JIJANGGAN_RYUKRYANG[JI[pillars[k].ji]] || []).forEach(([g, ratio]) => {
             wPower[GAN_ELEM[GAN.indexOf(g)]] += wj * ratio * bF;
           });
         });
@@ -2821,13 +2820,15 @@ var OhaengEngine = (() => {
           const wj = YUPA.POSITION_WEIGHT.\uC9C0\uC9C0[POS[k]];
           const bF = bDamp[k] || 1;
           if (bOv[k]) {
-            const e = bOv[k].elem;
-            if (e === dayElem) {
-              tgScore += wj * bF;
-              if (k === "day" || k === "month") jeonggiRoot = true;
-              if (k === "day") deukji = true;
-              if (k === "month") deukryeong = true;
-            } else if (k === "month" && e === inseongE) deukryeong = true;
+            const els = bOv[k].elems, share = wj * bF / els.length;
+            els.forEach((e) => {
+              if (e === dayElem) {
+                tgScore += share;
+                if (k === "day" || k === "month") jeonggiRoot = true;
+                if (k === "day") deukji = true;
+                if (k === "month") deukryeong = true;
+              } else if (k === "month" && e === inseongE) deukryeong = true;
+            });
             return;
           }
           const arr = YUPA.JIJANGGAN_RYUKRYANG[JI[pillars[k].ji]] || [];
