@@ -2704,14 +2704,13 @@ var OhaengEngine = (() => {
       function bongiSeryeok(pillars, mode) {
         const keys = ["year", "month", "day", "hour"].filter((k) => pillars[k]);
         const POS = { year: "\uC5F0", month: "\uC6D4", day: "\uC77C", hour: "\uC2DC" };
-        const ov = {}, damp = {}, bound = /* @__PURE__ */ new Set();
+        const ov = {}, damp = {}, bound = /* @__PURE__ */ new Set(), jiDist = {};
         if (mode === "natalHC") {
           const cols = keys.map((k) => ({ id: k, ji: JI[pillars[k].ji], gan: GAN[pillars[k].gan] }));
           const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: c.ji })));
           const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: c.gan })));
-          const rank = { \uC0BC\uD569: 4, \uBC29\uD569: 3, \uC721\uD569: 2, \uBC18\uD569: 1 };
-          [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).sort((a, b) => rank[b.type] - rank[a.type]).forEach((h) => h.ids.forEach((i) => {
-            if (ov[i] === void 0) ov[i] = h.elem;
+          [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).forEach((h) => h.ids.forEach((i) => {
+            (jiDist[i] = jiDist[i] || []).push(h.elem);
           }));
           st.hap.forEach((h) => {
             h.ids.forEach((i) => bound.add(i));
@@ -2727,7 +2726,7 @@ var OhaengEngine = (() => {
             }
           });
           br.clashes.forEach((c) => c.ids.forEach((i) => {
-            if (ov[i] === void 0) damp[i] = (damp[i] || 1) * 0.5;
+            if (!jiDist[i]) damp[i] = (damp[i] || 1) * 0.5;
           }));
           st.chung.forEach((c) => c.ids.forEach((i) => {
             if (bound.has(i)) return;
@@ -2742,8 +2741,15 @@ var OhaengEngine = (() => {
             wp[el] += wg * (damp["\uCC9C\uAC04_" + k] || 1);
           }
           {
-            const el = ov[k] || JI_ELEM[pillars[k].ji];
-            wp[el] += wj * (damp[k] || 1);
+            const dist = jiDist[k];
+            if (dist && dist.length) {
+              const share = wj / dist.length;
+              dist.forEach((el) => {
+                wp[el] += share;
+              });
+            } else {
+              wp[JI_ELEM[pillars[k].ji]] += wj * (damp[k] || 1);
+            }
           }
         }
         return wp;
