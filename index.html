@@ -187,6 +187,8 @@ const SEAL=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-h
   +`<g fill="#2e7d5b"><circle cx="46.4" cy="20.6" r="4.1"/><circle cx="53.6" cy="20.6" r="4.1"/>`
   +`<circle cx="46.4" cy="27.4" r="4.1"/><circle cx="53.6" cy="27.4" r="4.1"/></g>` /* 목: 네잎클로버 */
   +`</svg>`;
+// 공개용 사행성·연령 고지 (랜딩·결과 푸터 공용)
+const RESP_NOTE='🔞 만 19세 이상 이용 · 로또는 사행산업이며 과도한 구매는 위험할 수 있습니다. 도박문제 무료상담 <b>1336</b>(한국도박문제예방치유원). 이 앱의 추천은 재미·참고용이며 당첨을 보장하지 않습니다.';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const p2=n=>String(n).padStart(2,'0');
@@ -389,6 +391,7 @@ async function dbDeleteDream(day){
 const DRAW_SRC='https://smok95.github.io/lotto/results/';
 let draws={};        // {회차: {draw_no,numbers,bonus_no,date,divisions}}
 let latestDraw=null;
+let drawSrcError=false;   // 당첨데이터 소스 연결 실패 여부(fallback 안내용)
 try{ draws=JSON.parse(localStorage.getItem('lotto_draws_cache')||'{}'); }catch(e){}
 function saveDraws(){ try{ localStorage.setItem('lotto_draws_cache',JSON.stringify(draws)); }catch(e){} }
 async function fetchDraw(n){
@@ -398,10 +401,11 @@ async function fetchDraw(n){
 }
 async function getDraw(n){ if(draws[n]) return draws[n]; try{ return await fetchDraw(n); }catch(e){ return null; } }
 async function loadLatestDraw(){
-  try{ const r=await fetch(DRAW_SRC+'latest.json'); if(!r.ok) return;
-    const d=await r.json(); if(d&&d.numbers){ draws[d.draw_no]=d; latestDraw=d; saveDraws(); } }
-  catch(e){ /* 오프라인 등 — 캐시 최신값 사용 */
-    const keys=Object.keys(draws).map(Number); if(keys.length) latestDraw=draws[Math.max(...keys)]; }
+  try{ const r=await fetch(DRAW_SRC+'latest.json'); if(!r.ok) throw new Error('bad status');
+    const d=await r.json(); if(d&&d.numbers){ draws[d.draw_no]=d; latestDraw=d; saveDraws(); drawSrcError=false; } }
+  catch(e){ /* 오프라인·소스 장애 — 캐시 최신값 사용 */
+    const keys=Object.keys(draws).map(Number); if(keys.length) latestDraw=draws[Math.max(...keys)];
+    drawSrcError=true; }
 }
 // 구매일 → 응당 참여 회차 (추첨=토요일 밤, 그 이전 구매는 당일 회차). latestDraw 기준 주간 역산.
 function inferRound(iso){
@@ -514,8 +518,8 @@ function renderLanding(){
       </div>
       <button class="btn wide" style="margin-top:22px;padding:15px;font-size:16px" onclick="renderProfileForm()">시작하기</button>
       <p class="muted" style="font-size:11.5px;text-align:center;margin:10px 0 0">먼저 내 사주(생년월일시)를 한 번만 입력하면 돼요.</p>
-      <p class="disclaimer">번호·날짜 추천은 사주 참고용이며 당첨을 보장하지 않습니다.</p>
     </div>
+    <p class="disclaimer" style="line-height:1.7;margin-top:16px;padding:0 4px">${RESP_NOTE}</p>
   </div>`;
 }
 
@@ -541,6 +545,7 @@ function renderProfileForm(){
       <label class="f" style="margin-top:10px">태어난 지역 (진태양시 보정, 선택)</label>
       <select id="city"><option value="">보정 안 함</option>${(S.CITY_GROUPS||[]).map(([g,m])=>`<optgroup label="${esc(g)}">${Object.keys(m).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</optgroup>`).join('')}</select>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
+      <p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. ‘나’ 탭에서 <b>클라우드 로그인</b>을 켤 때만 여러 기기 동기화를 위해 Supabase에 저장됩니다(선택).</p>
     </div>
   </div>`;
 }
@@ -1132,7 +1137,7 @@ function viewResult(){
   return `<div class="section on card">
     <button class="btn wide" style="padding:14px;font-size:15px;margin-bottom:12px" onclick="scanTicket('check')">📷 용지로 당첨 확인</button>
     <div class="row"><h2 style="margin:0;flex:1">최신 회차</h2><button class="btn ghost sm" onclick="refreshDraw()">새로고침</button></div>
-    <div id="latestBox" style="margin-top:8px">${latestDraw?drawCard(latestDraw):'<p class="muted" style="font-size:13px">불러오는 중… 인터넷 연결을 확인해주세요.</p>'}</div>
+    <div id="latestBox" style="margin-top:8px">${latestDraw?drawCard(latestDraw)+(drawSrcError?'<p class="muted" style="font-size:11.5px;margin:8px 0 0">⚠ 최신 결과 소스에 연결하지 못해 저장된 값을 보여드려요. 잠시 후 새로고침하거나 <b>동행복권</b>에서 확인하세요.</p>':''):(drawSrcError?'<p class="muted" style="font-size:13px">결과 소스에 연결하지 못했어요. 인터넷 연결을 확인하거나 잠시 후 새로고침해주세요. 급하면 <b>동행복권(dhlottery.co.kr)</b>에서 확인할 수 있어요.</p>':'<p class="muted" style="font-size:13px">불러오는 중…</p>')}</div>
   </div>
   <div class="section on card">
     <h3 style="margin:0 0 8px;font-size:16px">지난 회차 조회</h3>
@@ -1143,7 +1148,8 @@ function viewResult(){
     <h3 style="margin:0 0 8px;font-size:16px">내 번호 당첨 확인</h3>
     <div class="plist">${myWinsHtml}</div>
   </div>
-  <p class="disclaimer">당첨번호 출처: 커뮤니티 데이터(smok95/lotto). 공식 결과는 동행복권에서 확인하세요.</p>`;
+  <p class="disclaimer">당첨번호 출처: 커뮤니티 데이터(smok95/lotto). 공식 결과는 <b>동행복권(dhlottery.co.kr)</b>에서 확인하세요.</p>
+  <p class="disclaimer" style="line-height:1.7">${RESP_NOTE}</p>`;
 }
 async function refreshDraw(){ await loadLatestDraw(); await autoCheckWins(); toast('갱신했어요'); renderTab(); }
 async function lookupRound(){
