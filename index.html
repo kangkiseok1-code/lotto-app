@@ -187,8 +187,9 @@ const SEAL=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-h
   +`<g fill="#2e7d5b"><circle cx="46.4" cy="20.6" r="4.1"/><circle cx="53.6" cy="20.6" r="4.1"/>`
   +`<circle cx="46.4" cy="27.4" r="4.1"/><circle cx="53.6" cy="27.4" r="4.1"/></g>` /* 목: 네잎클로버 */
   +`</svg>`;
-// 공개용 사행성·연령 고지 (랜딩·결과 푸터 공용)
-const RESP_NOTE='🔞 만 19세 이상 이용 · 로또는 사행산업이며 과도한 구매는 위험할 수 있습니다. 도박문제 무료상담 <b>1336</b>(한국도박문제예방치유원). 이 앱의 추천은 재미·참고용이며 당첨을 보장하지 않습니다.';
+// 공개용 사행성·연령 고지 (시안 C: 상단 배지 + 한 줄)
+const RESP_BADGE='<span style="display:inline-flex;align-items:center;gap:5px;background:#b23a26;color:#fff;font-size:11.5px;font-weight:600;padding:3px 11px;border-radius:20px">🔞 19세 미만 이용 불가</span>';
+const RESP_LINE='로또는 사행산업입니다. 과몰입 주의 · 도박문제 무료상담 <b>1336</b>. 추천은 참고용이며 당첨을 보장하지 않습니다.';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const p2=n=>String(n).padStart(2,'0');
@@ -507,7 +508,8 @@ function renderLanding(){
     <div style="text-align:center">
       <div class="seal" style="width:80px;height:80px;border-radius:22px;margin:0 auto 18px">${SEAL}</div>
       <h1 style="font-size:34px;margin:0 0 4px">오행 로또</h1>
-      <p class="muted" style="font-size:14px;margin:0 0 26px">사주 재물운으로 보는 나의 로또</p>
+      <p class="muted" style="font-size:14px;margin:0 0 14px">사주 재물운으로 보는 나의 로또</p>
+      <div style="margin:0 0 22px">${RESP_BADGE}</div>
     </div>
     <div class="card" style="margin:0">
       <div style="display:flex;flex-direction:column;gap:15px">
@@ -519,7 +521,7 @@ function renderLanding(){
       <button class="btn wide" style="margin-top:22px;padding:15px;font-size:16px" onclick="afterAuth()">시작하기</button>
       <p class="muted" style="font-size:11.5px;text-align:center;margin:10px 0 0">먼저 내 사주(생년월일시)를 한 번만 입력하면 돼요.</p>
     </div>
-    <p class="disclaimer" style="line-height:1.7;margin-top:16px;padding:0 4px">${RESP_NOTE}</p>
+    <p class="disclaimer" style="line-height:1.6;margin-top:16px;padding:0 4px">${RESP_LINE}</p>
   </div>`;
 }
 
@@ -1149,7 +1151,7 @@ function viewResult(){
     <div class="plist">${myWinsHtml}</div>
   </div>
   <p class="disclaimer">당첨번호 출처: 커뮤니티 데이터(smok95/lotto). 공식 결과는 <b>동행복권(dhlottery.co.kr)</b>에서 확인하세요.</p>
-  <p class="disclaimer" style="line-height:1.7">${RESP_NOTE}</p>`;
+  <p class="disclaimer" style="line-height:1.6">${RESP_LINE}</p>`;
 }
 async function refreshDraw(){ await loadLatestDraw(); await autoCheckWins(); toast('갱신했어요'); renderTab(); }
 async function lookupRound(){
