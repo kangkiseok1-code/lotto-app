@@ -826,6 +826,17 @@ function parseTicketQR(text){
   });
   return {round,games,raw:v};
 }
+function copyQR(){
+  const t=scanResult&&scanResult.qrText; if(!t)return;
+  const done=()=>toast('QR 원문 복사됨 — 붙여넣어 보내주세요');
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done)); }
+  else fallbackCopy(t,done);
+}
+function fallbackCopy(t,done){
+  const el=document.getElementById('qrRaw'); if(el){ const rg=document.createRange(); rg.selectNodeContents(el);
+    const sel=getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('복사 실패 — 원문을 길게 눌러 복사하세요'); }
+}
 let scanMode='buy';    // 'buy'=구매기록 저장 / 'check'=당첨 즉석 확인
 function scanTicket(mode){ scanMode=mode||'buy'; if(!window.jsQR){toast('QR 모듈 로드 실패');return;} const el=document.getElementById('qrFile'); el.value=''; el.click(); }
 function handleQRFile(input){
@@ -864,7 +875,9 @@ function scanShell(inner,title){
     <div class="card" style="margin-top:12px">
       <h2 style="margin:0 0 10px">${title||'📷 용지 스캔 결과'}</h2>
       ${inner}
-      ${r&&r.qrText?`<details style="margin-top:14px"><summary class="muted" style="font-size:12px;cursor:pointer">QR 원문 보기(파서 조정용)</summary><p style="font-size:11px;word-break:break-all;color:var(--sub);margin:6px 0 0">${esc(r.qrText)}</p></details>`:''}
+      ${r&&r.qrText?`<details style="margin-top:14px" open><summary class="muted" style="font-size:12px;cursor:pointer">QR 원문 보기(파서 조정용) · ${r.games?r.games.length:0}줄 인식</summary>
+        <p id="qrRaw" style="font-size:11px;word-break:break-all;color:var(--sub);margin:6px 0 6px">${esc(r.qrText)}</p>
+        <button class="btn ghost sm" onclick="copyQR()">원문 복사</button></details>`:''}
       <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket(scanMode)">다시 찍기</button>
     </div>
   </div>`;
