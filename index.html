@@ -807,22 +807,27 @@ async function buyNow(){ await dbAddPurchase(); toast('구매 기록 완료'); r
 
 /* ---- 용지 QR 스캔 → 번호 자동 기입 ---- */
 let scanResult=null;   // {round, games:[[6]], raw}
-// 동행복권 종이 용지 QR 표준 파서 (실물로 캘리브레이션 예정)
+// 동행복권 종이 용지 QR 파서 — 실물 1240회 원문 기준 확정
+//  형식: v=<회차>s<A게임>s<B>m<C>s<D>s<E><일련번호…>  (s=자동/m=수동, 회차·게임은 별도 구간)
+//  각 게임 = 구간의 '앞 12자리'(6번호×2, 오름차순). 마지막 구간 뒤의 일련번호는 앞12만 취해 무시.
 function parseTicketQR(text){
   const vm=String(text).match(/[?&]v=([^&\s]+)/);
   const v=(vm?vm[1]:String(text)).trim();
   const round=parseInt((v.match(/\d{4}/)||[])[0],10)||null;   // 앞 4자리 = 회차
-  // 'q' 등으로 구간 분리 → 각 구간에서 12자리(6번호×2) 게임을 '전부' 추출.
-  //  앞의 회차·방식표기 등 잉여는 12의 배수가 되도록 앞에서 잘라 무시.
-  //  한 구간에 게임이 여러 개 붙어 있어도 12자리씩 끊어 모두 인식(누락 방지).
-  const games=[];
+  const roundStr=round?String(round):'';
   const asGame=s=>{ if(!/^\d{12}$/.test(s))return null;
     const ns=[]; for(let i=0;i<12;i+=2) ns.push(parseInt(s.slice(i,i+2),10));
-    return (ns.every(n=>n>=1&&n<=45)&&new Set(ns).size===6)?ns:null; };
+    if(!ns.every(n=>n>=1&&n<=45)||new Set(ns).size!==6) return null;
+    for(let i=1;i<6;i++) if(ns[i]<=ns[i-1]) return null;      // 용지는 오름차순 인쇄 → 오름차순만 채택
+    return ns; };
+  // 구간을 앞에서부터 12자리씩 끊어 유효 게임을 채집(뒤 일련번호·병합 모두 안전)
+  const chunk=str=>{ const out=[]; for(let i=0;i+12<=str.length;i+=12){ const g=asGame(str.slice(i,i+12)); if(g) out.push(g); } return out; };
+  const games=[];
   v.split(/[^0-9]+/).forEach(seg=>{
     if(seg.length<12) return;
-    let s=seg; const rem=s.length%12; if(rem) s=s.slice(rem);   // 앞쪽 잉여 제거
-    for(let i=0;i+12<=s.length;i+=12){ const g=asGame(s.slice(i,i+12)); if(g) games.push(g); }
+    let gs=chunk(seg);
+    if(!gs.length && roundStr && seg.startsWith(roundStr)) gs=chunk(seg.slice(roundStr.length)); // 회차가 게임 앞에 붙은 변형
+    games.push(...gs);
   });
   return {round,games,raw:v};
 }
