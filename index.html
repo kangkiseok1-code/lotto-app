@@ -237,7 +237,10 @@ function monthData(y,m){
 }
 
 /* ============ 번호 추천 ============ */
-let recOpts={carry:false, consec:false, sameTail:false, recentN:0, oddEven:'auto'};
+let recOpts={carry:false, consec:false, sameTail:false, recentN:0, oddEven:'auto', murphy:false};
+// 머피의 법칙 패턴: 내가 산 번호는 안 나온다 → 스캔한 티켓 번호를 추천에서 제외
+let murphyExclude=(()=>{try{return JSON.parse(localStorage.getItem('lotto_demo_murphy')||'[]');}catch(e){return [];}})();
+function saveMurphy(){try{localStorage.setItem('lotto_demo_murphy',JSON.stringify(murphyExclude));}catch(e){}}
 let recentDraws=[];   // 최근 회차 draw 객체(최신순)
 async function loadRecentDraws(k){
   recentDraws=[]; if(!latestDraw) return;
@@ -264,19 +267,20 @@ function recommend(y,m,nonce){
   const rng=mulberry32(seedFrom((user?user.id:'demo')+':'+y+':'+m+':'+nonce+':'+JSON.stringify(recOpts)));
   const pick=(pool)=>{ if(!pool||!pool.length)return null; const tot=pool.reduce((a,n)=>a+W[n],0); let r=rng()*tot,i=0; while(i<pool.length-1&&r>W[pool[i]]){r-=W[pool[i]];i++;} return pool[i]; };
   const oe = recOpts.oddEven==='3:3'?[3,3]:recOpts.oddEven==='4:2'?[4,2]:recOpts.oddEven==='2:4'?[2,4]:null; // [짝,홀]
-  const carryPool=latestDraw?latestDraw.numbers:[];
-  const nrPool=recentNonRepeat();
+  const excl = (recOpts.murphy && murphyExclude.length) ? new Set(murphyExclude) : new Set(); // 머피: 산 번호 제외
+  const carryPool=(latestDraw?latestDraw.numbers:[]).filter(n=>!excl.has(n));
+  const nrPool=recentNonRepeat().filter(n=>!excl.has(n));
   function attempt(){
-    const set=new Set(); const add=n=>{ if(n!=null&&!set.has(n)&&set.size<6) set.add(n); };
+    const set=new Set(); const add=n=>{ if(n!=null&&!set.has(n)&&!excl.has(n)&&set.size<6) set.add(n); };
     if(recOpts.carry){ add(pick(carryPool.filter(n=>!set.has(n)))); }
     if(recOpts.recentN>0){ let p=nrPool.filter(n=>!set.has(n)); let c=recOpts.recentN; while(c-->0&&p.length){const n=pick(p); add(n); p=p.filter(x=>x!==n);} }
-    if(recOpts.consec){ let cand=[]; for(let b=1;b<=44;b++) if(!set.has(b)&&!set.has(b+1)) cand.push(b);
+    if(recOpts.consec){ let cand=[]; for(let b=1;b<=44;b++) if(!set.has(b)&&!set.has(b+1)&&!excl.has(b)&&!excl.has(b+1)) cand.push(b);
       if(cand.length){ const tot=cand.reduce((a,b)=>a+W[b]+W[b+1],0); let r=rng()*tot,i=0; while(i<cand.length-1&&r>W[cand[i]]+W[cand[i]+1]){r-=W[cand[i]]+W[cand[i]+1];i++;} add(cand[i]); add(cand[i]+1); } }
-    if(recOpts.sameTail){ const dg=Math.floor(rng()*10); let p=[]; for(let n=1;n<=45;n++) if(n%10===dg&&!set.has(n)) p.push(n);
+    if(recOpts.sameTail){ const dg=Math.floor(rng()*10); let p=[]; for(let n=1;n<=45;n++) if(n%10===dg&&!set.has(n)&&!excl.has(n)) p.push(n);
       for(let k=0;k<2&&p.length;k++){ const n=pick(p); add(n); p=p.filter(x=>x!==n); } }
     let guard=0;
     while(set.size<6 && guard++<300){
-      let pool=[]; for(let n=1;n<=45;n++) if(!set.has(n)) pool.push(n);
+      let pool=[]; for(let n=1;n<=45;n++) if(!set.has(n)&&!excl.has(n)) pool.push(n);
       if(oe){ const arr=[...set],ev=arr.filter(isEven).length,od=arr.length-ev;
         if(ev>=oe[0]) pool=pool.filter(n=>!isEven(n)); else if(od>=oe[1]) pool=pool.filter(isEven); }
       const n=pick(pool); if(n==null)break; add(n);
@@ -306,6 +310,7 @@ function recStatus(nums){
   if(recOpts.consec) st.push({label:'연속 쌍', ok:hasConsec(a)});
   if(recOpts.sameTail) st.push({label:'같은 뒷자리 쌍', ok:sameTailPair(a)});
   if(recOpts.oddEven!=='auto'){ const ev=a.filter(isEven).length; st.push({label:`짝:홀 ${recOpts.oddEven}`, ok:`${ev}:${6-ev}`===recOpts.oddEven}); }
+  if(recOpts.murphy && murphyExclude.length){ const ex=new Set(murphyExclude); st.push({label:'머피 제외', ok:a.every(n=>!ex.has(n))}); }
   return st;
 }
 
@@ -757,6 +762,19 @@ function viewRec(){
     <div class="row" style="flex-wrap:wrap;gap:6px">${oe('auto','자동')}${oe('3:3','3:3')}${oe('4:2','4:2')}${oe('2:4','2:4')}</div>
     <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호’는 지난 회차에서 1개만 채택(2개 이상 중복될 확률이 낮다는 판단), ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
   </div>
+  <div class="section on card">
+    <h3 style="margin:0 0 2px;font-size:16px">🙃 머피의 법칙 <span class="muted" style="font-weight:400;font-size:12px">· 내가 산 번호는 안 나온다</span></h3>
+    <p class="muted" style="font-size:12px;margin:6px 0 10px">5천원(5줄) 한 장을 사서 스캔하면, 그 번호를 추천에서 <b>제외</b>하고 나머지에서 뽑아요.</p>
+    ${murphyExclude.length?`
+    <div class="row" style="align-items:center;gap:8px">
+      <button class="btn sm ${recOpts.murphy?'':'ghost'}" onclick="toggleRecOpt('murphy')">${recOpts.murphy?'제외 켜짐':'제외 꺼짐'}</button>
+      <span class="muted" style="font-size:12px;flex:1">${murphyExclude.length}개 제외 중 · 남은 ${45-murphyExclude.length}개에서 추천</span>
+      <button class="btn ghost sm" onclick="clearMurphy()">지우기</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">${murphyExclude.map(n=>`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('')}</div>
+    <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket('murphy')">📷 다른 용지로 다시 스캔</button>`
+    :`<button class="btn wide" onclick="scanTicket('murphy')">📷 산 용지 스캔 → 번호 제외</button>`}
+  </div>
   ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 나만의 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
 }
@@ -913,7 +931,8 @@ function fallbackCopy(t,done){
     const sel=getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
   try{ document.execCommand('copy'); done(); }catch(e){ toast('복사 실패 — 원문을 길게 눌러 복사하세요'); }
 }
-function scanTicket(){ if(!window.jsQR){toast('QR 모듈 로드 실패');return;} const el=document.getElementById('qrFile'); el.value=''; el.click(); }
+let scanPurpose='ticket';   // 'ticket'=구매 저장 / 'murphy'=산 번호 제외 설정
+function scanTicket(purpose){ scanPurpose=purpose||'ticket'; if(!window.jsQR){toast('QR 모듈 로드 실패');return;} const el=document.getElementById('qrFile'); el.value=''; el.click(); }
 function handleQRFile(input){
   const f=input.files&&input.files[0]; if(!f)return;
   const img=new Image();
@@ -953,7 +972,7 @@ function scanShell(inner,title){
       ${r&&r.qrText?`<details style="margin-top:14px" open><summary class="muted" style="font-size:12px;cursor:pointer">QR 원문 보기(파서 조정용) · ${r.games?r.games.length:0}줄 인식</summary>
         <p id="qrRaw" style="font-size:11px;word-break:break-all;color:var(--sub);margin:6px 0 6px">${esc(r.qrText)}</p>
         <button class="btn ghost sm" onclick="copyQR()">원문 복사</button></details>`:''}
-      <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket()">다시 찍기</button>
+      <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket(scanPurpose)">다시 찍기</button>
     </div>
   </div>`;
 }
@@ -961,6 +980,16 @@ function renderScanConfirm(){
   const r=scanResult;
   if(r.error){ $('#body').innerHTML=scanShell(`<p style="color:var(--hwa);font-size:13px">${esc(r.error)}</p>`); return; }
   if(!r.games||!r.games.length){ $('#body').innerHTML=scanShell(`<p style="color:var(--hwa);font-size:13px">번호를 해석하지 못했어요. 아래 QR 원문을 참고해 파서를 조정할게요.</p>`); return; }
+  if(scanPurpose==='murphy'){
+    const uniq=[...new Set(r.games.flat())].sort((a,b)=>a-b);
+    const chips=uniq.map(n=>`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('');
+    const body=`<p style="font-size:13px;margin:0 0 8px">🙃 <b>머피의 법칙</b> — 이 <b>${uniq.length}개</b> 번호를 추천에서 제외할게요.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 4px">${chips}</div>
+      <p class="muted" style="font-size:11.5px;margin:6px 0 0">남는 ${45-uniq.length}개 중에서 추천합니다.${45-uniq.length<6?' <span style="color:var(--hwa)">제외가 너무 많아 6개를 다 못 뽑을 수 있어요.</span>':''}</p>
+      <button class="btn wide" style="margin-top:12px" onclick="applyMurphy()">이 번호들 추천에서 제외</button>`;
+    $('#body').innerHTML=scanShell(body,'📷 머피의 법칙 — 제외 번호');
+    return;
+  }
   const draw=r.round?draws[r.round]:null;
   const anyWin=draw&&r.games.some(g=>rankOf(g,draw)>0);
   const head=`<p style="font-size:13px;margin:0 0 8px">${r.round?`<b>${r.round}회</b> · `:''}${r.games.length}게임 인식${draw?(anyWin?' · <span style="color:#b23a26;font-weight:700">🎉 당첨 포함!</span>':' · 낙첨'):(r.round?' · 추첨 대기':'')}</p>`;
@@ -977,6 +1006,13 @@ async function saveScanned(){
   await autoCheckWins();
   toast(`${r.games.length}게임 저장 · 당첨 자동확인`); scanResult=null; tab='lotto'; renderTab();
 }
+function applyMurphy(){
+  const r=scanResult; if(!r||!r.games||!r.games.length)return;
+  murphyExclude=[...new Set(r.games.flat())].filter(n=>n>=1&&n<=45).sort((a,b)=>a-b);
+  recOpts.murphy=true; saveMurphy();
+  toast(`${murphyExclude.length}개 제외 · 머피의 법칙 켜짐`); scanResult=null; tab='rec'; renderTab();
+}
+function clearMurphy(){ murphyExclude=[]; recOpts.murphy=false; saveMurphy(); renderTab(); }
 // 구매 패턴 분석 (요일·시간·재물발복점수·특이일 vs 당첨)
 function analyzePurchases(){
   const cache={}; const md=(y,m)=>cache[y+'-'+m]||(cache[y+'-'+m]=monthData(y,m));
