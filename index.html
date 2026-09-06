@@ -762,9 +762,10 @@ function viewRec(){
     <div class="row" style="flex-wrap:wrap;gap:6px">${oe('auto','자동')}${oe('3:3','3:3')}${oe('4:2','4:2')}${oe('2:4','2:4')}</div>
     <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호’는 지난 회차에서 1개만 채택(2개 이상 중복될 확률이 낮다는 판단), ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
   </div>
+  ${(()=>{ const mc=latestUnconfirmedTicket(); return `
   <div class="section on card">
     <h3 style="margin:0 0 2px;font-size:16px">🙃 머피의 법칙 <span class="muted" style="font-weight:400;font-size:12px">· 내가 산 번호는 안 나온다</span></h3>
-    <p class="muted" style="font-size:12px;margin:6px 0 10px">5천원(5줄) 한 장을 사서 스캔하면, 그 번호를 추천에서 <b>제외</b>하고 나머지에서 뽑아요.</p>
+    <p class="muted" style="font-size:12px;margin:6px 0 10px">구매하고 담아둔 티켓의 번호를 추천에서 <b>제외</b>하고 나머지에서 뽑아요. (두 번 찍을 필요 없이 내 로또에서 불러오기)</p>
     ${murphyExclude.length?`
     <div class="row" style="align-items:center;gap:8px">
       <button class="btn sm ${recOpts.murphy?'':'ghost'}" onclick="toggleRecOpt('murphy')">${recOpts.murphy?'제외 켜짐':'제외 꺼짐'}</button>
@@ -772,9 +773,15 @@ function viewRec(){
       <button class="btn ghost sm" onclick="clearMurphy()">지우기</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">${murphyExclude.map(n=>`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('')}</div>
-    <button class="btn ghost wide" style="margin-top:10px" onclick="scanTicket('murphy')">📷 다른 용지로 다시 스캔</button>`
-    :`<button class="btn wide" onclick="scanTicket('murphy')">📷 산 용지 스캔 → 번호 제외</button>`}
-  </div>
+    <div class="row" style="gap:8px;margin-top:10px">
+      ${mc?`<button class="btn ghost sm" style="flex:1" onclick="importMurphyFromLatest()">📥 최신 티켓 다시 불러오기</button>`:''}
+      <button class="btn ghost sm" style="flex:1" onclick="scanTicket('murphy')">📷 용지 스캔</button>
+    </div>`
+    :(mc?`<button class="btn wide" onclick="importMurphyFromLatest()">📥 구매한 최신 티켓 불러오기${mc.round?` · ${mc.round}회`:''} <span style="opacity:.85">(${mc.nums.length}개)</span></button>
+      <button class="btn ghost wide" style="margin-top:8px" onclick="scanTicket('murphy')">📷 대신 용지 스캔</button>`
+    :`<p class="muted" style="font-size:12px;margin:0 0 8px">내 로또에 번호가 있는 티켓을 먼저 담아주세요 (용지 스캔).</p>
+      <button class="btn ghost wide" onclick="scanTicket('murphy')">📷 산 용지 스캔</button>`)}
+  </div>`;})()}
   ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 나만의 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
 }
@@ -1013,6 +1020,29 @@ function applyMurphy(){
   toast(`${murphyExclude.length}개 제외 · 머피의 법칙 켜짐`); scanResult=null; tab='rec'; renderTab();
 }
 function clearMurphy(){ murphyExclude=[]; recOpts.murphy=false; saveMurphy(); renderTab(); }
+// 내 로또에서 미확인(추첨 대기) 최신 티켓 찾기 — 없으면 가장 최근 티켓
+function latestUnconfirmedTicket(){
+  const order=[], groups={};
+  purchases.forEach(p=>{ const key=p.ticket||p.id; if(!groups[key]){groups[key]=[];order.push(key);} groups[key].push(p); });
+  const cands=order.map(key=>{
+    const g=groups[key];
+    const nums=[...new Set(g.filter(p=>p.numbers&&p.numbers.length).flatMap(p=>p.numbers))];
+    if(!nums.length) return null;
+    return {key, nums, state:ticketStatus(g).state, round:g[0].round||inferRound(g[0].purchased_at)||0, ord:order.indexOf(key)};
+  }).filter(Boolean);
+  if(!cands.length) return null;
+  const pending=cands.filter(c=>c.state==='wait');   // 추첨 전(미확인) 우선
+  if(pending.length) return pending.sort((a,b)=>b.round-a.round||a.ord-b.ord)[0];
+  return cands.sort((a,b)=>a.ord-b.ord)[0];          // purchases는 최신이 앞
+}
+function importMurphyFromLatest(){
+  const t=latestUnconfirmedTicket();
+  if(!t){ toast('내 로또에 번호가 있는 티켓이 없어요'); return; }
+  murphyExclude=t.nums.filter(n=>n>=1&&n<=45).sort((a,b)=>a-b);
+  recOpts.murphy=true; saveMurphy();
+  toast(`${t.round?t.round+'회 ':''}티켓 ${murphyExclude.length}개 제외 · 머피 켜짐`);
+  tab='rec'; renderTab();
+}
 // 구매 패턴 분석 (요일·시간·재물발복점수·특이일 vs 당첨)
 function analyzePurchases(){
   const cache={}; const md=(y,m)=>cache[y+'-'+m]||(cache[y+'-'+m]=monthData(y,m));
