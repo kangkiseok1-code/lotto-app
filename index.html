@@ -210,15 +210,40 @@ function buildSaju(){
   favorSet=new Set([...(d.yongsin||[]),...(d.heeshin||[]),...(d.yongheeshin||[])]);
   jaeElem=S.KE_[saju.dayMasterElem];      // 일간이 극하는 오행 = 재성
   jaeFav=favorSet.has(jaeElem);
+  _daeunPillars=null; _daeunKey=''; _sewoonCache={}; _tfCache=null; _tfKey='';   // 대운·세운 캐시 초기화
 }
-// 특정 날짜의 재물운/발복 점수
+// 대운·세운 공용 헬퍼 (달력·추천 통일)
+let _daeunPillars=null, _daeunKey='', _sewoonCache={};
+function daeunPillars(){
+  const key=(profile&&profile.birth_year)+':'+(profile&&profile.gender);
+  if(_daeunKey===key && _daeunPillars) return _daeunPillars;
+  const g=profile&&profile.gender==='M'?'male':profile&&profile.gender==='F'?'female':null;
+  let list=[];
+  if(g && saju){ try{
+    const birth={year:profile.birth_year,month:profile.birth_month,day:profile.birth_day,
+      hour:profile.birth_hour==null?0:profile.birth_hour,minute:profile.birth_minute==null?0:profile.birth_minute};
+    list=DW.daewoon(saju.pillars,birth,g,10).pillars;
+  }catch(e){} }
+  _daeunPillars=list; _daeunKey=key; return list;
+}
+function daeunPillarAt(y,m,d){
+  const list=daeunPillars(); if(!list.length) return null;
+  const age=(new Date(y,m-1,d).getTime()-new Date(profile.birth_year,(profile.birth_month||1)-1,profile.birth_day||1).getTime())/(365.2425*864e5);
+  let cur=null; list.forEach(p=>{ if(p.startAge.years<=age) cur=p; });
+  return cur?{ganIdx:cur.ganIdx,jiIdx:cur.jiIdx}:null;
+}
+function sewoonPillarAt(y){
+  if(_sewoonCache[y]) return _sewoonCache[y];
+  try{ const sw=SW.sewoon(saju.pillars,y); return _sewoonCache[y]={ganIdx:sw.ganIdx,jiIdx:sw.jiIdx}; }catch(e){ return null; }
+}
+// 특정 날짜의 재물운/발복 점수 (대운·세운·월운·일운 반영)
 function dayScore(y,m,d){
   const t=T.transitPillars(y,m,d);
   const extra=[
     {label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
     {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8},
   ];
-  const r=TL.scoreTimeline(saju.pillars,saju.deep,null,null,extra);
+  const r=TL.scoreTimeline(saju.pillars,saju.deep,daeunPillarAt(y,m,d),sewoonPillarAt(y),extra);
   const jae=r.incoming.filter(x=>x.sibsin==='재성');
   const jaeFavToday=jae.some(x=>x.favorable);
   return {score:r.yongheeScore, jaeFavToday, jaePresent:jae.length>0, jae, incoming:r.incoming,
@@ -261,23 +286,12 @@ function transitFavor(){
   const now=new Date(), y=now.getFullYear(), mo=now.getMonth()+1, d=now.getDate();
   const key=`${y}-${mo}-${d}:${profile&&profile.birth_year}`;
   if(_tfKey===key && _tfCache) return _tfCache;
-  let daewoonPillar=null, sewoonPillar=null;
-  const g=profile.gender==='M'?'male':profile.gender==='F'?'female':null;
-  if(g){ try{
-    const birth={year:profile.birth_year,month:profile.birth_month,day:profile.birth_day,
-      hour:profile.birth_hour==null?0:profile.birth_hour,minute:profile.birth_minute==null?0:profile.birth_minute};
-    const dw=DW.daewoon(saju.pillars,birth,g,8);
-    const age=(Date.now()-new Date(profile.birth_year,(profile.birth_month||1)-1,profile.birth_day||1).getTime())/(365.2425*864e5);
-    let cur=null; dw.pillars.forEach(p=>{ if(p.startAge.years<=age) cur=p; });
-    if(cur) daewoonPillar={ganIdx:cur.ganIdx,jiIdx:cur.jiIdx};
-  }catch(e){} }
-  try{ const sw=SW.sewoon(saju.pillars,y); sewoonPillar={ganIdx:sw.ganIdx,jiIdx:sw.jiIdx}; }catch(e){}
   let favor=new Set();
   try{
     const t=T.transitPillars(y,mo,d);
     const extra=[{label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
                  {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8}];
-    const r=TL.scoreTimeline(saju.pillars,saju.deep,daewoonPillar,sewoonPillar,extra);
+    const r=TL.scoreTimeline(saju.pillars,saju.deep,daeunPillarAt(y,mo,d),sewoonPillarAt(y),extra);
     favor=new Set(r.favorableElems||[]);
   }catch(e){}
   _tfCache=favor; _tfKey=key; return favor;
