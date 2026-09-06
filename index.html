@@ -41,7 +41,8 @@
   .muted{color:var(--sub)}
   .row{display:flex;gap:8px;align-items:center}
   input,select{font:inherit;padding:10px 11px;border:1px solid var(--line);border-radius:10px;
-    background:#fff;color:var(--ink);width:100%}
+    background:#fff;color:var(--ink);width:100%;max-width:100%;min-width:0}
+  input[type=datetime-local]{-webkit-appearance:none;appearance:none}
   label.f{display:block;font-size:12px;color:var(--sub);margin:0 0 4px 2px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -807,15 +808,13 @@ function viewLotto(){
     }).join('');
     const winStyle=st.state==='win'?'border:1px solid #e0b9ae;border-left:4px solid #b23a26':'border:1px solid var(--line)';
     return `<div class="it" style="display:block;${winStyle}">
-      <div class="tap" onclick="${multi?`editTicket('${key}')`:`editPurchase('${head.id}')`}" style="display:flex;align-items:flex-start;gap:8px">
-        <div style="flex:1">
-          <div style="margin-bottom:4px">${ticketBadge(st)}</div>
-          <div style="font-size:12.5px;color:var(--sub)">${when}${head.round?` · ${head.round}회`:''} · ${g.length}게임</div>
-        </div>
-        <div class="muted" style="font-size:15px">✎</div>
+      <div style="margin-bottom:4px">${ticketBadge(st)}</div>
+      <div style="font-size:12.5px;color:var(--sub)">${when}${head.round?` · ${head.round}회`:''} · ${g.length}게임</div>
+      <div style="display:flex;gap:8px;margin-top:11px">
+        <button class="btn ghost" onclick="toggleTicket('${key}')" style="flex:1;padding:11px;font-size:14px;font-weight:700">${open?'접기 ▴':'번호 보기 ▾'}</button>
+        <button class="btn ghost" onclick="${multi?`editTicket('${key}')`:`editPurchase('${head.id}')`}" style="padding:11px 16px;font-size:13px;color:var(--sub);border-color:var(--line)">✎ 수정</button>
       </div>
-      <div class="tap" onclick="toggleTicket('${key}')" style="margin-top:6px;font-size:12px;color:var(--gold);text-align:right">${open?'접기 ▴':'번호 보기 ▾'}</div>
-      ${open?`<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:4px">${lines}</div>`:''}
+      ${open?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:6px">${lines}</div>`:''}
     </div>`;
   }).join('')||'<p class="muted" style="font-size:13px;text-align:center">아직 기록이 없어요. 용지를 스캔해 첫 장을 담아보세요.</p>';
   const latestHtml=latestDraw?drawCard(latestDraw)+(drawSrcError?'<p class="muted" style="font-size:11px;margin:8px 0 0">⚠ 소스 연결 실패 — 저장된 값입니다. 동행복권에서 확인하세요.</p>':''):(drawSrcError?'<p class="muted" style="font-size:13px">소스 연결 실패. 새로고침하거나 동행복권에서 확인하세요.</p>':'<p class="muted" style="font-size:13px">불러오는 중…</p>');
