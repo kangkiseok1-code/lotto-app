@@ -152,7 +152,7 @@
 const SUPABASE_URL  = 'https://bbjifrxofwtkqbbyotgw.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiamlmcnhvZnd0a3FiYnlvdGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNTk3NDYsImV4cCI6MjA5ODgzNTc0Nn0.Ae4a2b5aZN0WHQf1ZlD8KQIqqwJKAU7cQ_h1RZGDilg';
 const E = window.OhaengEngine;
-const S = E.saju, T = E.transit, TL = E.timeline, TS = E.twelveStages;
+const S = E.saju, T = E.transit, TL = E.timeline, TS = E.twelveStages, DW = E.daewoon, SW = E.sewoon;
 // 로컬 모드(=이 기기 저장, 로그인 안 함)가 기본. 클라우드 로그인하면 꺼짐. afterAuth/init에서 갱신.
 let DEMO = true;
 let sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
@@ -1246,6 +1246,33 @@ async function lookupRound(){
   document.getElementById('lookupBox').innerHTML=d?drawCard(d):'<p class="muted" style="font-size:13px">해당 회차를 찾지 못했어요.</p>';
 }
 
+/* ---- 나: 대운·세운 ---- */
+function daewoonSewoonHtml(){
+  const g = profile.gender==='M'?'male':profile.gender==='F'?'female':null;
+  if(!g) return `<div class="prof-sub" style="margin-top:16px">대운 · 세운</div>
+    <p class="muted" style="font-size:12px;margin:4px 0 0">성별을 입력하면 대운·세운을 계산해 보여드려요. (위 ‘사주 수정’에서 성별 선택)</p>`;
+  const birth={year:profile.birth_year,month:profile.birth_month,day:profile.birth_day,
+    hour:profile.birth_hour==null?0:profile.birth_hour,minute:profile.birth_minute==null?0:profile.birth_minute};
+  let dw; try{ dw=DW.daewoon(saju.pillars, birth, g, 8); }catch(e){ return ''; }
+  const nowY=new Date().getFullYear();
+  const age=(Date.now()-new Date(profile.birth_year,(profile.birth_month||1)-1,profile.birth_day||1).getTime())/(365.2425*864e5);
+  let curIdx=-1; dw.pillars.forEach((pp,i)=>{ if(pp.startAge.years<=age) curIdx=i; });
+  const cell=(pp,i)=>{ const el=S.GAN_ELEM[pp.ganIdx], jel=S.JI_ELEM[pp.jiIdx], fav=favorSet.has(el)||favorSet.has(jel), cur=i===curIdx;
+    return `<div style="flex:0 0 auto;text-align:center;padding:6px 8px;border-radius:10px;border:${cur?'2px solid var(--gold)':'1px solid var(--line)'};background:${cur?'#faf6ec':'#fff'};min-width:50px">
+      <div style="font-size:10px;color:var(--sub)">${pp.startAge.years}세</div>
+      <div style="font-weight:700;font-size:15px;color:${EL_COL[el]}">${pp.gan}${pp.ji}</div>
+      <div style="font-size:9.5px;color:var(--sub)">${el}·${jel}${fav?' <span style="color:var(--gold)">★</span>':''}</div>
+    </div>`; };
+  const sw=SW.sewoon(saju.pillars, nowY);
+  const sEl=S.GAN_ELEM[sw.ganIdx], sJel=S.JI_ELEM[sw.jiIdx], sFav=favorSet.has(sEl)||favorSet.has(sJel);
+  const cur=curIdx>=0?dw.pillars[curIdx]:null;
+  return `<div class="prof-sub" style="margin-top:16px">대운 흐름 <span class="muted" style="font-weight:400;font-size:11px">· ${dw.direction} · ★=용희신 기운</span></div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px">${dw.pillars.map(cell).join('')}</div>
+    ${cur?`<p class="muted" style="font-size:12px;margin:2px 0 0">현재 대운 <b style="color:${EL_COL[S.GAN_ELEM[cur.ganIdx]]}">${cur.gan}${cur.ji}</b> (${cur.startAge.years}세~${cur.startAge.years+10}세)</p>`:`<p class="muted" style="font-size:12px;margin:2px 0 0">아직 첫 대운 전이에요.</p>`}
+    <div class="prof-sub" style="margin-top:14px">올해 세운 (${nowY}년)</div>
+    <div style="font-size:15px;margin-top:4px;font-weight:700;color:${EL_COL[sEl]}">${sw.gan}${sw.ji} <span style="font-weight:400;font-size:12px;color:var(--sub)">· ${sEl}·${sJel}</span>${sFav?' <span class="pill">용희신 기운</span>':''}</div>
+    <p class="muted" style="font-size:11px;margin:8px 0 0">대운=10년 흐름, 세운=올해 기운. ★·용희신 표시는 내 원국에 도움 되는 오행이 들어온다는 뜻이에요.</p>`;
+}
 /* ---- 나 ---- */
 function viewMe(){
   const p=saju.pillars, d=saju.deep, dayGan=p.day.gan;
@@ -1265,6 +1292,7 @@ function viewMe(){
       <div>희신 · ${(d.heeshin||[]).join(' / ')||'—'}</div>
       <div>재성(재물) 오행 · <b style="color:${EL_COL[jaeElem]}">${jaeElem}</b> ${jaeFav?'<span class="pill">길신</span>':'<span class="muted" style="font-size:11px">신약이라 부조 우선</span>'}</div>
     </div>
+    ${daewoonSewoonHtml()}
     <div class="row" style="margin-top:14px">
       <button class="btn ghost sm" onclick="renderProfileForm()">사주 수정</button>
       ${user?'<button class="btn ghost sm" onclick="logout()">로그아웃</button>':'<button class="btn ghost sm" onclick="renderLogin()">클라우드 로그인</button>'}
