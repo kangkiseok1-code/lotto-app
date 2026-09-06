@@ -770,9 +770,13 @@ function viewRec(){
     <div class="row" style="align-items:center;gap:8px">
       <button class="btn sm ${recOpts.murphy?'':'ghost'}" onclick="toggleRecOpt('murphy')">${recOpts.murphy?'제외 켜짐':'제외 꺼짐'}</button>
       <span class="muted" style="font-size:12px;flex:1">${murphyExclude.length}개 제외 중 · 남은 ${45-murphyExclude.length}개에서 추천</span>
-      <button class="btn ghost sm" onclick="clearMurphy()">지우기</button>
+      <button class="btn ${murphyEditMode?'':'ghost'} sm" onclick="toggleMurphyEdit()">${murphyEditMode?'완료':'지우기'}</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">${murphyExclude.map(n=>`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('')}</div>
+    ${murphyEditMode?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:#c0392b">숫자를 누르면 하나씩 제거돼요.</p>`:''}
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${murphyExclude.map(n=>murphyEditMode
+      ?`<button class="chip" onclick="removeMurphyNum(${n})" style="background:#fdf3f2;color:#c0392b;border:1px solid #e6b9ae;cursor:pointer">${n} ✕</button>`
+      :`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('')}</div>
+    ${murphyEditMode?`<button class="btn ghost sm" style="margin-top:10px" onclick="clearMurphy()">모두 지우기</button>`:''}
     <div class="row" style="gap:8px;margin-top:10px">
       ${mc?`<button class="btn ghost sm" style="flex:1" onclick="importMurphyFromLatest()">📥 최신 티켓 다시 불러오기</button>`:''}
       <button class="btn ghost sm" style="flex:1" onclick="scanTicket('murphy')">📷 용지 스캔</button>
@@ -1019,7 +1023,14 @@ function applyMurphy(){
   recOpts.murphy=true; saveMurphy();
   toast(`${murphyExclude.length}개 제외 · 머피의 법칙 켜짐`); scanResult=null; tab='rec'; renderTab();
 }
-function clearMurphy(){ murphyExclude=[]; recOpts.murphy=false; saveMurphy(); renderTab(); }
+function clearMurphy(){ murphyExclude=[]; recOpts.murphy=false; murphyEditMode=false; saveMurphy(); renderTab(); }
+let murphyEditMode=false;
+function toggleMurphyEdit(){ murphyEditMode=!murphyEditMode; renderTab(); }
+function removeMurphyNum(n){
+  murphyExclude=murphyExclude.filter(x=>x!==n); saveMurphy();
+  if(!murphyExclude.length){ recOpts.murphy=false; murphyEditMode=false; }
+  renderTab();
+}
 // 내 로또에서 미확인(추첨 대기) 최신 티켓 찾기 — 없으면 가장 최근 티켓
 function latestUnconfirmedTicket(){
   const order=[], groups={};
