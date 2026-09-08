@@ -900,34 +900,56 @@ function ticketBadge(st){
   if(st.state==='wait') return `<span class="muted" style="font-size:12px">추첨 대기</span>`;
   return `<span class="muted" style="font-size:12px">번호 없음</span>`;
 }
+const shortMoney=n=>n>=1e8?`${(n/1e8).toFixed(1)}억`:n>=1e4?`${Math.round(n/1e4)}만원`:`${n.toLocaleString()}원`;
+let lottoFilter='all';
+function setLottoFilter(f){ lottoFilter=f; renderTab(); }
 function viewLotto(){
   // 한 장(티켓) 단위로 묶기
   const order=[], groups={};
   purchases.forEach(p=>{ const key=p.ticket||p.id; if(!groups[key]){groups[key]=[];order.push(key);} groups[key].push(p); });
-  const list=order.map(key=>{
+  const tickets=order.map(key=>{
     const g=groups[key].slice().sort((a,b)=>(a.line||0)-(b.line||0));
-    const head=g[0], multi=g.length>1, open=expandedTickets.has(key);
-    const when=head.purchased_at?fmtDate(head.purchased_at):`<span style="color:var(--gold)">날짜 미입력 · 눌러서 입력</span>`;
-    const st=ticketStatus(g);
+    return {key, g, head:g[0], multi:g.length>1, st:ticketStatus(g), noDate:!g[0].purchased_at};
+  });
+  const cnt={all:tickets.length, win:tickets.filter(t=>t.st.state==='win').length,
+             wait:tickets.filter(t=>t.st.state==='wait').length, nodate:tickets.filter(t=>t.noDate).length};
+  const match=t=>lottoFilter==='all'||(lottoFilter==='win'&&t.st.state==='win')||(lottoFilter==='wait'&&t.st.state==='wait')||(lottoFilter==='nodate'&&t.noDate);
+  // 상태별 색: 당첨=적, 대기=청, 낙첨/번호없음=회
+  const COL={win:'#b23a26',wait:'#378add',lose:'#cdc3ab',nonum:'#cdc3ab'};
+  const LABC={win:'#b23a26',wait:'#185fa5',lose:'#3a352c',nonum:'#b4b2a9'};
+  const LAB={win:'',wait:'추첨대기',lose:'낙첨',nonum:'번호없음'};
+  const rows=tickets.filter(match).map(t=>{
+    const {key,g,head,multi,st,noDate}=t, open=expandedTickets.has(key);
+    const label=st.state==='win'?`${st.bestRank}등<br><span style="font-weight:600">당첨</span>`:LAB[st.state];
+    const meta=`${head.round?`${head.round}회`:'회차 미상'} · ${g.length}게임`;
+    const dateHtml=noDate?`<span style="color:var(--gold);font-weight:600">날짜 미입력</span><span style="color:#b4b2a9"> · ${meta}</span>`
+                         :`${fmtDate(head.purchased_at)}<span style="color:#b4b2a9"> · ${meta}</span>`;
+    const right=st.state==='win'?`<span style="font-size:12px;font-weight:800;color:#8a6d16">${shortMoney(st.prize)}</span>`:'';
     const lines=g.map((p,i)=>{
-      const label=multi?String.fromCharCode(65+i):'•';
-      if(!p.numbers||!p.numbers.length) return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;${i?'border-top:1px solid #f0e9d8':''}"><span style="color:var(--sub);width:14px">${label}</span><span class="muted">번호 없음</span></div>`;
+      const ll=multi?String.fromCharCode(65+i):'•';
+      if(!p.numbers||!p.numbers.length) return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;${i?'border-top:1px solid #f7f2e6':''}"><span style="color:var(--sub);width:14px">${ll}</span><span class="muted">번호 없음</span></div>`;
       const round=p.round||inferRound(p.purchased_at); const d=round?draws[round]:null; const rk=d?rankOf(p.numbers,d):0;
       const nums=p.numbers.map(n=>{ const hit=d&&d.numbers.includes(n), bo=d&&n===d.bonus_no;
         return `<span style="${hit?'color:var(--gold);font-weight:700':bo?'color:var(--su);font-weight:700':'color:#3a352c'}">${n}</span>`; }).join(' · ');
-      return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;align-items:center;${i?'border-top:1px solid #f0e9d8':''}"><span style="color:var(--sub);width:14px">${label}</span><span style="flex:1">${nums}</span>${rk>0?`<span class="winbadge" style="font-size:10.5px;padding:1px 7px">${rk}등</span>`:''}</div>`;
+      return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;align-items:center;${i?'border-top:1px solid #f7f2e6':''}"><span style="color:var(--sub);width:14px">${ll}</span><span style="flex:1;letter-spacing:.3px">${nums}</span>${rk>0?`<span class="winbadge" style="font-size:10.5px;padding:1px 7px">${rk}등</span>`:''}</div>`;
     }).join('');
-    const winStyle=st.state==='win'?'border:1px solid #e0b9ae;border-left:4px solid #b23a26':'border:1px solid var(--line)';
-    return `<div class="it" style="display:block;${winStyle}">
-      <div style="margin-bottom:4px">${ticketBadge(st)}</div>
-      <div style="font-size:12.5px;color:var(--sub)">${when}${head.round?` · ${head.round}회`:''} · ${g.length}게임</div>
-      <div style="display:flex;gap:8px;margin-top:11px">
-        <button class="btn ghost" onclick="toggleTicket('${key}')" style="flex:1;padding:11px;font-size:14px;font-weight:700">${open?'접기 ▴':'번호 보기 ▾'}</button>
-        <button class="btn ghost" onclick="${multi?`editTicket('${key}')`:`editPurchase('${head.id}')`}" style="padding:11px 16px;font-size:13px;color:var(--sub);border-color:var(--line)">✎ 수정</button>
+    return `<div style="background:#fff;border:1px solid #e7ddc7;border-left:4px solid ${COL[st.state]};border-radius:10px;margin-bottom:7px;overflow:hidden">
+      <div onclick="toggleTicket('${key}')" style="display:flex;align-items:center;gap:10px;padding:12px;cursor:pointer">
+        <span style="width:52px;flex-shrink:0;font-size:11px;font-weight:700;color:${LABC[st.state]};line-height:1.15">${label}</span>
+        <span style="flex:1;font-size:13px;color:#3a352c;min-width:0">${dateHtml}</span>
+        ${right}
+        <span style="color:#c9bfa6;font-size:15px;flex-shrink:0;transition:transform .15s;${open?'transform:rotate(90deg)':''}">›</span>
       </div>
-      ${open?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:6px">${lines}</div>`:''}
+      ${open?`<div style="border-top:1px solid #f0e9d8;padding:4px 12px 10px">${lines}
+        <div style="text-align:right;margin-top:8px"><button class="btn ghost" onclick="${multi?`editTicket('${key}')`:`editPurchase('${head.id}')`}" style="padding:6px 14px;font-size:12.5px;color:var(--sub);border-color:var(--line)">✎ 수정</button></div>
+      </div>`:''}
     </div>`;
-  }).join('')||'<p class="muted" style="font-size:13px;text-align:center">아직 기록이 없어요. 용지를 스캔해 첫 장을 담아보세요.</p>';
+  }).join('');
+  const chip=(f,label,n)=>`<span onclick="setLottoFilter('${f}')" style="cursor:pointer;font-size:11.5px;font-weight:${lottoFilter===f?'700':'400'};background:${lottoFilter===f?'#3a352c':'#fff'};color:${lottoFilter===f?'#fff':'#5f5e5a'};border:1px solid ${lottoFilter===f?'#3a352c':'#e7ddc7'};border-radius:20px;padding:4px 12px">${label} ${n}</span>`;
+  const summary=tickets.length?`<div style="display:flex;align-items:center;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:#3a352c">전체 ${cnt.all}장</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--sub)">당첨 ${cnt.win} · 대기 ${cnt.wait}</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${chip('all','전체',cnt.all)}${chip('win','당첨',cnt.win)}${chip('wait','대기',cnt.wait)}${chip('nodate','미입력',cnt.nodate)}</div>`:'';
+  const list=tickets.length?(summary+(rows||'<p class="muted" style="font-size:12.5px;text-align:center;padding:8px 0">이 조건에 해당하는 티켓이 없어요.</p>'))
+    :'<p class="muted" style="font-size:13px;text-align:center">아직 기록이 없어요. 용지를 스캔해 첫 장을 담아보세요.</p>';
   const latestHtml=latestDraw?drawCard(latestDraw)+(drawSrcError?'<p class="muted" style="font-size:11px;margin:8px 0 0">⚠ 소스 연결 실패 — 저장된 값입니다. 동행복권에서 확인하세요.</p>':''):(drawSrcError?'<p class="muted" style="font-size:13px">소스 연결 실패. 새로고침하거나 동행복권에서 확인하세요.</p>':'<p class="muted" style="font-size:13px">불러오는 중…</p>');
   return `<div class="section on card" style="text-align:center">
     <h2 style="margin:0 0 4px">내 로또</h2>
