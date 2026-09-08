@@ -263,6 +263,7 @@ function monthData(y,m){
 
 /* ============ 번호 추천 ============ */
 let recOpts={carry:false, consec:false, sameTail:false, recentN:0, oddEven:'auto', murphy:false,
+             saju:(()=>{try{return localStorage.getItem('lotto_saju_on')!=='0';}catch(e){return true;}})(),   // 기본 켜짐
              pastWin:(()=>{try{return localStorage.getItem('lotto_pastwin_on')==='1';}catch(e){return false;}})()};
 // 머피의 법칙 패턴: 내가 산 번호는 안 나온다 → 스캔한 티켓 번호를 추천에서 제외
 let murphyExclude=(()=>{try{return JSON.parse(localStorage.getItem('lotto_demo_murphy')||'[]');}catch(e){return [];}})();
@@ -298,11 +299,12 @@ function transitFavor(){
   _tfCache=favor; _tfKey=key; return favor;
 }
 function baseWeights(){
-  const tf=transitFavor();   // 대운·세운·월운·일운(오늘 기운) 유리 오행
+  const useSaju=recOpts.saju!==false;          // 사주 반영 on/off
+  const tf=useSaju?transitFavor():new Set();    // 대운·세운·월운·일운(오늘 기운) 유리 오행
   const W={};
   for(let n=1;n<=45;n++){const el=hadoElem(n);let w=1;
-    if(favorSet.has(el))w*=3; if(tf.has(el))w*=1.8; if(el===jaeElem&&jaeFav)w*=1.6;
-    if(myNumbers.fate.includes(n))w*=2.5; if(myNumbers.favorite.includes(n))w*=1.8; W[n]=w;}
+    if(useSaju){ if(favorSet.has(el))w*=3; if(tf.has(el))w*=1.8; if(el===jaeElem&&jaeFav)w*=1.6; }
+    if(myNumbers.fate.includes(n))w*=2.5; if(myNumbers.favorite.includes(n))w*=1.8; W[n]=w;}  // 내 숫자는 사주와 무관하게 유지
   return W;
 }
 // 사주 기반(가중치) + 선택 패턴 제약을 만족하는 6개 생성
@@ -811,13 +813,21 @@ function viewRec(){
   const tog=(key,label)=>`<button class="btn sm ${recOpts[key]?'':'ghost'}" onclick="toggleRecOpt('${key}')">${label}</button>`;
   const cnt=(v,label)=>`<button class="btn sm ${recOpts.recentN===v?'':'ghost'}" onclick="setRecentN(${v})">${label}</button>`;
   const oe=(v,label)=>`<button class="btn sm ${recOpts.oddEven===v?'':'ghost'}" onclick="setOddEven('${v}')">${label}</button>`;
+  const sajuOn=recOpts.saju!==false;
+  const hasMyNum=myNumbers.fate.length||myNumbers.favorite.length;
+  const desc=sajuOn
+    ? `기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.`
+    : `지금은 <b>사주 미반영</b> — 기운과 무관하게 <b>무작위</b>로 뽑습니다.${hasMyNum?' 단, ‘내 숫자’ 가중치는 그대로 유지됩니다.':''} 패턴·회피 설정은 계속 적용돼요.`;
   return `<div class="section on card">
     <div class="row"><h2 style="margin:0;flex:1">${m}월 추천 (A~E 5줄)</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
-    <div style="margin:12px 0 4px">${balls}</div>
+    <div class="row" style="align-items:center;gap:8px;margin-top:8px">
+      <span style="font-size:13px;font-weight:700;color:var(--ink)">사주 반영</span>
+      <button class="btn sm ${sajuOn?'':'ghost'}" onclick="toggleSaju()">${sajuOn?'켜짐':'꺼짐'}</button>
+      <span class="muted" style="font-size:11.5px;flex:1">${sajuOn?'내 기운(용희신·대운세운·재성) 반영':'기운 무시 · 무작위 추천'}</span>
+    </div>
+    <div style="margin:10px 0 4px">${balls}</div>
     ${statusHtml}
-    <p class="muted" style="font-size:12.5px;margin-top:12px">
-      기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.
-    </p>
+    <p class="muted" style="font-size:12.5px;margin-top:12px">${desc}</p>
   </div>
   <div class="section on card">
     <h3 style="margin:0 0 2px;font-size:16px">패턴 선택 <span class="muted" style="font-weight:400;font-size:12px">· 켜면 추천에 반영</span></h3>
@@ -866,6 +876,7 @@ function viewRec(){
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
 }
 function toggleRecOpt(k){ recOpts[k]=!recOpts[k]; renderTab(); }
+function toggleSaju(){ recOpts.saju=!recOpts.saju; try{localStorage.setItem('lotto_saju_on', recOpts.saju?'1':'0');}catch(e){} renderTab(); }
 async function togglePastWin(){
   recOpts.pastWin=!recOpts.pastWin;
   try{ localStorage.setItem('lotto_pastwin_on', recOpts.pastWin?'1':'0'); }catch(e){}
