@@ -750,6 +750,13 @@ function dayDetail(y,m,d){
   const JI_ELEM=S.JI_ELEM, JI=S.JI;
   const sijin=sijinNames.map((nm,idx)=>{const el=JI_ELEM[idx];const good=favorSet.has(el);return `<div class="s${good?' good':''}">${nm}<br><span style="opacity:.7">${el}</span></div>`;}).join('');
   const bestSijin=sijinNames.map((nm,idx)=>({nm,good:favorSet.has(JI_ELEM[idx])})).filter(x=>x.good).map(x=>x.nm.split('(')[0]);
+  // 방위 오행: 동=목·남=화·서=금·북=수·중앙=토 → 용희신 방향을 유리하게 표시
+  const DIRW=[{d:'북',e:'수'},{d:'서',e:'금'},{d:'중앙',e:'토'},{d:'동',e:'목'},{d:'남',e:'화'}];
+  const favDirs=DIRW.filter(x=>favorSet.has(x.e)).map(x=>x.d);
+  const dcell=(dir)=>{ const it=DIRW.find(x=>x.d===dir), good=favorSet.has(it.e);
+    return `<div style="text-align:center;padding:9px 0;border-radius:8px;border:1px solid ${good?'var(--gold)':'var(--line)'};background:${good?'#fbf3dd':'#fff'}"><div style="font-size:12.5px;font-weight:${good?'800':'600'};color:${good?'#8a6d16':'#3a352c'}">${dir}${good?' ★':''}</div><div class="muted" style="font-size:10.5px">${it.e}</div></div>`; };
+  const sp='<span></span>';
+  const compass=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:220px;margin:10px auto 0">${sp}${dcell('북')}${sp}${dcell('서')}${dcell('중앙')}${dcell('동')}${sp}${dcell('남')}${sp}</div>`;
   const html=`<div class="section on">
     <button class="btn ghost sm" onclick="renderTab()">‹ 달력으로</button>
     <div class="card" style="margin-top:12px">
@@ -764,6 +771,9 @@ function dayDetail(y,m,d){
       <h3 style="margin:16px 0 2px;font-size:16px">추천 시간대</h3>
       <p class="muted" style="font-size:12px;margin:0">용희신(${[...favorSet].join('·')}) 기운의 시진이 재물 기운에 유리합니다${bestSijin.length?` → <b style="color:var(--mok)">${bestSijin.join(', ')}시</b>`:''}</p>
       <div class="sijin">${sijin}</div>
+      <h3 style="margin:16px 0 2px;font-size:16px">유리한 방향</h3>
+      <p class="muted" style="font-size:12px;margin:0">용희신 ${[...favorSet].join('·')} 기운의 방위가 재물 기운에 유리합니다${favDirs.length?` → <b style="color:var(--gold)">${favDirs.join('·')}쪽</b>`:''}</p>
+      ${compass}
     </div>
     <div class="card">
       <div class="row"><h3 style="margin:0;flex:1;font-size:16px">이 날의 기록</h3>
