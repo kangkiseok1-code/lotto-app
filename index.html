@@ -1172,17 +1172,20 @@ function renderScanConfirm(){
   const anyWin=draw&&r.games.some(g=>rankOf(g,draw)>0);
   const head=`<p style="font-size:13px;margin:0 0 8px">${r.round?`<b>${r.round}회</b> · `:''}${r.games.length}게임 인식${draw?(anyWin?' · <span style="color:#b23a26;font-weight:700">🎉 당첨 포함!</span>':' · 낙첨'):(r.round?' · 추첨 대기':'')}</p>`;
   const body=head+scanGamesHtml(r,draw)
+    +`<label class="f" style="margin-top:12px">구매일 <span class="muted" style="font-weight:400;font-size:11px">· 비우면 미기입으로 저장</span></label>
+      <input id="scanDate" type="date" style="width:100%">`
     +`<button class="btn wide" style="margin-top:12px" onclick="saveScanned()">이 한 장 저장</button>`
-    +`<p class="muted" style="font-size:11px;text-align:center;margin:8px 0 0">날짜는 저장 후 목록에서 눌러 입력할 수 있어요.</p>`;
+    +`<p class="muted" style="font-size:11px;text-align:center;margin:8px 0 0">저장 후 목록에서 눌러 바꿀 수도 있어요.</p>`;
   $('#body').innerHTML=scanShell(body);
 }
 function newTicketId(n){ return n>1?'t'+Date.now()+Math.random().toString(36).slice(2,6):null; }
 async function saveScanned(){
   const r=scanResult; if(!r||!r.games||!r.games.length)return;
-  const tid=newTicketId(r.games.length);   // 한 장의 여러 게임 = 같은 티켓. 날짜는 저장 안 함(나중에 수동)
-  for(let i=0;i<r.games.length;i++){ await dbAddPurchase({numbers:r.games[i], round:r.round||null, purchased_at:null, ticket:tid, line:i}); }
+  const dv=($('#scanDate')&&$('#scanDate').value)||''; const iso=dv?new Date(dv).toISOString():null;   // 비우면 미기입
+  const tid=newTicketId(r.games.length);   // 한 장의 여러 게임 = 같은 티켓
+  for(let i=0;i<r.games.length;i++){ await dbAddPurchase({numbers:r.games[i], round:r.round||null, purchased_at:iso, ticket:tid, line:i}); }
   await autoCheckWins();
-  toast(`${r.games.length}게임 저장 · 당첨 자동확인`); scanResult=null; tab='lotto'; renderTab();
+  toast(`${r.games.length}게임 저장${iso?'':' · 날짜 미기입'} · 당첨 자동확인`); scanResult=null; tab='lotto'; renderTab();
 }
 async function applyMurphy(){
   const r=scanResult; if(!r||!r.games||!r.games.length)return;
