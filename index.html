@@ -603,6 +603,7 @@ function renderLanding(){
 /* ============ 화면: 사주 입력 ============ */
 function renderProfileForm(){
   const p=profile||{};
+  if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarker=null; }   // 재렌더 시 지도 재초기화
   $('#root').innerHTML=`<div class="wrap">
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
     <div class="card">
@@ -621,10 +622,44 @@ function renderProfileForm(){
       </div>
       <label class="f" style="margin-top:10px">태어난 지역 (진태양시 보정, 선택)</label>
       <select id="city"><option value="">보정 안 함</option>${(S.CITY_GROUPS||[]).map(([g,m])=>`<optgroup label="${esc(g)}">${Object.keys(m).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</optgroup>`).join('')}</select>
+      <button type="button" class="btn ghost sm" id="birthMapBtn" style="margin-top:8px" onclick="openBirthMap()">🗺️ 지도에서 고르기</button>
+      <div id="birthMap" style="display:none;height:260px;border-radius:10px;overflow:hidden;margin-top:8px;border:1px solid var(--line)"></div>
+      <p id="birthMapLabel" class="muted" style="font-size:11.5px;margin:6px 0 0"></p>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
       <p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. ‘나’ 탭에서 <b>클라우드 로그인</b>을 켤 때만 여러 기기 동기화를 위해 Supabase에 저장됩니다(선택).</p>
     </div>
   </div>`;
+}
+/* ---- 태어난 지역 지도 선택 (Leaflet 지연 로드 · 핀→최근접 도시 스냅) ---- */
+const CITY_LNG=Object.fromEntries((S.CITY_GROUPS||[]).flatMap(([,m])=>Object.entries(m)));
+function nearestCity(lng){ let best=null,bd=1e9; for(const c in CITY_LNG){ const d=Math.abs(lng-CITY_LNG[c]); if(d<bd){bd=d;best=c;} } return best; }
+let _leafletP=null;
+function loadLeaflet(){
+  if(_leafletP) return _leafletP;
+  _leafletP=new Promise((res,rej)=>{
+    const base='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
+    const css=document.createElement('link'); css.rel='stylesheet'; css.href=base+'leaflet.min.css'; document.head.appendChild(css);
+    const s=document.createElement('script'); s.src=base+'leaflet.min.js';
+    s.onload=()=>{ L.Icon.Default.mergeOptions({iconRetinaUrl:base+'images/marker-icon-2x.png',iconUrl:base+'images/marker-icon.png',shadowUrl:base+'images/marker-shadow.png'}); res(); };
+    s.onerror=rej; document.head.appendChild(s);
+  });
+  return _leafletP;
+}
+let _birthMap=null,_birthMarker=null;
+async function openBirthMap(){
+  const box=$('#birthMap'); if(!box) return;
+  box.style.display='block'; const btn=$('#birthMapBtn'); if(btn) btn.style.display='none';
+  try{ await loadLeaflet(); }catch(e){ toast('지도를 못 불러왔어요 — 목록에서 골라주세요'); box.style.display='none'; if(btn) btn.style.display=''; return; }
+  if(_birthMap){ _birthMap.invalidateSize(); return; }
+  const cur=$('#city').value, curLng=(cur&&CITY_LNG[cur]!=null)?CITY_LNG[cur]:127.8;
+  _birthMap=L.map(box).setView([36.5,127.8],7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(_birthMap);
+  _birthMarker=L.marker([36.5,curLng],{draggable:true}).addTo(_birthMap);
+  const apply=ll=>{ const c=nearestCity(ll.lng); if(c){ $('#city').value=c; $('#birthMapLabel').innerHTML=`📍 <b>${c}</b> 인근 · 경도 ${CITY_LNG[c].toFixed(2)}°E 기준 보정`; } };
+  _birthMap.on('click',e=>{ _birthMarker.setLatLng(e.latlng); apply(e.latlng); });
+  _birthMarker.on('dragend',()=>apply(_birthMarker.getLatLng()));
+  $('#birthMapLabel').innerHTML= cur?`📍 <b>${cur}</b> 기준 (지도를 눌러 변경)`:'지도를 눌러 태어난 위치를 선택하세요.';
+  setTimeout(()=>_birthMap.invalidateSize(),120);
 }
 async function saveProfile(){
   const v=id=>$('#'+id).value.trim();
