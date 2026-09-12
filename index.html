@@ -159,6 +159,7 @@ let sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_A
 
 /* ============ 상태 ============ */
 let user=null, profile=null, saju=null, favorSet=new Set(), jaeElem=null, jaeFav=false;
+let feedbackInbox=[];   // 개발자 피드백 인박스(RLS로 개발자만 조회됨)
 let myNumbers={fate:[], favorite:[]};
 let purchases=[];
 let luckyDays=new Set();   // 'YYYY-MM-DD' 운 좋았던 날
@@ -442,6 +443,16 @@ async function dbDeleteDream(day){
   if(DEMO){localStorage.setItem(LS+'dreams',JSON.stringify(dreams));return;}
   await sb.from('lotto_dreams').delete().match({user_id:user.id,day});
 }
+// 피드백: 누구나(익명 포함) 작성, 읽기는 RLS로 개발자(로그인 이메일)만 → 클라이언트에 이메일 노출 없음
+async function dbSendFeedback(rec){
+  if(!sb) throw new Error('offline');
+  const {error}=await sb.from('feedback').insert({category:rec.category||'기타', message:rec.message, contact:rec.contact||null, user_id:user?user.id:null});
+  if(error) throw error;
+}
+async function dbLoadFeedback(){
+  if(!sb||!user) return [];   // 익명은 조회 안 함. 개발자만 RLS로 행이 보임
+  try{ const {data}=await sb.from('feedback').select('*').order('created_at',{ascending:false}); return data||[]; }catch(e){ return []; }
+}
 
 /* ============ 로또 당첨결과 (커뮤니티 소스, CORS 허용) ============ */
 const DRAW_SRC='https://smok95.github.io/lotto/results/';
@@ -542,6 +553,7 @@ async function afterAuth(){
   purchases=await dbLoadPurchases();
   luckyDays=await dbLoadLucky();
   dreams=await dbLoadDreams();
+  feedbackInbox=await dbLoadFeedback();   // 개발자 계정만 실제 행이 옴(RLS)
   await loadLatestDraw();
   if(recOpts.pastWin) await loadWinCombos();   // 켜둔 상태면 새 회차까지 자동 최신화
   await autoCheckWins();
@@ -1474,8 +1486,36 @@ function viewMe(){
     </div>
     <p class="muted" style="font-size:11.5px;margin:10px 0 0">${user?`☁ 클라우드 동기화 중${user.email?' · '+esc(user.email):''}`:'📱 이 기기에 저장 중 — 로그인하면 여러 기기에서 동기화돼요.'}</p>
     <p class="disclaimer">재물운 달력·번호는 위 용신/재성 분석을 근거로 계산됩니다.</p>
-  </div>`;
+  </div>
+  <div class="section on card">
+    <h3 style="margin:0 0 2px;font-size:16px">✉️ 개발자에게 의견 보내기</h3>
+    <p class="muted" style="font-size:12px;margin:6px 0 10px">추가·수정 아이디어나 버그를 보내주세요.${user?'':' 로그인 없이도 보낼 수 있어요.'}</p>
+    ${sb?`
+    <select id="fbCat"><option value="기능 추가">기능 추가</option><option value="수정·개선">수정·개선</option><option value="버그">버그</option><option value="기타">기타</option></select>
+    <textarea id="fbMsg" placeholder="내용을 적어주세요" style="margin-top:8px;min-height:88px"></textarea>
+    <input id="fbContact" placeholder="답장 받을 연락처(선택)" style="margin-top:8px">
+    <button class="btn wide" style="margin-top:10px" onclick="sendFeedback()">보내기</button>
+    <p class="muted" style="font-size:11px;margin:8px 0 0">보낸 내용은 개발자만 확인합니다.</p>`
+    :`<p class="muted" style="font-size:12px">인터넷에 연결되면 보낼 수 있어요.</p>`}
+  </div>
+  ${feedbackInbox.length?`<div class="section on card">
+    <div class="row"><h3 style="margin:0;flex:1;font-size:16px">📥 받은 피드백 (${feedbackInbox.length})</h3><button class="btn ghost sm" onclick="reloadFeedback()">새로고침</button></div>
+    <div class="plist" style="margin-top:8px">${feedbackInbox.map(f=>`<div class="it" style="display:block">
+      <div style="font-size:11.5px;color:var(--sub)">${new Date(f.created_at).toLocaleString('ko-KR')} · <b>${esc(f.category||'기타')}</b>${f.contact?` · ${esc(f.contact)}`:''}</div>
+      <div style="font-size:13.5px;margin-top:3px;white-space:pre-wrap">${esc(f.message||'')}</div>
+    </div>`).join('')}</div>
+  </div>`:''}`;
 }
+async function sendFeedback(){
+  const msg=($('#fbMsg')&&$('#fbMsg').value.trim())||'';
+  if(!msg){ toast('내용을 입력해주세요'); return; }
+  if(!sb){ toast('인터넷 연결이 필요해요'); return; }
+  try{
+    await dbSendFeedback({category:$('#fbCat').value, message:msg, contact:($('#fbContact')&&$('#fbContact').value.trim())||''});
+    toast('의견을 보냈어요. 감사합니다!'); $('#fbMsg').value=''; if($('#fbContact')) $('#fbContact').value='';
+  }catch(e){ toast('전송 실패 — 잠시 후 다시 시도해주세요'); }
+}
+async function reloadFeedback(){ feedbackInbox=await dbLoadFeedback(); renderTab(); }
 async function logout(){ try{ if(sb) await sb.auth.signOut(); }catch(e){} user=null; DEMO=true; toast('로그아웃 — 이 기기 저장으로 전환'); afterAuth(); }
 
 init();
