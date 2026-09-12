@@ -308,9 +308,9 @@ function baseWeights(){
   return W;
 }
 // 사주 기반(가중치) + 선택 패턴 제약을 만족하는 6개 생성
-function recommend(y,m,nonce){
+function recommend(y,m,nonce,forceNum){
   const W=baseWeights();
-  const rng=mulberry32(seedFrom((user?user.id:'demo')+':'+y+':'+m+':'+nonce+':'+JSON.stringify(recOpts)));
+  const rng=mulberry32(seedFrom((user?user.id:'demo')+':'+y+':'+m+':'+nonce+':'+(forceNum==null?'':forceNum)+':'+JSON.stringify(recOpts)));
   const pick=(pool)=>{ if(!pool||!pool.length)return null; const tot=pool.reduce((a,n)=>a+W[n],0); let r=rng()*tot,i=0; while(i<pool.length-1&&r>W[pool[i]]){r-=W[pool[i]];i++;} return pool[i]; };
   const oe = recOpts.oddEven==='3:3'?[3,3]:recOpts.oddEven==='4:2'?[4,2]:recOpts.oddEven==='2:4'?[2,4]:null; // [짝,홀]
   const excl = (recOpts.murphy && murphyExclude.length) ? new Set(murphyExclude) : new Set(); // 머피: 산 번호 제외
@@ -318,7 +318,8 @@ function recommend(y,m,nonce){
   const nrPool=recentNonRepeat().filter(n=>!excl.has(n));
   function attempt(){
     const set=new Set(); const add=n=>{ if(n!=null&&!set.has(n)&&!excl.has(n)&&set.size<6) set.add(n); };
-    if(recOpts.carry){ add(pick(carryPool.filter(n=>!set.has(n)))); }
+    if(forceNum!=null) set.add(forceNum);   // 앵커: 이 줄에 전주 번호 1개 강제 포함(제외 무시)
+    if(recOpts.carry && forceNum==null){ add(pick(carryPool.filter(n=>!set.has(n)))); }
     if(recOpts.recentN>0){ let p=nrPool.filter(n=>!set.has(n)); let c=recOpts.recentN; while(c-->0&&p.length){const n=pick(p); add(n); p=p.filter(x=>x!==n);} }
     if(recOpts.consec){ let cand=[]; for(let b=1;b<=44;b++) if(!set.has(b)&&!set.has(b+1)&&!excl.has(b)&&!excl.has(b+1)) cand.push(b);
       if(cand.length){ const tot=cand.reduce((a,b)=>a+W[b]+W[b+1],0); let r=rng()*tot,i=0; while(i<cand.length-1&&r>W[cand[i]]+W[cand[i]+1]){r-=W[cand[i]]+W[cand[i]+1];i++;} add(cand[i]); add(cand[i]+1); } }
@@ -338,7 +339,7 @@ function recommend(y,m,nonce){
     if(oe){ if(a.filter(isEven).length!==oe[0]) v++; }
     if(recOpts.consec && !hasConsec(a)) v++;
     if(recOpts.sameTail && !sameTailPair(a)) v++;
-    if(recOpts.carry && carryPool.length && !a.some(n=>carryPool.includes(n))) v++;
+    if(recOpts.carry && forceNum==null && carryPool.length && !a.some(n=>carryPool.includes(n))) v++;
     if(recOpts.recentN>0){ if(a.filter(n=>nrPool.includes(n)).length<Math.min(recOpts.recentN,nrPool.length)) v++; }
     if(recOpts.pastWin && winSubset5 && collidesPastWin(a)) v+=5;   // 역대 1등과 5개↑ 겹치면 강하게 회피
     return v;
@@ -352,7 +353,7 @@ function recommend(y,m,nonce){
 // 표시용: 현재 세트가 각 선택 패턴을 충족했는지
 function recStatus(nums){
   const a=nums.map(x=>x.n), st=[];
-  if(recOpts.carry) st.push({label:'전주 번호 포함', ok:!!(latestDraw&&a.some(n=>latestDraw.numbers.includes(n)))});
+  if(recOpts.carry) st.push({label:'전주 앵커 포함', ok:!!(latestDraw&&a.some(n=>latestDraw.numbers.includes(n)||n===latestDraw.bonus_no))});
   if(recOpts.recentN>0){ const nr=recentNonRepeat(); st.push({label:`최근5회 비중복 ${recOpts.recentN}개`, ok:a.filter(n=>nr.includes(n)).length>=Math.min(recOpts.recentN,nr.length)&&nr.length>0}); }
   if(recOpts.consec) st.push({label:'연속 쌍', ok:hasConsec(a)});
   if(recOpts.sameTail) st.push({label:'같은 뒷자리 쌍', ok:sameTailPair(a)});
@@ -844,7 +845,11 @@ async function removeDreamEntry(y,m,d){ await dbDeleteDream(dkey(y,m,d)); editDr
 /* ---- 추천 ---- */
 function viewRec(){
   const {y,m}=calView;
-  const lines=[0,1,2,3,4].map(i=>recommend(y,m,recNonce+'-'+i));
+  // 전주 번호 앵커 ON: 지난 회차 6개+보너스 = 7개 각각을 앵커로 7줄
+  const prev7=(recOpts.carry && latestDraw)?[...latestDraw.numbers, latestDraw.bonus_no]:null;
+  const lines=prev7
+    ? prev7.map((n,i)=>recommend(y,m,recNonce+'-'+i,n))
+    : [0,1,2,3,4].map(i=>recommend(y,m,recNonce+'-'+i));
   const lineHtml=(label,picks)=>`<div class="row" style="gap:8px;margin:9px 0;align-items:center">
       <span style="width:15px;font-weight:800;color:var(--sub);flex-shrink:0">${label}</span>
       <div style="display:flex;gap:6px;flex:1;justify-content:space-between">${picks.map(p=>`<div class="ball" style="width:40px;height:40px;font-size:15px;background:${EL_COL[p.el]}">${p.n}<span class="sub">${p.el}</span></div>`).join('')}</div>
@@ -864,25 +869,26 @@ function viewRec(){
     ? `기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.`
     : `지금은 <b>사주 미반영</b> — 기운과 무관하게 <b>무작위</b>로 뽑습니다.${hasMyNum?' 단, ‘내 숫자’ 가중치는 그대로 유지됩니다.':''} 패턴·회피 설정은 계속 적용돼요.`;
   return `<div class="section on card">
-    <div class="row"><h2 style="margin:0;flex:1">${m}월 추천 (A~E 5줄)</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
+    <div class="row"><h2 style="margin:0;flex:1">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
     <div class="row" style="align-items:center;gap:8px;margin-top:8px">
       <span style="font-size:13px;font-weight:700;color:var(--ink)">사주 반영</span>
       <button class="btn sm ${sajuOn?'':'ghost'}" onclick="toggleSaju()">${sajuOn?'켜짐':'꺼짐'}</button>
       <span class="muted" style="font-size:11.5px;flex:1">${sajuOn?'내 기운(용희신·대운세운·재성) 반영':'기운 무시 · 무작위 추천'}</span>
     </div>
     <div style="margin:10px 0 4px">${balls}</div>
+    ${prev7?`<p class="muted" style="font-size:11.5px;margin:2px 0 6px">전주 앵커 — ${prev7.map((n,i)=>`${String.fromCharCode(65+i)}:<b>${n}</b>${i===6?'(보너스)':''}`).join(' · ')} <span style="opacity:.8">· 각 줄에 전주 번호 1개씩 고정</span></p>`:''}
     ${statusHtml}
     <p class="muted" style="font-size:12.5px;margin-top:12px">${desc}</p>
   </div>
   <div class="section on card">
     <h3 style="margin:0 0 2px;font-size:16px">패턴 선택 <span class="muted" style="font-weight:400;font-size:12px">· 켜면 추천에 반영</span></h3>
     <label class="f" style="margin-top:10px">조합 패턴</label>
-    <div class="row" style="flex-wrap:wrap;gap:6px">${tog('carry','전주 번호 1개')}${tog('consec','연속 쌍 (11·12)')}${tog('sameTail','같은 뒷자리 (21·31)')}</div>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${tog('carry','전주 번호 앵커 (7줄)')}${tog('consec','연속 쌍 (11·12)')}${tog('sameTail','같은 뒷자리 (21·31)')}</div>
     <label class="f" style="margin-top:12px">최근 5회 비중복 번호 채택</label>
     <div class="row" style="flex-wrap:wrap;gap:6px">${cnt(0,'없음')}${cnt(2,'2개')}${cnt(3,'3개')}${cnt(4,'4개')}</div>
     <label class="f" style="margin-top:12px">짝수 : 홀수 비율</label>
     <div class="row" style="flex-wrap:wrap;gap:6px">${oe('auto','자동')}${oe('3:3','3:3')}${oe('4:2','4:2')}${oe('2:4','2:4')}</div>
-    <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호’는 지난 회차에서 1개만 채택(2개 이상 중복될 확률이 낮다는 판단), ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
+    <p class="muted" style="font-size:11.5px;margin:12px 0 0">‘전주 번호 앵커’를 켜면 지난 회차 <b>6개+보너스=7개</b>를 각각 하나씩 고정해 <b>7줄(A~G)</b>을 뽑습니다. ‘최근 5회 비중복’은 최근 5회 당첨번호 중 딱 한 번 나온 번호에서 뽑습니다.</p>
   </div>
   <div class="section on card">
     <h3 style="margin:0 0 2px;font-size:16px">🚫 역대 1등 조합 회피 <span class="muted" style="font-weight:400;font-size:12px">· 지금까지 나온 당첨번호</span></h3>
