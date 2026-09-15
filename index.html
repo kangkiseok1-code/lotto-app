@@ -253,10 +253,14 @@ function dayScore(y,m,d){
   const dayJae=jae.filter(x=>x.src.indexOf('일운')===0);          // 그날 축(일운)으로 들어온 재성
   const monthJae=jae.filter(x=>/^(대운|세운|월운)/.test(x.src));   // 한 달 내내 고정인 축의 재성
   const jaeFavToday=jae.some(x=>x.favorable);
-  const dayJaeFav=dayJae.some(x=>x.favorable);      // 일운 재성이 용희신 → 그날 고유 목돈 기운
-  const monthJaeFav=monthJae.some(x=>x.favorable);  // 고정 축 재성이 용희신 → 이 달 전체 재물 기운
-  return {score:r.yongheeScore, jaeFavToday, dayJaeFav, monthJaeFav, jaePresent:jae.length>0, jae, incoming:r.incoming,
-          day:t.day, month:t.month, rootClash:r.rootClash};
+  const dayJaeFav=dayJae.some(x=>x.favorable);      // 일운 재성이 용희신 → (신강형) 그날 목돈 기운
+  const monthJaeFav=monthJae.some(x=>x.favorable);  // 고정 축 재성이 용희신 → (신강형) 이 달 재물 기운
+  // 재다신약형: 재성이 용희신이 아닌 사주 → 일운에 신 돕는 용희신(인성·비겁)이 들어와 재를 감당하는 날
+  const isBody=x=>x.sibsin==='비겁'||x.sibsin==='인성';
+  const dayBodyFav=r.incoming.some(x=>x.src.indexOf('일운')===0&&x.favorable&&isBody(x));
+  const monthBodyFav=r.incoming.some(x=>/^(대운|세운|월운)/.test(x.src)&&x.favorable&&isBody(x));
+  return {score:r.yongheeScore, jaeFavToday, dayJaeFav, monthJaeFav, dayBodyFav, monthBodyFav,
+          jaePresent:jae.length>0, jae, incoming:r.incoming, day:t.day, month:t.month, rootClash:r.rootClash};
 }
 // 한 달치 점수 + 목돈 후보일 판정(달력/상세 공용)
 function monthData(y,m){
@@ -264,14 +268,16 @@ function monthData(y,m){
   const scores=[]; for(let d=1;d<=days;d++)scores.push(dayScore(y,m,d));
   const vals=scores.map(s=>s.score); const mn=Math.min(...vals),mx=Math.max(...vals);
   const norm=v=>mx===mn?0:(v-mn)/(mx-mn);
-  // 달력 셀 목돈: 그날 축(일운)에 재성이 용희신으로 들어온 날만 → 하루하루 구별
-  const isMoney=s=>s.dayJaeFav;
+  // 사주 유형: 재성이 용희신이면 신강형(재성 들어오는 날=목돈), 아니면 재다신약형(신 돕는 용희신 날=재 감당→목돈)
+  const isMoney=jaeFav ? (s=>s.dayJaeFav) : (s=>s.dayBodyFav);
   const moneyDays=scores.map((s,i)=>isMoney(s)?i+1:0).filter(Boolean);
-  // 이 달 전체(고정 축)의 재물 기운 + 어느 축인지
-  const mj=(scores[0]?scores[0].jae:[]).filter(x=>x.favorable&&/^(대운|세운|월운)/.test(x.src));
-  const monthMoney=mj.length>0;
+  // 이 달 전체(고정 축)의 재물 기운 + 어느 축인지 (유형별)
+  const s0=scores[0];
+  const monthMoney=jaeFav ? (s0&&s0.monthJaeFav) : (s0&&s0.monthBodyFav);
+  const wantSib=jaeFav ? (x=>x.sibsin==='재성') : (x=>x.sibsin==='비겁'||x.sibsin==='인성');
+  const mj=(s0?s0.incoming:[]).filter(x=>x.favorable&&/^(대운|세운|월운)/.test(x.src)&&wantSib(x));
   const monthMoneyAxes=[...new Set(mj.map(x=>x.src.slice(0,2)))];
-  return {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes};
+  return {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav};
 }
 
 /* ============ 번호 추천 ============ */
@@ -761,7 +767,7 @@ function viewCalendar(){
   editDream=null;
   const {y,m}=calView;
   const first=new Date(y,m-1,1).getDay();
-  const {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes}=monthData(y,m);
+  const {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav}=monthData(y,m);
   // 구매 이력이 있는 날 → 마커 (당첨 있으면 🎉, 아니면 🎫)
   const buyByDay={};
   purchases.forEach(p=>{const k=dkeyOf(p.purchased_at); if(!buyByDay[k])buyByDay[k]={won:false}; if(p.won)buyByDay[k].won=true;});
@@ -786,7 +792,7 @@ function viewCalendar(){
       <h2>${y}. ${m}</h2>
       <button class="btn ghost sm" onclick="calMove(1)">›</button>
     </div>
-    ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 이 달 재물 기운 좋음 · ${monthMoneyAxes.join('·')}에 재성 용희신</span></p>`:''}
+    ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
     <div class="cal-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend"><span>발복</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="height:4px;width:14px;background:var(--gold);border-radius:2px;display:inline-block"></span>약<span style="height:4px;width:44px;background:var(--gold);border-radius:2px;display:inline-block"></span>강</span><span style="margin-left:4px">· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · 🎫구매 · 🎉당첨 · ✨운좋은날 · 💭꿈</span></div>
     ${buyList.length?`<p class="muted" style="font-size:12.5px;margin:10px 0 0">🎫 구매한 날: <b>${buyList.join(', ')}일</b></p>`:''}
@@ -827,7 +833,7 @@ function dayDetail(y,m,d){
         <div><div class="muted" style="font-size:11px">재물 발복 점수</div><div style="font-size:26px;font-weight:800;color:var(--gold)">${s.score.toFixed(1)}</div></div>
         <div>${money?'<span class="pill">錢 목돈 후보일</span>':'<span class="muted" style="font-size:12px">일반일</span>'}</div>
       </div>
-      ${money?'<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 날은 <b>일운(그날 기운)</b>에 재성이 용희신으로 들어와요.</p>':(md.monthMoney?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 달은 <b>${md.monthMoneyAxes.join('·')}</b> 재물 기운이 좋아요(달 전체 공통).</p>`:'')}
+      ${money?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 날은 <b>일운(그날 기운)</b>에 ${md.jaeFav?'재성이 용희신으로 들어와요':'인성·비겁(신 돕는 용희신)이 들어와 많은 재를 감당해요'}.</p>`:(md.monthMoney?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 달은 <b>${md.monthMoneyAxes.join('·')}</b> ${md.jaeFav?'재물 기운':'재 감당 기운'}이 좋아요(달 전체 공통).</p>`:'')}
       ${s.rootClash?`<p style="color:var(--hwa);font-size:12px;margin:8px 0 0">⚠ 뿌리충(${esc(s.rootClash.detail)}) — 변동/지출 주의 날</p>`:''}
       ${dayBuys.length?`<p style="font-size:12.5px;margin:10px 0 0">🎫 이 날 구매 <b>${dayBuys.length}건</b>${dayWon.length?` · <b style="color:var(--gold)">🎉 당첨 ${dayWon.length}건</b>`:''}</p>`:''}
       <h3 style="margin:16px 0 2px;font-size:16px">추천 시간대</h3>
