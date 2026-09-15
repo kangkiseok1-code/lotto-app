@@ -2,6 +2,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>오행 로또 · 재물운 달력</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#b8912e">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -16,6 +19,7 @@
     --shadow:0 2px 14px rgba(80,60,10,.08);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   html,body{margin:0}
   body{background:var(--bg);color:var(--ink);
     font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
@@ -881,7 +885,7 @@ function viewRec(){
     ? `기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.`
     : `지금은 <b>사주 미반영</b> — 기운과 무관하게 <b>무작위</b>로 뽑습니다.${hasMyNum?' 단, ‘내 숫자’ 가중치는 그대로 유지됩니다.':''} 패턴·회피 설정은 계속 적용돼요.`;
   return `<div class="section on card">
-    <div class="row"><h2 style="margin:0;flex:1">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
+    <div class="row"><h2 style="margin:0;flex:1;font-size:22px">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
     <div class="row" style="align-items:center;gap:8px;margin-top:8px">
       <span style="font-size:13px;font-weight:700;color:var(--ink)">사주 반영</span>
       <button class="btn sm ${sajuOn?'':'ghost'}" onclick="toggleSaju()">${sajuOn?'켜짐':'꺼짐'}</button>
