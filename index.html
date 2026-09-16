@@ -634,7 +634,7 @@ function renderLanding(){
 /* ============ 화면: 사주 입력 ============ */
 function renderProfileForm(){
   const p=profile||{};
-  if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarker=null; }   // 재렌더 시 지도 재초기화
+  if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarkers=null; _selCity=null; }   // 재렌더 시 지도 재초기화
   $('#root').innerHTML=`<div class="wrap">
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
     <div class="card">
@@ -651,19 +651,36 @@ function renderProfileForm(){
         <div><label class="f">양력/음력</label><select id="cal"><option value="solar"${(p.calendar||'solar')==='solar'?' selected':''}>양력</option><option value="lunar"${p.calendar==='lunar'?' selected':''}>음력</option></select></div>
         <div><label class="f">성별</label><select id="gender"><option value="">선택</option><option value="M"${p.gender==='M'?' selected':''}>남</option><option value="F"${p.gender==='F'?' selected':''}>여</option></select></div>
       </div>
-      <label class="f" style="margin-top:10px">태어난 지역 (진태양시 보정, 선택)</label>
-      <select id="city"><option value="">보정 안 함</option>${(S.CITY_GROUPS||[]).map(([g,m])=>`<optgroup label="${esc(g)}">${Object.keys(m).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</optgroup>`).join('')}</select>
+      <label class="f" style="margin-top:10px">태어난 지역 <span class="muted" style="font-weight:400;font-size:11px">· 진태양시 보정 (선택)</span></label>
+      <div style="display:flex;gap:8px">
+        <input id="citySearch" list="cityList" autocomplete="off" placeholder="도시명 입력 (예: 부산)" value="${p.city?esc(p.city):''}" oninput="onCitySearch(this.value)" onchange="onCitySearch(this.value)" style="flex:1">
+        <button type="button" class="btn ghost sm" style="white-space:nowrap" onclick="clearCity()">지움</button>
+      </div>
+      <datalist id="cityList">${(S.CITY_GROUPS||[]).map(([,m])=>Object.keys(m).map(c=>`<option value="${esc(c)}">`).join('')).join('')}</datalist>
+      <select id="city" style="display:none"><option value="">보정 안 함</option>${(S.CITY_GROUPS||[]).map(([g,m])=>`<optgroup label="${esc(g)}">${Object.keys(m).map(c=>`<option value="${esc(c)}"${p.city===c?' selected':''}>${esc(c)}</option>`).join('')}</optgroup>`).join('')}</select>
       <button type="button" class="btn ghost sm" id="birthMapBtn" style="margin-top:8px" onclick="openBirthMap()">🗺️ 지도에서 고르기</button>
-      <div id="birthMap" style="display:none;height:260px;border-radius:10px;overflow:hidden;margin-top:8px;border:1px solid var(--line)"></div>
+      <div id="birthMap" style="display:none;height:280px;border-radius:10px;overflow:hidden;margin-top:8px;border:1px solid var(--line)"></div>
       <p id="birthMapLabel" class="muted" style="font-size:11.5px;margin:6px 0 0"></p>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
       <p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. ‘나’ 탭에서 <b>클라우드 로그인</b>을 켤 때만 여러 기기 동기화를 위해 Supabase에 저장됩니다(선택).</p>
     </div>
   </div>`;
 }
-/* ---- 태어난 지역 지도 선택 (Leaflet 지연 로드 · 핀→최근접 도시 스냅) ---- */
+/* ---- 태어난 지역: 검색 + 지도 핀 선택 (경도만 계산에 사용, 위도는 지도 표시용) ---- */
 const CITY_LNG=Object.fromEntries((S.CITY_GROUPS||[]).flatMap(([,m])=>Object.entries(m)));
-function nearestCity(lng){ let best=null,bd=1e9; for(const c in CITY_LNG){ const d=Math.abs(lng-CITY_LNG[c]); if(d<bd){bd=d;best=c;} } return best; }
+// 도시별 [위도, 경도] — 위도는 지도 핀 배치 표시용(계산엔 경도만 사용)
+const CITY_LATLNG={
+  '서울':[37.57,126.98],'부산':[35.18,129.08],'대구':[35.87,128.60],'인천':[37.46,126.71],'광주':[35.16,126.85],'대전':[36.35,127.38],'울산':[35.54,129.31],'세종':[36.48,127.29],
+  '수원':[37.26,127.03],'성남':[37.42,127.14],'고양':[37.66,126.83],'용인':[37.24,127.18],'부천':[37.50,126.78],'안산':[37.32,126.83],'안양':[37.39,126.95],'평택':[36.99,127.09],'의정부':[37.74,127.05],'파주':[37.76,126.78],
+  '춘천':[37.88,127.73],'원주':[37.35,127.92],'강릉':[37.75,128.90],'속초':[38.20,128.59],
+  '청주':[36.64,127.49],'충주':[36.99,127.93],'제천':[37.13,128.19],
+  '천안':[36.81,127.15],'아산':[36.79,127.00],'서산':[36.78,126.45],'당진':[36.89,126.63],
+  '전주':[35.82,127.15],'익산':[35.95,126.96],'군산':[35.97,126.74],'정읍':[35.57,126.86],
+  '목포':[34.81,126.39],'여수':[34.76,127.66],'순천':[34.95,127.49],'광양':[34.94,127.70],
+  '포항':[36.02,129.36],'경주':[35.86,129.22],'구미':[36.12,128.34],'안동':[36.57,128.73],'김천':[36.14,128.11],
+  '창원':[35.23,128.68],'진주':[35.18,128.08],'김해':[35.23,128.87],'통영':[34.85,128.43],'거제':[34.88,128.62],'양산':[35.34,129.04],
+  '제주':[33.50,126.53],'서귀포':[33.25,126.56]
+};
 let _leafletP=null;
 function loadLeaflet(){
   if(_leafletP) return _leafletP;
@@ -671,25 +688,43 @@ function loadLeaflet(){
     const base='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
     const css=document.createElement('link'); css.rel='stylesheet'; css.href=base+'leaflet.min.css'; document.head.appendChild(css);
     const s=document.createElement('script'); s.src=base+'leaflet.min.js';
-    s.onload=()=>{ L.Icon.Default.mergeOptions({iconRetinaUrl:base+'images/marker-icon-2x.png',iconUrl:base+'images/marker-icon.png',shadowUrl:base+'images/marker-shadow.png'}); res(); };
-    s.onerror=rej; document.head.appendChild(s);
+    s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s);
   });
   return _leafletP;
 }
-let _birthMap=null,_birthMarker=null;
+let _birthMap=null,_birthMarkers=null,_selCity=null;
+const _DOT={radius:7,color:'#8a6d22',weight:1.5,fillColor:'#e9d9a3',fillOpacity:.9,interactive:false};
+const _DOT_ON={radius:9,color:'#fff',weight:2,fillColor:'#b08d34',fillOpacity:1};
+function _styleBirthMarkers(){
+  if(!_birthMarkers) return;
+  for(const c in _birthMarkers){ const {mk,hit}=_birthMarkers[c], on=(c===_selCity);
+    mk.setStyle(on?_DOT_ON:_DOT); hit.unbindTooltip(); hit.bindTooltip(c,{permanent:on,direction:'top',offset:[0,on?-8:-6]}); if(on) mk.bringToFront(); }
+}
+function setCity(c){   // 검색·핀 공통 선택 반영 (계산용 #city와 라벨·핀 동기화)
+  _selCity=(c&&CITY_LNG[c]!=null)?c:null;
+  const sel=$('#city'); if(sel) sel.value=_selCity||'';
+  const s=$('#citySearch'); if(s&&s.value!==(_selCity||'')) s.value=_selCity||'';
+  const lbl=$('#birthMapLabel'); if(lbl) lbl.innerHTML=_selCity?`📍 <b>${_selCity}</b> 선택됨 · 경도 ${CITY_LNG[_selCity].toFixed(2)}°E 기준 보정`:'';
+  _styleBirthMarkers();
+}
+function onCitySearch(v){ v=(v||'').trim(); if(CITY_LATLNG[v]){ setCity(v); if(_birthMap) _birthMap.panTo(CITY_LATLNG[v],{animate:true}); } else if(v===''){ setCity(''); } }
+function clearCity(){ setCity(''); }
 async function openBirthMap(){
   const box=$('#birthMap'); if(!box) return;
   box.style.display='block'; const btn=$('#birthMapBtn'); if(btn) btn.style.display='none';
-  try{ await loadLeaflet(); }catch(e){ toast('지도를 못 불러왔어요 — 목록에서 골라주세요'); box.style.display='none'; if(btn) btn.style.display=''; return; }
+  try{ await loadLeaflet(); }catch(e){ toast('지도를 못 불러왔어요 — 검색으로 골라주세요'); box.style.display='none'; if(btn) btn.style.display=''; return; }
   if(_birthMap){ _birthMap.invalidateSize(); return; }
-  const cur=$('#city').value, curLng=(cur&&CITY_LNG[cur]!=null)?CITY_LNG[cur]:127.8;
-  _birthMap=L.map(box).setView([36.5,127.8],7);
+  _birthMap=L.map(box).setView([36.3,127.9],6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(_birthMap);
-  _birthMarker=L.marker([36.5,curLng],{draggable:true}).addTo(_birthMap);
-  const apply=ll=>{ const c=nearestCity(ll.lng); if(c){ $('#city').value=c; $('#birthMapLabel').innerHTML=`📍 <b>${c}</b> 인근 · 경도 ${CITY_LNG[c].toFixed(2)}°E 기준 보정`; } };
-  _birthMap.on('click',e=>{ _birthMarker.setLatLng(e.latlng); apply(e.latlng); });
-  _birthMarker.on('dragend',()=>apply(_birthMarker.getLatLng()));
-  $('#birthMapLabel').innerHTML= cur?`📍 <b>${cur}</b> 기준 (지도를 눌러 변경)`:'지도를 눌러 태어난 위치를 선택하세요.';
+  _birthMarkers={};
+  Object.keys(CITY_LATLNG).forEach(c=>{ const [lat,lng]=CITY_LATLNG[c];
+    const hit=L.circleMarker([lat,lng],{radius:14,opacity:0,fillOpacity:0,interactive:true}).addTo(_birthMap); // 손가락용 넓은 탭 영역
+    const mk=L.circleMarker([lat,lng],_DOT).addTo(_birthMap);                                                  // 보이는 점
+    hit.bindTooltip(c,{direction:'top',offset:[0,-6]});
+    hit.on('click',()=>setCity(c));
+    _birthMarkers[c]={mk,hit};
+  });
+  const cur=$('#city').value; if(cur&&CITY_LATLNG[cur]){ _selCity=cur; _styleBirthMarkers(); _birthMap.panTo(CITY_LATLNG[cur]); }
   setTimeout(()=>_birthMap.invalidateSize(),120);
 }
 async function saveProfile(){
