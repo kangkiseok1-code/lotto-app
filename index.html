@@ -77,6 +77,8 @@
   .cal-cell.money{border-color:var(--gold)}
   .cal-cell.money::after{content:"錢";position:absolute;top:2px;right:2px;background:var(--ink);color:#fff;
     border-radius:4px;padding:0 3px;font-size:8px;font-family:serif;line-height:1.6}
+  .cal-cell.caution{border-color:var(--hwa)}
+  .cal-cell.caution::after{content:"⚠";position:absolute;top:1px;right:2px;font-size:9px;line-height:1.4}
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
   .chip{display:inline-flex;align-items:center;gap:4px;background:#f3ecd8;color:#8a6d16;border-radius:16px;padding:3px 9px;font-size:12px;margin:0 4px 4px 0}
   .chip button{border:none;background:none;color:#8a6d16;cursor:pointer;font-size:13px;padding:0;line-height:1}
@@ -259,7 +261,9 @@ function dayScore(y,m,d){
   const isBody=x=>x.sibsin==='비겁'||x.sibsin==='인성';
   const dayBodyFav=r.incoming.some(x=>x.src.indexOf('일운')===0&&x.favorable&&isBody(x));
   const monthBodyFav=r.incoming.some(x=>/^(대운|세운|월운)/.test(x.src)&&x.favorable&&isBody(x));
-  return {score:r.yongheeScore, jaeFavToday, dayJaeFav, monthJaeFav, dayBodyFav, monthBodyFav,
+  // 손재 주의: 일운 천간·지지가 모두 재성이라 재가 신을 압도(재다신약형에서 소모·지출)
+  const dayJaeHeavy=r.incoming.some(x=>x.src==='일운천간'&&x.sibsin==='재성')&&r.incoming.some(x=>x.src==='일운지지'&&x.sibsin==='재성');
+  return {score:r.yongheeScore, jaeFavToday, dayJaeFav, monthJaeFav, dayBodyFav, monthBodyFav, dayJaeHeavy,
           jaePresent:jae.length>0, jae, incoming:r.incoming, day:t.day, month:t.month, rootClash:r.rootClash};
 }
 // 한 달치 점수 + 목돈 후보일 판정(달력/상세 공용)
@@ -277,7 +281,15 @@ function monthData(y,m){
   const wantSib=jaeFav ? (x=>x.sibsin==='재성') : (x=>x.sibsin==='비겁'||x.sibsin==='인성');
   const mj=(s0?s0.incoming:[]).filter(x=>x.favorable&&/^(대운|세운|월운)/.test(x.src)&&wantSib(x));
   const monthMoneyAxes=[...new Set(mj.map(x=>x.src.slice(0,2)))];
-  return {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav};
+  // 손재·지출 주의일: 뿌리충(변동·지출) 또는 재다신약형의 재성 강습일. 목돈일이면 제외(목돈 우선)
+  const isCaution=s=>!isMoney(s)&&(!!s.rootClash||(!jaeFav&&s.dayJaeHeavy));
+  const cautionDays=scores.map((s,i)=>isCaution(s)?i+1:0).filter(Boolean);
+  // 로또 추첨일(토) 랭킹: 목돈>일반>주의, 동급이면 발복 점수순
+  const sat=[];
+  for(let d=1;d<=days;d++){ if(new Date(y,m-1,d).getDay()===6){ const s=scores[d-1]; sat.push({d,money:isMoney(s),caution:isCaution(s),score:s.score}); } }
+  const rankOf=x=>(x.money?2:x.caution?0:1)*1000+x.score;
+  let bestSat=null; sat.forEach(x=>{ if(!bestSat||rankOf(x)>rankOf(bestSat))bestSat=x; });
+  return {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav,isCaution,cautionDays,saturdays:sat,bestSat};
 }
 
 /* ============ 번호 추천 ============ */
@@ -802,7 +814,7 @@ function viewCalendar(){
   editDream=null;
   const {y,m}=calView;
   const first=new Date(y,m-1,1).getDay();
-  const {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav}=monthData(y,m);
+  const {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav,isCaution,cautionDays,saturdays,bestSat}=monthData(y,m);
   // 구매 이력이 있는 날 → 마커 (당첨 있으면 🎉, 아니면 🎫)
   const buyByDay={};
   purchases.forEach(p=>{const k=dkeyOf(p.purchased_at); if(!buyByDay[k])buyByDay[k]={won:false}; if(p.won)buyByDay[k].won=true;});
@@ -812,16 +824,27 @@ function viewCalendar(){
     const s=scores[d-1],t=norm(s.score);
     const bg=`rgba(184,145,46,${(0.04+t*0.16).toFixed(2)})`;
     const isToday=(y===now.getFullYear()&&m===now.getMonth()+1&&d===now.getDate());
-    const money=isMoney(s);
+    const money=isMoney(s), caution=isCaution(s);
     const dk=dkey(y,m,d), lucky=luckyDays.has(dk), hasDream=!!dreams[dk], buy=buyByDay[dk];
     const marks=(buy?(buy.won?'🎉':'🎫'):'')+(lucky?'✨':'')+(hasDream?'💭':'');
-    cells+=`<div class="cal-cell${isToday?' today':''}${money?' money':''}" style="background:${bg}" onclick="dayDetail(${y},${m},${d})">
+    cells+=`<div class="cal-cell${isToday?' today':''}${money?' money':caution?' caution':''}" style="background:${bg}" onclick="dayDetail(${y},${m},${d})">
       <div class="d">${d}</div><div class="marks">${marks}</div>
       <div class="heat" style="width:${Math.round((0.14+t*0.86)*80)}%"></div></div>`;
   }
   const luckyList=[],dreamList=[],buyList=[];
   for(let d=1;d<=days;d++){const dk=dkey(y,m,d);if(luckyDays.has(dk))luckyList.push(d);if(dreams[dk])dreamList.push(d);if(buyByDay[dk])buyList.push(d);}
-  return `<div class="section on card">
+  // 추첨일(토) 카드 — 목돈/주의/일반 + 최고일(⭐) + D-day
+  const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const satChips=saturdays.map(x=>{
+    const diff=Math.round((new Date(y,m-1,x.d)-today0)/86400000);
+    const dd=diff===0?'오늘':diff>0?`D-${diff}`:'지난';
+    const best=bestSat&&bestSat.d===x.d;
+    const c=x.money?{bg:'#fbf3dd',bd:'var(--gold)',fg:'#8a6d16',tag:'錢 목돈'}:x.caution?{bg:'#fdf3f2',bd:'var(--hwa)',fg:'#c0392b',tag:'⚠ 주의'}:{bg:'#fff',bd:'var(--line)',fg:'var(--sub)',tag:'일반'};
+    return `<div style="flex:1 1 60px;text-align:center;border:1px solid ${c.bd};border-radius:10px;padding:7px 3px;background:${c.bg}${best?';box-shadow:0 0 0 2px var(--gold)':''}"><div style="font-size:13px;font-weight:800;color:var(--ink)">${best?'⭐':''}${x.d}일</div><div style="font-size:10px;font-weight:700;color:${c.fg};margin-top:2px">${c.tag}</div><div class="muted" style="font-size:9.5px;margin-top:1px">${dd}</div></div>`;
+  }).join('');
+  const bestTxt=bestSat?(bestSat.money?`${bestSat.d}일이 가장 유리해요 (목돈 기운)`:bestSat.caution?`이번 달 추첨일은 기운이 약한 편 — 그나마 ${bestSat.d}일`:`${bestSat.d}일이 무난해요`):'';
+  const satCard=saturdays.length?`<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 8px;font-size:15px">🗓️ 이번 달 로또 추첨일(토)</h3><div style="display:flex;gap:5px;flex-wrap:wrap">${satChips}</div>${bestTxt?`<p class="muted" style="font-size:12px;margin:8px 0 0">→ <b style="color:var(--ink)">${bestTxt}</b></p>`:''}</div>`:'';
+  return `${satCard}<div class="section on card">
     <div class="cal-head">
       <button class="btn ghost sm" onclick="calMove(-1)">‹</button>
       <h2>${y}. ${m}</h2>
@@ -829,9 +852,10 @@ function viewCalendar(){
     </div>
     ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
     <div class="cal-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
-    <div class="legend"><span>발복</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="height:4px;width:14px;background:var(--gold);border-radius:2px;display:inline-block"></span>약<span style="height:4px;width:44px;background:var(--gold);border-radius:2px;display:inline-block"></span>강</span><span style="margin-left:4px">· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · 🎫구매 · 🎉당첨 · ✨운좋은날 · 💭꿈</span></div>
+    <div class="legend"><span>발복</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="height:4px;width:14px;background:var(--gold);border-radius:2px;display:inline-block"></span>약<span style="height:4px;width:44px;background:var(--gold);border-radius:2px;display:inline-block"></span>강</span><span style="margin-left:4px">· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · <b style="color:var(--hwa)">⚠</b> 주의일 · 🎫구매 · 🎉당첨 · ✨운좋은날 · 💭꿈</span></div>
     ${buyList.length?`<p class="muted" style="font-size:12.5px;margin:10px 0 0">🎫 구매한 날: <b>${buyList.join(', ')}일</b></p>`:''}
     ${moneyDays.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">錢 목돈 후보일(그날 기운): <b style="color:var(--gold)">${moneyDays.join(', ')}일</b></p>`:''}
+    ${cautionDays.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">⚠ 손재·지출 주의일: <b style="color:var(--hwa)">${cautionDays.join(', ')}일</b></p>`:''}
     ${luckyList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">✨ 운 좋았던 날: <b>${luckyList.join(', ')}일</b></p>`:''}
     ${dreamList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">💭 꿈 기록: <b>${dreamList.join(', ')}일</b></p>`:''}
     <p class="muted" style="font-size:12px;margin:8px 0 0">날짜를 누르면 운 좋았던 날 체크·꿈 기록을 남길 수 있어요.</p>
