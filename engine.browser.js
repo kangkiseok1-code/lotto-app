@@ -111,7 +111,20 @@ var OhaengEngine = (() => {
           const packed = data[i] | data[i + 1] << 8 | data[i + 2] << 16;
           entries.push(decodeEntry(packed, year, month, d + 1, startJD + d));
         }
-        const result = { year, month, entries, startJD, endJD: startJD + dayCount - 1 };
+        if (year === 1956 && month === 12 && entries.length === 30) {
+          const prev = entries[29];
+          entries.push({
+            jd: prev.jd + 1,
+            solar: { year, month, day: 31 },
+            lunar: { year: 1956, month: 11, day: 30, isLeap: false },
+            gapja: {
+              yearPillarId: prev.gapja.yearPillarId,
+              monthPillarId: prev.gapja.monthPillarId,
+              dayPillarId: (prev.jd + 1 - DAY_PILLAR_EPOCH) % 60
+            }
+          });
+        }
+        const result = { year, month, entries, startJD, endJD: startJD + entries.length - 1 };
         _cache.set(key, result);
         return result;
       }
@@ -1699,8 +1712,11 @@ var OhaengEngine = (() => {
         if (!isSupportedYear(lunarYear)) {
           throw new OutOfRangeError(lunarYear);
         }
-        for (let month = 1; month <= 12; month++) {
-          const monthIndex = getMonthlyIndex(lunarYear, month);
+        const scan = [];
+        for (let month = 1; month <= 12; month++) scan.push([lunarYear, month]);
+        if (isSupportedYear(lunarYear + 1)) scan.push([lunarYear + 1, 1], [lunarYear + 1, 2]);
+        for (const [solarY, month] of scan) {
+          const monthIndex = getMonthlyIndex(solarY, month);
           if (!monthIndex)
             continue;
           const entry = monthIndex.entries.find((e) => e.lunar.year === lunarYear && e.lunar.month === lunarMonth && e.lunar.day === lunarDay && e.lunar.isLeap === isLeapMonth);
@@ -3041,7 +3057,10 @@ var OhaengEngine = (() => {
         sibsinOf,
         deepAnalyze,
         pillarToIdx,
-        computeSaju
+        computeSaju,
+        // 음력↔양력 변환 (만세력 라이브러리 그대로). 스크립트·앱에서 음력 생일을 양력으로 바꿀 때 사용
+        lunarToSolar: manseLunarToSolar,
+        solarToLunar: manse.solarToLunar
       };
     }
   });
@@ -3322,6 +3341,53 @@ var OhaengEngine = (() => {
         return out;
       }
       module.exports = { GENERATES, CONTROLS, dayMasterRelation, complementScore, pairSynergy, synergyColor, pairBranchRelations };
+    }
+  });
+
+  // src/saju/sewoon.js
+  var require_sewoon = __commonJS({
+    "src/saju/sewoon.js"(exports, module) {
+      var manse = require_manse_inline();
+      var { GAN, JI, pillarToIdx } = require_saju();
+      var { analyzeBranchRelations, analyzeStemRelations } = require_relations();
+      var SEWOON_ID = "\uC138\uC6B4";
+      function getYearPillar(year) {
+        if (year >= 1900 && year <= 2050) {
+          const res = manse.calculateSaju(year, 6, 15);
+          return pillarToIdx(res.yearPillar);
+        }
+        const gan = ((year - 1984) % 10 + 10) % 10;
+        const ji = ((year - 1984) % 12 + 12) % 12;
+        return { gan, ji };
+      }
+      function filterInvolving(relResult, id) {
+        const out = {};
+        Object.keys(relResult).forEach((k) => {
+          out[k] = relResult[k].filter((r) => r.ids.includes(id));
+        });
+        return out;
+      }
+      function sewoon(natalPillars, year) {
+        const yp = getYearPillar(year);
+        const branchInput = [{ id: SEWOON_ID, ji: JI[yp.ji] }];
+        const stemInput = [{ id: SEWOON_ID, gan: GAN[yp.gan] }];
+        ["year", "month", "day", "hour"].forEach((k) => {
+          if (natalPillars[k]) {
+            branchInput.push({ id: k, ji: JI[natalPillars[k].ji] });
+            stemInput.push({ id: k, gan: GAN[natalPillars[k].gan] });
+          }
+        });
+        return {
+          year,
+          gan: GAN[yp.gan],
+          ji: JI[yp.ji],
+          ganIdx: yp.gan,
+          jiIdx: yp.ji,
+          branchRelations: filterInvolving(analyzeBranchRelations(branchInput), SEWOON_ID),
+          stemRelations: filterInvolving(analyzeStemRelations(stemInput), SEWOON_ID)
+        };
+      }
+      module.exports = { getYearPillar, sewoon };
     }
   });
 
@@ -9253,6 +9319,10 @@ var OhaengEngine = (() => {
         if (!natalPillars.year || !natalPillars.month) {
           throw new Error("\uB300\uC6B4 \uACC4\uC0B0\uC5D0\uB294 \uC5F0\uC8FC\xB7\uC6D4\uC8FC\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4.");
         }
+        if (birth.calendar === "lunar") {
+          const s = require_manse_inline().lunarToSolar(birth.year, birth.month, birth.day, !!birth.leap).solar;
+          birth = Object.assign({}, birth, { year: s.year, month: s.month, day: s.day, calendar: "solar" });
+        }
         const dir = direction(natalPillars.year.gan, gender);
         const birthUTCms = birthToUTCms(birth.year, birth.month, birth.day, birth.hour, birth.minute || 0);
         const age0 = startAge(birthUTCms, birth.year, dir);
@@ -9276,50 +9346,129 @@ var OhaengEngine = (() => {
     }
   });
 
-  // src/saju/sewoon.js
-  var require_sewoon = __commonJS({
-    "src/saju/sewoon.js"(exports, module) {
-      var manse = require_manse_inline();
-      var { GAN, JI, pillarToIdx } = require_saju();
-      var { analyzeBranchRelations, analyzeStemRelations } = require_relations();
-      var SEWOON_ID = "\uC138\uC6B4";
-      function getYearPillar(year) {
-        if (year >= 1900 && year <= 2050) {
-          const res = manse.calculateSaju(year, 6, 15);
-          return pillarToIdx(res.yearPillar);
-        }
-        const gan = ((year - 1984) % 10 + 10) % 10;
-        const ji = ((year - 1984) % 12 + 12) % 12;
-        return { gan, ji };
+  // src/saju/twelve-stages.js
+  var require_twelve_stages = __commonJS({
+    "src/saju/twelve-stages.js"(exports, module) {
+      var { GAN, JI, GAN_ELEM, GAN_YIN_YANG } = require_saju();
+      var STAGE_NAMES = ["\uC808", "\uD0DC", "\uC591", "\uC7A5\uC0DD", "\uBAA9\uC695", "\uAD00\uB300", "\uAC74\uB85D", "\uC81C\uC655", "\uC1E0", "\uBCD1", "\uC0AC", "\uBB18"];
+      var SAENG_JI = { \uBAA9: "\uD574", \uD654: "\uC778", \uD1A0: "\uC778", \uAE08: "\uC0AC", \uC218: "\uC2E0" };
+      function safeMod(n, m) {
+        return (n % m + m) % m;
       }
-      function filterInvolving(relResult, id) {
+      function twelveStage(ganIdx, jiIdx) {
+        const elem = GAN_ELEM[ganIdx];
+        const yinYang = GAN_YIN_YANG[ganIdx];
+        const saengIdx = JI.indexOf(SAENG_JI[elem]);
+        const stageIdx = yinYang === "\uC591" ? safeMod(3 + (jiIdx - saengIdx), 12) : safeMod(10 - (jiIdx - saengIdx), 12);
+        return STAGE_NAMES[stageIdx];
+      }
+      function twelveStagesForNatal(natalPillars) {
+        if (!natalPillars.day) throw new Error("\uC77C\uAC04\uC744 \uC54C \uC218 \uC5C6\uC73C\uBA74 12\uC6B4\uC131\uC744 \uC0B0\uCD9C\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+        const dayGanIdx = natalPillars.day.gan;
         const out = {};
-        Object.keys(relResult).forEach((k) => {
-          out[k] = relResult[k].filter((r) => r.ids.includes(id));
+        ["year", "month", "day", "hour"].forEach((k) => {
+          if (natalPillars[k]) out[k] = twelveStage(dayGanIdx, natalPillars[k].ji);
         });
         return out;
       }
-      function sewoon(natalPillars, year) {
-        const yp = getYearPillar(year);
-        const branchInput = [{ id: SEWOON_ID, ji: JI[yp.ji] }];
-        const stemInput = [{ id: SEWOON_ID, gan: GAN[yp.gan] }];
-        ["year", "month", "day", "hour"].forEach((k) => {
-          if (natalPillars[k]) {
-            branchInput.push({ id: k, ji: JI[natalPillars[k].ji] });
-            stemInput.push({ id: k, gan: GAN[natalPillars[k].gan] });
-          }
-        });
-        return {
-          year,
-          gan: GAN[yp.gan],
-          ji: JI[yp.ji],
-          ganIdx: yp.gan,
-          jiIdx: yp.ji,
-          branchRelations: filterInvolving(analyzeBranchRelations(branchInput), SEWOON_ID),
-          stemRelations: filterInvolving(analyzeStemRelations(stemInput), SEWOON_ID)
-        };
+      module.exports = { STAGE_NAMES, twelveStage, twelveStagesForNatal };
+    }
+  });
+
+  // src/saju/sinsal.js
+  var require_sinsal = __commonJS({
+    "src/saju/sinsal.js"(exports, module) {
+      var { TRIO_COMBO } = require_relations();
+      var CHEONEUL = {
+        \uAC11: ["\uCD95", "\uBBF8"],
+        \uBB34: ["\uCD95", "\uBBF8"],
+        \uC744: ["\uC790", "\uC2E0"],
+        \uAE30: ["\uC790", "\uC2E0"],
+        \uBCD1: ["\uD574", "\uC720"],
+        \uC815: ["\uD574", "\uC720"],
+        \uC784: ["\uC0AC", "\uBB18"],
+        \uACC4: ["\uC0AC", "\uBB18"],
+        \uACBD: ["\uC778", "\uC624"],
+        \uC2E0: ["\uC778", "\uC624"]
+      };
+      var TRIO_TO_DOHWA = { \uC778\uC624\uC220: "\uBB18", \uC0AC\uC720\uCD95: "\uC624", \uC2E0\uC790\uC9C4: "\uC720", \uD574\uBB18\uBBF8: "\uC790" };
+      var TRIO_TO_YEOKMA = { \uC778\uC624\uC220: "\uC2E0", \uC0AC\uC720\uCD95: "\uD574", \uC2E0\uC790\uC9C4: "\uC778", \uD574\uBB18\uBBF8: "\uC0AC" };
+      var TRIO_TO_HWAGAE = { \uC778\uC624\uC220: "\uC220", \uC0AC\uC720\uCD95: "\uCD95", \uC2E0\uC790\uC9C4: "\uC9C4", \uD574\uBB18\uBBF8: "\uBBF8" };
+      var YANGIN = { \uAC11: "\uBB18", \uBCD1: "\uC624", \uBB34: "\uC624", \uACBD: "\uC720", \uC784: "\uC790" };
+      function trioKeyOf(ji) {
+        const t = TRIO_COMBO.find((t2) => t2.members.includes(ji));
+        return t ? t.members.join("") : null;
       }
-      module.exports = { getYearPillar, sewoon };
+      function findSinsal(branches, dayGan) {
+        const result = { cheoneul: [], dohwa: [], yeokma: [], hwagae: [], yangin: [] };
+        const cheoneulJi = CHEONEUL[dayGan] || [];
+        branches.forEach((b) => {
+          if (cheoneulJi.includes(b.ji)) result.cheoneul.push(b);
+        });
+        const dayBranch = branches.find((b) => b.id === "day");
+        if (dayBranch) {
+          const trioKey = trioKeyOf(dayBranch.ji);
+          if (trioKey) {
+            const dohwaJi = TRIO_TO_DOHWA[trioKey];
+            const yeokmaJi = TRIO_TO_YEOKMA[trioKey];
+            const hwagaeJi = TRIO_TO_HWAGAE[trioKey];
+            branches.forEach((b) => {
+              if (b.ji === dohwaJi) result.dohwa.push(b);
+              if (b.ji === yeokmaJi) result.yeokma.push(b);
+              if (b.ji === hwagaeJi) result.hwagae.push(b);
+            });
+          }
+        }
+        const yanginJi = YANGIN[dayGan];
+        if (yanginJi) branches.forEach((b) => {
+          if (b.ji === yanginJi) result.yangin.push(b);
+        });
+        return result;
+      }
+      module.exports = { CHEONEUL, TRIO_TO_DOHWA, TRIO_TO_YEOKMA, TRIO_TO_HWAGAE, YANGIN, findSinsal };
+    }
+  });
+
+  // src/saju/johu.js
+  var require_johu = __commonJS({
+    "src/saju/johu.js"(exports, module) {
+      var { GAN_ELEM, JI } = require_saju();
+      var SEASON_OF_JI = {
+        \uC778: "\uBD04",
+        \uBB18: "\uBD04",
+        \uC9C4: "\uBD04",
+        \uC0AC: "\uC5EC\uB984",
+        \uC624: "\uC5EC\uB984",
+        \uBBF8: "\uC5EC\uB984",
+        \uC2E0: "\uAC00\uC744",
+        \uC720: "\uAC00\uC744",
+        \uC220: "\uAC00\uC744",
+        \uD574: "\uACA8\uC6B8",
+        \uC790: "\uACA8\uC6B8",
+        \uCD95: "\uACA8\uC6B8"
+      };
+      var HEATS_UP = { \uD654: true, \uBAA9: true };
+      var COOLS_DOWN = { \uC218: true, \uAE08: true };
+      function johuHint(natalPillars) {
+        if (!natalPillars.month || !natalPillars.day) {
+          throw new Error("\uC870\uD6C4 \uBCF4\uC815\uC5D0\uB294 \uC6D4\uC9C0\xB7\uC77C\uAC04\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
+        }
+        const monthJi = JI[natalPillars.month.ji];
+        const dayElem = GAN_ELEM[natalPillars.day.gan];
+        const season = SEASON_OF_JI[monthJi];
+        let need = "\uC911\uD654", urgency = "\uB0AE\uC74C", note = "\uACC4\uC808\uACFC \uC77C\uAC04 \uC624\uD589\uC774 \uD55C\uCABD\uC73C\uB85C \uC3E0\uB9AC\uC9C0 \uC54A\uC544 \uC870\uD6C4 \uBCF4\uC815\uC758 \uAE34\uAE09\uC131\uC774 \uB0AE\uC544\uC694.";
+        if (season === "\uC5EC\uB984") {
+          need = "\uC218";
+          urgency = HEATS_UP[dayElem] ? "\uB192\uC74C" : "\uBCF4\uD1B5";
+          note = HEATS_UP[dayElem] ? "\uC5EC\uB984\uC5D0 \uD654/\uBAA9 \uC77C\uAC04\uC774\uB77C \uC5F4\uAE30\uAC00 \uACB9\uCCD0\uC694. \uC218(\u6C34) \uAE30\uC6B4\uC73C\uB85C \uC2DD\uD600\uC8FC\uB294 \uAC8C \uB3C4\uC6C0\uC774 \uB420 \uC218 \uC788\uC5B4\uC694." : "\uC5EC\uB984\uC774\uC9C0\uB9CC \uC77C\uAC04 \uC624\uD589\uC774 \uC5F4\uAE30\uB97C \uB354 \uD0A4\uC6B0\uB294 \uCABD\uC740 \uC544\uB2C8\uB77C, \uC218(\u6C34) \uBCF4\uC815\uC758 \uAE34\uAE09\uC131\uC740 \uBCF4\uD1B5\uC774\uC5D0\uC694.";
+        } else if (season === "\uACA8\uC6B8") {
+          need = "\uD654";
+          urgency = COOLS_DOWN[dayElem] ? "\uB192\uC74C" : "\uBCF4\uD1B5";
+          note = COOLS_DOWN[dayElem] ? "\uACA8\uC6B8\uC5D0 \uC218/\uAE08 \uC77C\uAC04\uC774\uB77C \uD55C\uAE30\uAC00 \uACB9\uCCD0\uC694. \uD654(\u706B) \uAE30\uC6B4\uC73C\uB85C \uB370\uC6CC\uC8FC\uB294 \uAC8C \uB3C4\uC6C0\uC774 \uB420 \uC218 \uC788\uC5B4\uC694." : "\uACA8\uC6B8\uC774\uC9C0\uB9CC \uC77C\uAC04 \uC624\uD589\uC774 \uD55C\uAE30\uB97C \uB354 \uD0A4\uC6B0\uB294 \uCABD\uC740 \uC544\uB2C8\uB77C, \uD654(\u706B) \uBCF4\uC815\uC758 \uAE34\uAE09\uC131\uC740 \uBCF4\uD1B5\uC774\uC5D0\uC694.";
+        }
+        return { season, monthJi, dayElem, need, urgency, note, isSimplified: true };
+      }
+      module.exports = { SEASON_OF_JI, johuHint };
     }
   });
 
@@ -9549,49 +9698,2064 @@ var OhaengEngine = (() => {
     }
   });
 
-  // src/saju/twelve-stages.js
-  var require_twelve_stages = __commonJS({
-    "src/saju/twelve-stages.js"(exports, module) {
-      var { GAN, JI, GAN_ELEM, GAN_YIN_YANG } = require_saju();
-      var STAGE_NAMES = ["\uC808", "\uD0DC", "\uC591", "\uC7A5\uC0DD", "\uBAA9\uC695", "\uAD00\uB300", "\uAC74\uB85D", "\uC81C\uC655", "\uC1E0", "\uBCD1", "\uC0AC", "\uBB18"];
-      var SAENG_JI = { \uBAA9: "\uD574", \uD654: "\uC778", \uD1A0: "\uC778", \uAE08: "\uC0AC", \uC218: "\uC2E0" };
-      function safeMod(n, m) {
-        return (n % m + m) % m;
-      }
-      function twelveStage(ganIdx, jiIdx) {
-        const elem = GAN_ELEM[ganIdx];
-        const yinYang = GAN_YIN_YANG[ganIdx];
-        const saengIdx = JI.indexOf(SAENG_JI[elem]);
-        const stageIdx = yinYang === "\uC591" ? safeMod(3 + (jiIdx - saengIdx), 12) : safeMod(10 - (jiIdx - saengIdx), 12);
-        return STAGE_NAMES[stageIdx];
-      }
-      function twelveStagesForNatal(natalPillars) {
-        if (!natalPillars.day) throw new Error("\uC77C\uAC04\uC744 \uC54C \uC218 \uC5C6\uC73C\uBA74 12\uC6B4\uC131\uC744 \uC0B0\uCD9C\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-        const dayGanIdx = natalPillars.day.gan;
-        const out = {};
-        ["year", "month", "day", "hour"].forEach((k) => {
-          if (natalPillars[k]) out[k] = twelveStage(dayGanIdx, natalPillars[k].ji);
-        });
-        return out;
-      }
-      module.exports = { STAGE_NAMES, twelveStage, twelveStagesForNatal };
+  // src/persona/characters.js
+  var require_characters = __commonJS({
+    "src/persona/characters.js"(exports, module) {
+      "use strict";
+      var CHARACTERS = [
+        // ── 숨김형 × 추진력(목): 속으로는 목표·야심이 큰데 겉으로는 잘 안 드러남
+        {
+          id: "jang-geurae",
+          name: "\uC7A5\uADF8\uB798",
+          work: "\uBBF8\uC0DD",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2014,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [82, 40, 62, 60, 70],
+          outer: [45, 35, 58, 55, 62],
+          line: "\uB9D0\uC218 \uC801\uC740 \uC2E0\uC785\uC774\uC9C0\uB9CC \uC18D\uC73C\uB85C\uB294 \uB204\uAD6C\uBCF4\uB2E4 \uBC84\uD2F0\uACE0 \uC62C\uB77C\uAC00\uB824\uB294 \uC0AC\uB78C",
+          innerLine: "\uC5EC\uAE30\uC11C \uB05D\uAE4C\uC9C0 \uBC84\uD168\uC11C \uC62C\uB77C\uAC00\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uB9D0\uC218 \uC801\uACE0 \uB208\uC5D0 \uC798 \uB744\uC9C0 \uC54A\uB294 \uC2E0\uC785"
+        },
+        {
+          id: "michael-corleone",
+          name: "\uB9C8\uC774\uD074 \uCF5C\uB9AC\uC624\uB124",
+          work: "\uB300\uBD80",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1972,
+          type: "hidden",
+          key: "\uBAA9",
+          villain: true,
+          inner: [88, 30, 45, 72, 80],
+          outer: [50, 32, 48, 66, 74],
+          line: "\uC870\uC6A9\uD55C \uB9C9\uB0B4\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC5D0 \uAC70\uB300\uD55C \uC57C\uC2EC\uC744 \uD488\uC740 \uC0AC\uB78C",
+          innerLine: "\uAC00\uC871\uC744 \uC9C0\uD0A4\uB824\uBA74 \uB0B4\uAC00 \uBAA8\uB4E0 \uAC78 \uC950\uC5B4\uC57C \uD55C\uB2E4",
+          outerLine: "\uAC00\uC5C5\uACFC \uAC70\uB9AC\uB97C \uB450\uB358 \uC870\uC6A9\uD55C \uB9C9\uB0B4"
+        },
+        {
+          id: "kim-kiwoo",
+          name: "\uAE40\uAE30\uC6B0",
+          work: "\uAE30\uC0DD\uCDA9",
+          kind: "\uD55C\uAD6D \uC601\uD654",
+          year: 2019,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [80, 58, 50, 40, 66],
+          outer: [48, 60, 55, 42, 60],
+          line: "\uD3C9\uBC94\uD55C \uCCAD\uB144\uCC98\uB7FC \uAD74\uC9C0\uB9CC \uC18D\uC73C\uB85C \uD070 \uACC4\uD68D\uC744 \uADF8\uB9AC\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774\uBC88 \uAE30\uD68C\uB85C \uC6B0\uB9AC \uC9D1 \uC778\uC0DD\uC744 \uBC14\uAFB8\uACA0\uB2E4",
+          outerLine: "\uC131\uC2E4\uD558\uACE0 \uC2F9\uC2F9\uD55C \uACFC\uC678 \uC120\uC0DD\uB2D8"
+        },
+        // ── 숨김형 × 표현력(화): 감정이 깊은데 밖으로 덜 드러냄
+        {
+          id: "kim-shin",
+          name: "\uAE40\uC2E0",
+          work: "\uB3C4\uAE68\uBE44",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2016,
+          type: "hidden",
+          key: "\uD654",
+          inner: [58, 85, 70, 66, 72],
+          outer: [55, 48, 64, 62, 70],
+          line: "\uB18D\uB2F4\uC73C\uB85C \uAC00\uB9AC\uC9C0\uB9CC \uC18D\uC5D4 \uC624\uB79C \uADF8\uB9AC\uC6C0\uACFC \uC2AC\uD514\uC744 \uD488\uC740 \uC0AC\uB78C",
+          innerLine: "\uC774 \uAE34 \uC0B6\uC774 \uC774\uC81C\uB294 \uADF8\uB9BD\uACE0 \uC2AC\uD504\uB2E4",
+          outerLine: "\uB2A5\uCCAD\uC2A4\uB7FD\uACE0 \uB18D\uB2F4 \uC798\uD558\uB294 \uC544\uC800\uC528"
+        },
+        {
+          id: "park-donghoon",
+          name: "\uBC15\uB3D9\uD6C8",
+          work: "\uB098\uC758 \uC544\uC800\uC528",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2018,
+          type: "hidden",
+          key: "\uD654",
+          inner: [45, 80, 78, 74, 76],
+          outer: [42, 40, 72, 72, 70],
+          line: "\uBB35\uBB35\uD788 \uACAC\uB514\uB294 \uC5BC\uAD74 \uB4A4\uC5D0 \uB9CE\uC740 \uAC10\uC815\uC744 \uC0BC\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB2E4\uB4E4 \uAD1C\uCC2E\uC740 \uCC99 \uC0AC\uB294\uB370 \uB098\uB3C4 \uC0AC\uC2E4 \uBC84\uAC81\uB2E4",
+          outerLine: "\uD45C\uC815 \uC5C6\uC774 \uBB35\uBB35\uD788 \uC77C\uB9CC \uD558\uB294 \uBD80\uC7A5"
+        },
+        {
+          id: "carl-fredricksen",
+          name: "\uCE7C \uD504\uB808\uB4DC\uB9AD\uC2A8",
+          work: "\uC5C5",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2009,
+          type: "hidden",
+          key: "\uD654",
+          inner: [50, 78, 60, 68, 55],
+          outer: [48, 38, 52, 70, 52],
+          line: "\uBB34\uB69D\uB69D\uD55C \uD560\uC544\uBC84\uC9C0\uC9C0\uB9CC \uC18D\uC5D4 \uC560\uD2CB\uD55C \uC0AC\uB791\uACFC \uADF8\uB9AC\uC6C0\uC774 \uAC00\uB4DD\uD55C \uC0AC\uB78C",
+          innerLine: "\uC544\uB0B4\uC640\uC758 \uC57D\uC18D\uC744 \uC544\uC9C1 \uC9C0\uD0A4\uC9C0 \uBABB\uD588\uB2E4",
+          outerLine: "\uC774\uC6C3\uACFC \uB9D0 \uC11E\uAE30 \uC2EB\uC5B4\uD558\uB294 \uAD34\uD30D\uD55C \uD560\uC544\uBC84\uC9C0"
+        },
+        // ── 숨김형 × 포용력(토): 속으로는 사람을 아끼는데 차갑게 보임
+        {
+          id: "lee-jian",
+          name: "\uC774\uC9C0\uC548",
+          work: "\uB098\uC758 \uC544\uC800\uC528",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2018,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [60, 40, 80, 52, 74],
+          outer: [58, 32, 40, 50, 70],
+          line: "\uCC28\uAC11\uACE0 \uB0A0 \uC120 \uAC89\uBAA8\uC2B5 \uB4A4\uC5D0 \uC0AC\uB78C\uC744 \uD5A5\uD55C \uB530\uB73B\uD568\uC744 \uC228\uAE34 \uC0AC\uB78C",
+          innerLine: "\uB204\uAD70\uAC00 \uD55C \uBC88\uCBE4\uC740 \uB0B4 \uD3B8\uC774 \uB418\uC5B4 \uC92C\uC73C\uBA74",
+          outerLine: "\uCC28\uAC11\uACE0 \uB0A0 \uC11C\uC11C \uACC1\uC744 \uC8FC\uC9C0 \uC54A\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "severus-snape",
+          name: "\uC138\uBCA0\uB8E8\uC2A4 \uC2A4\uB124\uC774\uD504",
+          work: "\uD574\uB9AC \uD3EC\uD130",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "hidden",
+          key: "\uD1A0",
+          villain: true,
+          inner: [55, 35, 82, 80, 86],
+          outer: [58, 28, 35, 78, 82],
+          line: "\uB0C9\uC815\uD558\uACE0 \uAC00\uD639\uD574 \uBCF4\uC774\uC9C0\uB9CC \uB05D\uAE4C\uC9C0 \uB204\uAD70\uAC00\uB97C \uC9C0\uCF1C \uC628 \uC0AC\uB78C",
+          innerLine: "\uB05D\uAE4C\uC9C0 \uC9C0\uD0A4\uAE30\uB85C \uD55C \uC57D\uC18D\uC774 \uC788\uB2E4",
+          outerLine: "\uD559\uC0DD\uB4E4\uC5D0\uAC8C \uAC00\uC7A5 \uBB34\uC12D\uACE0 \uAC00\uD639\uD55C \uAD50\uC218"
+        },
+        {
+          id: "leon",
+          name: "\uB808\uC639",
+          work: "\uB808\uC639",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1994,
+          type: "hidden",
+          key: "\uD1A0",
+          villain: true,
+          inner: [50, 34, 80, 76, 58],
+          outer: [52, 30, 42, 74, 55],
+          line: "\uBB34\uD45C\uC815\uD55C \uD0AC\uB7EC\uC9C0\uB9CC \uC18D\uC73C\uB85C\uB294 \uD55C \uC0AC\uB78C\uC744 \uC9C0\uD0A4\uB824 \uB9C8\uC74C\uC744 \uC5EC\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC544\uC774\uB9CC\uD07C\uC740 \uC9C0\uCF1C \uC8FC\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uC6B0\uC720\uC640 \uD654\uBD84\uB9CC \uCC59\uAE30\uB294 \uBB34\uD45C\uC815\uD55C \uD574\uACB0\uC0AC"
+        },
+        // ── 숨김형 × 원칙성(금): 겉은 느슨해 보여도 속엔 분명한 기준
+        {
+          id: "dongbaek",
+          name: "\uB3D9\uBC31",
+          work: "\uB3D9\uBC31\uAF43 \uD544 \uBB34\uB835",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2019,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [55, 50, 76, 82, 60],
+          outer: [48, 52, 74, 50, 56],
+          line: "\uC5EC\uB9AC\uACE0 \uC21C\uD574 \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC5D4 \uAEBE\uC774\uC9C0 \uC54A\uB294 \uC790\uAE30 \uAE30\uC900\uC774 \uC788\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB3C4 \uB0B4 \uBC29\uC2DD\uB300\uB85C \uB2F9\uB2F9\uD558\uAC8C \uC0B4\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uB3D9\uB124 \uC0AC\uB78C\uB4E4 \uB208\uCE58\uB97C \uBCF4\uB294 \uC5EC\uB9B0 \uAC00\uAC8C \uC8FC\uC778"
+        },
+        {
+          id: "gintoki",
+          name: "\uC0AC\uCE74\uD0C0 \uAE34\uD1A0\uD0A4",
+          work: "\uC740\uD63C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2006,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [62, 70, 66, 84, 72],
+          outer: [56, 74, 62, 44, 68],
+          line: "\uAC8C\uC73C\uB974\uACE0 \uD5D0\uB801\uD574 \uBCF4\uC774\uC9C0\uB9CC \uC9C0\uD0AC \uAC83\uC740 \uBC18\uB4DC\uC2DC \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB0B4\uAC00 \uC815\uD55C \uAC83\uB9CC\uD07C\uC740 \uB05D\uAE4C\uC9C0 \uC9C0\uD0A8\uB2E4",
+          outerLine: "\uBE48\uB465\uAC70\uB9AC\uACE0 \uC6D4\uC138\uB3C4 \uBC00\uB9AC\uB294 \uD574\uACB0\uC0AC"
+        },
+        {
+          id: "han-solo",
+          name: "\uD55C \uC194\uB85C",
+          work: "\uC2A4\uD0C0\uC6CC\uC988",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1977,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [74, 72, 58, 78, 62],
+          outer: [72, 74, 52, 44, 60],
+          line: "\uB3C8\uB9CC \uBC1D\uD788\uB294 \uCC99\uD558\uC9C0\uB9CC \uACB0\uC815\uC801\uC778 \uC21C\uAC04\uC5D4 \uC633\uC740 \uD3B8\uC5D0 \uC11C\uB294 \uC0AC\uB78C",
+          innerLine: "\uACB0\uAD6D \uCE5C\uAD6C\uB97C \uB450\uACE0 \uB5A0\uB0A0 \uC218\uB294 \uC5C6\uB2E4",
+          outerLine: "\uB3C8\uB9CC \uCC59\uAE30\uBA74 \uB5A0\uB0A0 \uAC83 \uAC19\uC740 \uBC00\uC218\uC5C5\uC790"
+        },
+        // ── 숨김형 × 통찰력(수): 속으로 깊이 보고 있지만 겉으론 평범·조용
+        {
+          id: "choi-taek",
+          name: "\uCD5C\uD0DD",
+          work: "\uC751\uB2F5\uD558\uB77C 1988",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2015,
+          type: "hidden",
+          key: "\uC218",
+          inner: [55, 40, 62, 58, 90],
+          outer: [50, 36, 60, 55, 52],
+          line: "\uC5B4\uC218\uB8E9\uD574 \uBCF4\uC774\uC9C0\uB9CC \uD310 \uC704\uC5D0\uC11C\uB294 \uB204\uAD6C\uBCF4\uB2E4 \uAE4A\uC774 \uC77D\uC5B4 \uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uBC14\uB451\uD310 \uC704\uC5D0\uC120 \uBAA8\uB4E0 \uC218\uAC00 \uB2E4 \uBCF4\uC778\uB2E4",
+          outerLine: "\uD63C\uC790\uC120 \uC544\uBB34\uAC83\uB3C4 \uBABB \uD560 \uAC83 \uAC19\uC740 \uC21C\uB465\uC774"
+        },
+        {
+          id: "keyser-soze",
+          name: "\uCE74\uC774\uC800 \uC18C\uC81C",
+          work: "\uC720\uC8FC\uC5BC \uC11C\uC2A4\uD399\uD2B8",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1995,
+          type: "hidden",
+          key: "\uC218",
+          villain: true,
+          inner: [82, 40, 30, 50, 94],
+          outer: [76, 46, 38, 48, 50],
+          line: "\uC57D\uD558\uACE0 \uC5B4\uC124\uD37C \uBCF4\uC774\uC9C0\uB9CC \uBAA8\uB4E0 \uD310\uC744 \uAFF0\uB6AB\uACE0 \uC788\uB294 \uC0AC\uB78C",
+          innerLine: "\uBAA8\uB4E0 \uC774\uC57C\uAE30\uB294 \uB0B4\uAC00 \uC9E0 \uB300\uB85C \uD758\uB7EC\uAC04\uB2E4",
+          outerLine: "\uB2E4\uB9AC\uB97C \uC808\uACE0 \uAC81 \uB9CE\uC740 \uC870\uBB34\uB798\uAE30"
+        },
+        {
+          id: "conan",
+          name: "\uC5D0\uB3C4\uAC00\uC640 \uCF54\uB09C",
+          work: "\uBA85\uD0D0\uC815 \uCF54\uB09C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1996,
+          type: "hidden",
+          key: "\uC218",
+          inner: [70, 55, 60, 72, 92],
+          outer: [66, 60, 58, 68, 56],
+          line: "\uD3C9\uBC94\uD55C \uC544\uC774\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC73C\uB85C \uBAA8\uB4E0 \uAC78 \uCD94\uB9AC\uD558\uB294 \uC0AC\uB78C",
+          innerLine: "\uC9C4\uC2E4\uC740 \uC774\uBBF8 \uBA38\uB9BF\uC18D\uC5D0 \uB2E4 \uADF8\uB824\uC838 \uC788\uB2E4",
+          outerLine: "\uC5B4\uB978\uB4E4 \uD2C8\uC744 \uC624\uAC00\uB294 \uD3C9\uBC94\uD55C \uCD08\uB4F1\uD559\uC0DD"
+        },
+        // ── 맹점형 × 추진력(목): 본인은 모르는데 남들은 추진력이 크다고 봄
+        {
+          id: "forrest-gump",
+          name: "\uD3EC\uB808\uC2A4\uD2B8 \uAC80\uD504",
+          work: "\uD3EC\uB808\uC2A4\uD2B8 \uAC80\uD504",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1994,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [42, 55, 80, 70, 40],
+          outer: [82, 58, 84, 72, 44],
+          line: "\uADF8\uC800 \uD560 \uC77C\uC744 \uD588\uC744 \uBFD0\uC778\uB370 \uB0A8\uB4E4 \uB208\uC5D4 \uBA48\uCD94\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uADF8\uB0E5 \uD574\uC57C \uD560 \uC77C\uC744 \uD588\uC744 \uBFD0\uC774\uB2E4",
+          outerLine: "\uD55C\uBC88 \uB2EC\uB9AC\uAE30 \uC2DC\uC791\uD558\uBA74 \uBA48\uCD94\uC9C0 \uC54A\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "seong-gihun",
+          name: "\uC131\uAE30\uD6C8",
+          work: "\uC624\uC9D5\uC5B4 \uAC8C\uC784",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2021,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [38, 62, 72, 52, 50],
+          outer: [74, 64, 70, 56, 48],
+          line: "\uC2A4\uC2A4\uB85C\uB294 \uC2E4\uD328\uC790\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB05D\uAE4C\uC9C0 \uBC00\uACE0 \uB098\uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uAC00\uC871\uC5D0\uAC8C\uB3C4 \uC2E4\uD328\uD55C \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uB05D\uAE4C\uC9C0 \uD3EC\uAE30\uD558\uC9C0 \uC54A\uACE0 \uC0AC\uB78C\uC744 \uCC59\uAE30\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "marlin",
+          name: "\uB9D0\uB9B0",
+          work: "\uB2C8\uBAA8\uB97C \uCC3E\uC544\uC11C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2003,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [40, 50, 70, 66, 56],
+          outer: [78, 52, 72, 62, 54],
+          line: "\uB298 \uAC81\uC774 \uB9CE\uB2E4\uACE0 \uC5EC\uAE30\uC9C0\uB9CC \uBC14\uB2E4\uB97C \uAC74\uB108 \uB05D\uB0B4 \uD574\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uAC81 \uB9CE\uACE0 \uAC71\uC815\uB9CC \uD558\uB294 \uC544\uBE60\uB2E4",
+          outerLine: "\uC544\uB4E4\uC744 \uCC3E\uC544 \uBC14\uB2E4 \uB05D\uAE4C\uC9C0 \uAC00\uB294 \uC6A9\uAC10\uD55C \uC544\uBE60"
+        },
+        // ── 맹점형 × 표현력(화): 남들은 밝고 생기 있다고 보는데 본인은 잘 모름
+        {
+          id: "sung-deokseon",
+          name: "\uC131\uB355\uC120",
+          work: "\uC751\uB2F5\uD558\uB77C 1988",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2015,
+          type: "blind",
+          key: "\uD654",
+          inner: [55, 50, 78, 40, 46],
+          outer: [58, 86, 80, 44, 48],
+          line: "\uC2A4\uC2A4\uB85C\uB294 \uD3C9\uBC94\uD558\uB2E4\uC9C0\uB9CC \uC788\uB294 \uACF3\uB9C8\uB2E4 \uBD84\uC704\uAE30\uB97C \uC0B4\uB9AC\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB531\uD788 \uC798\uD558\uB294 \uAC8C \uC5C6\uB294 \uD3C9\uBC94\uD55C \uC560\uB2E4",
+          outerLine: "\uACE8\uBAA9 \uC5B4\uB514\uC11C\uB4E0 \uC6C3\uC74C\uC744 \uBA3C\uC800 \uD130\uB728\uB9AC\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "paddington",
+          name: "\uD328\uB529\uD134",
+          work: "\uD328\uB529\uD134",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2014,
+          type: "blind",
+          key: "\uD654",
+          inner: [52, 44, 82, 70, 55],
+          outer: [55, 80, 84, 66, 56],
+          line: "\uC608\uC758 \uBC14\uB978 \uACF0\uC77C \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC8FC\uBCC0\uC744 \uD658\uD558\uAC8C \uB9CC\uB4DC\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uADF8\uC800 \uC608\uC758\uB97C \uC9C0\uD0A4\uB824\uB294 \uACF0\uC774\uB2E4",
+          outerLine: "\uAC00\uB294 \uACF3\uB9C8\uB2E4 \uC0AC\uB78C\uB4E4 \uB9C8\uC74C\uC744 \uC5EC\uB294 \uC874\uC7AC"
+        },
+        {
+          id: "luffy",
+          name: "\uBABD\uD0A4 D. \uB8E8\uD53C",
+          work: "\uC6D0\uD53C\uC2A4",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1999,
+          type: "blind",
+          key: "\uD654",
+          inner: [84, 56, 70, 40, 36],
+          outer: [88, 92, 72, 38, 40],
+          line: "\uADF8\uB0E5 \uD558\uACE0 \uC2F6\uC740 \uB300\uB85C \uD560 \uBFD0\uC778\uB370 \uBAA8\uB450\uB97C \uB04C\uC5B4\uB4E4\uC774\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uD558\uACE0 \uC2F6\uC740 \uAC78 \uD560 \uBFD0\uC774\uB2E4",
+          outerLine: "\uC801\uC774\uC5C8\uB358 \uC0AC\uB78C\uAE4C\uC9C0 \uB3D9\uB8CC\uB85C \uB04C\uC5B4\uB4E4\uC774\uB294 \uC0AC\uB78C"
+        },
+        // ── 맹점형 × 포용력(토): 본인은 모르는데 남들은 편안한 버팀목으로 봄
+        {
+          id: "samwise",
+          name: "\uC0D8\uC640\uC774\uC988 \uAC2C\uC9C0",
+          work: "\uBC18\uC9C0\uC758 \uC81C\uC655",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [55, 50, 48, 74, 50],
+          outer: [60, 54, 88, 76, 52],
+          line: "\uD3C9\uBC94\uD55C \uC815\uC6D0\uC0AC\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB3D9\uB8CC\uC5D0\uAC8C\uB294 \uAC00\uC7A5 \uB4E0\uB4E0\uD55C \uBC84\uD300\uBAA9",
+          innerLine: "\uB098\uB294 \uADF8\uB0E5 \uD3C9\uBC94\uD55C \uC815\uC6D0\uC0AC\uB2E4",
+          outerLine: "\uB3D9\uB8CC\uAC00 \uC4F0\uB7EC\uC9C0\uBA74 \uB05D\uAE4C\uC9C0 \uC5C5\uACE0 \uAC00\uB294 \uBC84\uD300\uBAA9"
+        },
+        {
+          id: "totoro",
+          name: "\uD1A0\uD1A0\uB85C",
+          work: "\uC774\uC6C3\uC9D1 \uD1A0\uD1A0\uB85C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1988,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [40, 55, 45, 40, 60],
+          outer: [42, 58, 86, 44, 62],
+          line: "\uADF8\uC800 \uACC1\uC5D0 \uC788\uC744 \uBFD0\uC778\uB370 \uBAA8\uB450\uAC00 \uC548\uC2EC\uD558\uAC8C \uB418\uB294 \uC874\uC7AC",
+          innerLine: "\uC232\uC5D0\uC11C \uB290\uAE0B\uD558\uAC8C \uC9C0\uB0BC \uBFD0\uC774\uB2E4",
+          outerLine: "\uACC1\uC5D0 \uC788\uAE30\uB9CC \uD574\uB3C4 \uC544\uC774\uB4E4\uC774 \uC548\uC2EC\uD558\uB294 \uC874\uC7AC"
+        },
+        {
+          id: "winnie-the-pooh",
+          name: "\uACF0\uB3CC\uC774 \uD478",
+          work: "\uACF0\uB3CC\uC774 \uD478",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1977,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [30, 58, 46, 36, 50],
+          outer: [34, 62, 84, 40, 55],
+          line: "\uAFC0 \uC0DD\uAC01\uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uCE5C\uAD6C\uB4E4\uC5D0\uAC8C\uB294 \uAC00\uC7A5 \uD3B8\uD55C \uC874\uC7AC",
+          innerLine: "\uAFC0 \uD55C \uB2E8\uC9C0\uBA74 \uC624\uB298\uC740 \uCDA9\uBD84\uD558\uB2E4",
+          outerLine: "\uCE5C\uAD6C\uB4E4\uC774 \uAC00\uC7A5 \uD3B8\uD558\uAC8C \uCC3E\uC544\uC624\uB294 \uACF0"
+        },
+        // ── 맹점형 × 원칙성(금): 남들은 믿음직하고 반듯하다고 보는데 본인은 모름
+        {
+          id: "woody",
+          name: "\uC6B0\uB514",
+          work: "\uD1A0\uC774 \uC2A4\uD1A0\uB9AC",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1995,
+          type: "blind",
+          key: "\uAE08",
+          inner: [72, 64, 70, 50, 55],
+          outer: [74, 66, 74, 84, 56],
+          line: "\uC0AC\uB791\uBC1B\uACE0 \uC2F6\uC740 \uC7A5\uB09C\uAC10\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uBAA8\uB450\uAC00 \uBBFF\uACE0 \uB530\uB974\uB294 \uB9AC\uB354",
+          innerLine: "\uC8FC\uC778\uC5D0\uAC8C \uC0AC\uB791\uBC1B\uB294 \uC7A5\uB09C\uAC10\uC774\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uBAA8\uB450\uAC00 \uBBFF\uACE0 \uB530\uB974\uB294 \uC7A5\uB09C\uAC10\uB4E4\uC758 \uB9AC\uB354"
+        },
+        {
+          id: "neville",
+          name: "\uB124\uBE4C \uB871\uBC14\uD140",
+          work: "\uD574\uB9AC \uD3EC\uD130",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "blind",
+          key: "\uAE08",
+          inner: [40, 38, 70, 46, 52],
+          outer: [48, 40, 74, 82, 55],
+          line: "\uC2A4\uC2A4\uB85C\uB294 \uAC81\uC7C1\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC633\uC740 \uC77C \uC55E\uC5D0\uC120 \uBB3C\uB7EC\uC11C\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB298 \uC2E4\uC218\uB9CC \uD558\uB294 \uAC81\uC7C1\uC774\uB2E4",
+          outerLine: "\uC633\uC740 \uC77C \uC55E\uC5D0\uC120 \uCE5C\uAD6C\uC5D0\uAC8C\uB3C4 \uB9DE\uC11C\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "go-gildong",
+          name: "\uACE0\uAE38\uB3D9",
+          work: "\uC544\uAE30\uACF5\uB8E1 \uB458\uB9AC",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1987,
+          type: "blind",
+          key: "\uAE08",
+          inner: [60, 62, 50, 48, 52],
+          outer: [58, 66, 56, 84, 50],
+          line: "\uB298 \uD654\uB0B4\uB294 \uC544\uC800\uC528 \uAC19\uC9C0\uB9CC \uC54C\uACE0 \uBCF4\uBA74 \uAC00\uC7A5 \uCC45\uC784\uAC10 \uC788\uB294 \uC5B4\uB978",
+          innerLine: "\uB0B4 \uC9D1 \uC0B4\uB9BC \uC9C0\uD0A4\uB290\uB77C \uB298 \uC18D\uC774 \uD0C4\uB2E4",
+          outerLine: "\uD22C\uB35C\uB300\uB3C4 \uB05D\uAE4C\uC9C0 \uCC45\uC784\uC9C0\uB294 \uC9D1\uC548\uC758 \uC5B4\uB978"
+        },
+        // ── 맹점형 × 통찰력(수): 남들은 깊다고 보는데 본인은 평범하다고 여김
+        {
+          id: "woo-youngwoo",
+          name: "\uC6B0\uC601\uC6B0",
+          work: "\uC774\uC0C1\uD55C \uBCC0\uD638\uC0AC \uC6B0\uC601\uC6B0",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2022,
+          type: "blind",
+          key: "\uC218",
+          inner: [60, 50, 55, 78, 60],
+          outer: [62, 52, 58, 80, 94],
+          line: "\uC790\uAE30 \uBC29\uC2DD\uB300\uB85C \uC0DD\uAC01\uD560 \uBFD0\uC778\uB370 \uB0A8\uB4E4\uC740 \uBC88\uB729\uC774\uB294 \uD1B5\uCC30\uC5D0 \uB180\uB77C\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB0B4 \uBC29\uC2DD\uB300\uB85C \uC0DD\uAC01\uD560 \uBFD0\uC774\uB2E4",
+          outerLine: "\uBAA8\uB450\uAC00 \uB193\uCE5C \uC2E4\uB9C8\uB9AC\uB97C \uCC3E\uC544\uB0B4\uB294 \uBCC0\uD638\uC0AC"
+        },
+        {
+          id: "luna-lovegood",
+          name: "\uB8E8\uB098 \uB7EC\uBE0C\uAD7F",
+          work: "\uD574\uB9AC \uD3EC\uD130",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2007,
+          type: "blind",
+          key: "\uC218",
+          inner: [45, 58, 66, 36, 48],
+          outer: [48, 62, 70, 38, 86],
+          line: "\uC5C9\uB6B1\uD558\uB2E4\uB294 \uB9D0\uC744 \uB4E3\uC9C0\uB9CC \uB0A8\uB4E4\uC774 \uBABB \uBCF4\uB294 \uAC83\uC744 \uBCF4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB0B4 \uB208\uC5D0 \uBCF4\uC774\uB294 \uAC78 \uB9D0\uD560 \uBFD0\uC774\uB2E4",
+          outerLine: "\uC5C9\uB6B1\uD558\uC9C0\uB9CC \uAC00\uB054 \uD575\uC2EC\uC744 \uCC0C\uB974\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "po",
+          name: "\uD3EC",
+          work: "\uCFF5\uD478 \uD32C\uB354",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2008,
+          type: "blind",
+          key: "\uC218",
+          inner: [60, 76, 72, 40, 38],
+          outer: [64, 80, 74, 42, 78],
+          line: "\uB35C\uB801\uB300\uB294 \uD32C\uB354\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC2A4\uC2B9\uB4E4\uC740 \uADF8 \uC548\uC758 \uAE4A\uC774\uB97C \uC54C\uC544\uBCF4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB35C\uB801\uB300\uB294 \uAD6D\uC22B\uC9D1 \uD32C\uB354\uB2E4",
+          outerLine: "\uC2A4\uC2B9\uB4E4\uC774 \uC228\uC740 \uAE4A\uC774\uB97C \uC54C\uC544\uBCF4\uB294 \uC81C\uC790"
+        },
+        // ── 투명형 × 추진력(목): 안팎 모두 추진력이 대표 모습
+        {
+          id: "park-saeroyi",
+          name: "\uBC15\uC0C8\uB85C\uC774",
+          work: "\uC774\uD0DC\uC6D0 \uD074\uB77C\uC4F0",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2020,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [92, 50, 66, 84, 62],
+          outer: [88, 48, 62, 80, 58],
+          line: "\uBAA9\uD45C\uB97C \uD5A5\uD574 \uACE7\uAC8C \uAC00\uB294 \uBAA8\uC2B5\uC774 \uC548\uD30E\uC73C\uB85C \uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uC815\uD55C \uBAA9\uD45C\uB294 \uBC18\uB4DC\uC2DC \uC774\uB8EC\uB2E4",
+          outerLine: "\uB9D0\uD55C \uB300\uB85C \uD558\uB098\uC529 \uD574\uB0B4\uB294 \uC0AC\uC7A5"
+        },
+        {
+          id: "na-heedo",
+          name: "\uB098\uD76C\uB3C4",
+          work: "\uC2A4\uBB3C\uB2E4\uC12F \uC2A4\uBB3C\uD558\uB098",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2022,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [90, 84, 60, 52, 50],
+          outer: [88, 86, 58, 50, 48],
+          line: "\uD558\uACE0 \uC2F6\uC740 \uAC78 \uD5A5\uD574 \uC628\uBAB8\uC73C\uB85C \uB2EC\uB824\uAC00\uB294, \uBCF4\uC774\uB294 \uADF8\uB300\uB85C\uC758 \uC0AC\uB78C",
+          innerLine: "\uD558\uACE0 \uC2F6\uC73C\uBA74 \uC77C\uB2E8 \uBD80\uB52A\uCCD0 \uBCF8\uB2E4",
+          outerLine: "\uB118\uC5B4\uC838\uB3C4 \uBC14\uB85C \uB2E4\uC2DC \uB2EC\uB9AC\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "tanjiro",
+          name: "\uCE74\uB9C8\uB3C4 \uD0C4\uC9C0\uB85C",
+          work: "\uADC0\uBA78\uC758 \uCE7C\uB0A0",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2019,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [90, 62, 84, 76, 58],
+          outer: [88, 60, 80, 74, 56],
+          line: "\uD3EC\uAE30\uD558\uC9C0 \uC54A\uB294 \uB9C8\uC74C\uC774 \uAC89\uACFC \uC18D\uC5D0 \uB611\uAC19\uC774 \uB4DC\uB7EC\uB098\uB294 \uC0AC\uB78C",
+          innerLine: "\uD3EC\uAE30\uD558\uC9C0 \uC54A\uC73C\uBA74 \uAE38\uC740 \uC788\uB2E4",
+          outerLine: "\uBA87 \uBC88\uC774\uACE0 \uB2E4\uC2DC \uC77C\uC5B4\uC11C\uB294 \uC0AC\uB78C"
+        },
+        // ── 투명형 × 표현력(화)
+        {
+          id: "kim-samsoon",
+          name: "\uAE40\uC0BC\uC21C",
+          work: "\uB0B4 \uC774\uB984\uC740 \uAE40\uC0BC\uC21C",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2005,
+          type: "transparent",
+          key: "\uD654",
+          inner: [66, 90, 62, 44, 50],
+          outer: [64, 92, 60, 40, 48],
+          line: "\uB290\uB07C\uB294 \uADF8\uB300\uB85C \uB9D0\uD558\uACE0 \uC6C3\uACE0 \uC6B0\uB294, \uC194\uC9C1\uD568 \uADF8 \uC790\uCCB4\uC778 \uC0AC\uB78C",
+          innerLine: "\uB290\uB07C\uB294 \uB300\uB85C \uB9D0\uD574\uC57C \uC18D\uC774 \uD480\uB9B0\uB2E4",
+          outerLine: "\uC6C3\uACE0 \uD654\uB0B4\uACE0 \uC6B0\uB294 \uAC8C \uB2E4 \uBCF4\uC774\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "olaf",
+          name: "\uC62C\uB77C\uD504",
+          work: "\uACA8\uC6B8\uC655\uAD6D",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2013,
+          type: "transparent",
+          key: "\uD654",
+          inner: [50, 92, 80, 30, 40],
+          outer: [52, 94, 82, 32, 38],
+          line: "\uB9C8\uC74C\uC18D \uAE30\uC068\uC744 \uC228\uAE40\uC5C6\uC774 \uD45C\uD604\uD558\uB294 \uC0AC\uB78C",
+          innerLine: "\uB530\uB73B\uD558\uAC8C \uC548\uC544 \uC8FC\uB294 \uAC8C \uC81C\uC77C \uC88B\uB2E4",
+          outerLine: "\uAE30\uC068\uC744 \uC228\uAE40\uC5C6\uC774 \uB4DC\uB7EC\uB0B4\uB294 \uB208\uC0AC\uB78C"
+        },
+        {
+          id: "joker",
+          name: "\uC870\uCEE4",
+          work: "\uB2E4\uD06C \uB098\uC774\uD2B8",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2008,
+          type: "transparent",
+          key: "\uD654",
+          villain: true,
+          inner: [78, 90, 10, 12, 84],
+          outer: [76, 92, 8, 10, 82],
+          line: "\uC18D\uC758 \uD63C\uB3C8\uC744 \uADF8\uB300\uB85C \uBB34\uB300\uCC98\uB7FC \uD3BC\uCCD0 \uBCF4\uC774\uB294 \uC0AC\uB78C",
+          innerLine: "\uC138\uC0C1\uC740 \uACB0\uAD6D \uD63C\uB3C8\uC774\uB2E4",
+          outerLine: "\uADF8 \uD63C\uB3C8\uC744 \uBB34\uB300\uCC98\uB7FC \uD3BC\uCCD0 \uBCF4\uC774\uB294 \uC0AC\uB78C"
+        },
+        // ── 투명형 × 포용력(토)
+        {
+          id: "hwang-yongsik",
+          name: "\uD669\uC6A9\uC2DD",
+          work: "\uB3D9\uBC31\uAF43 \uD544 \uBB34\uB835",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2019,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [76, 72, 90, 70, 40],
+          outer: [74, 76, 92, 68, 38],
+          line: "\uC544\uB07C\uB294 \uB9C8\uC74C\uC744 \uC228\uAE40\uC5C6\uC774 \uD45C\uD604\uD558\uACE0 \uB05D\uAE4C\uC9C0 \uACC1\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC88B\uC544\uD558\uB294 \uC0AC\uB78C\uC740 \uB0B4\uAC00 \uC9C0\uD0A8\uB2E4",
+          outerLine: "\uB9C8\uC74C\uC744 \uB300\uB193\uACE0 \uD45C\uD604\uD558\uBA70 \uACC1\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "baymax",
+          name: "\uBCA0\uC774\uB9E5\uC2A4",
+          work: "\uBE45 \uD788\uC5B4\uB85C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2014,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [40, 46, 94, 80, 62],
+          outer: [38, 44, 92, 82, 60],
+          line: "\uB3CC\uBD04\uC774 \uC874\uC7AC \uC774\uC720\uC778, \uC548\uD30E\uC774 \uAC19\uC740 \uB2E4\uC815\uD55C \uC0AC\uB78C",
+          innerLine: "\uB3CC\uBCF4\uB294 \uAC83\uC774 \uB0B4\uAC00 \uD560 \uC77C\uC774\uB2E4",
+          outerLine: "\uB204\uAD6C\uC5D0\uAC8C\uB098 \uB2E4\uC815\uD55C \uB3CC\uBD04 \uB85C\uBD07"
+        },
+        {
+          id: "hagrid",
+          name: "\uB8E8\uBE44\uC6B0\uC2A4 \uD574\uADF8\uB9AC\uB4DC",
+          work: "\uD574\uB9AC \uD3EC\uD130",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [50, 78, 90, 40, 44],
+          outer: [52, 82, 92, 38, 42],
+          line: "\uD070 \uB369\uCE58\uB9CC\uD07C \uD070 \uB9C8\uC74C\uC744 \uADF8\uB300\uB85C \uB0B4\uBCF4\uC774\uB294 \uC0AC\uB78C",
+          innerLine: "\uC544\uB07C\uB294 \uC774\uB4E4\uC744 \uC704\uD574\uC11C\uB77C\uBA74 \uBB50\uB4E0 \uD55C\uB2E4",
+          outerLine: "\uD070 \uB369\uCE58\uB9CC\uD07C \uB9C8\uC74C\uB3C4 \uD070 \uC0AC\uB78C"
+        },
+        // ── 투명형 × 원칙성(금)
+        {
+          id: "hermione",
+          name: "\uD5E4\uB974\uBBF8\uC628\uB290 \uADF8\uB808\uC778\uC800",
+          work: "\uD574\uB9AC \uD3EC\uD130",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [80, 62, 66, 92, 86],
+          outer: [78, 64, 62, 90, 84],
+          line: "\uC633\uACE0 \uADF8\uB984\uC774 \uBD84\uBA85\uD558\uACE0 \uADF8 \uAE30\uC900\uC744 \uC228\uAE30\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uC633\uC740 \uAC74 \uC633\uB2E4\uACE0 \uB9D0\uD574\uC57C \uD55C\uB2E4",
+          outerLine: "\uADDC\uCE59\uACFC \uAE30\uC900\uC744 \uBD84\uBA85\uD788 \uB9D0\uD558\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "baek-seungsu",
+          name: "\uBC31\uC2B9\uC218",
+          work: "\uC2A4\uD1A0\uBE0C\uB9AC\uADF8",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2019,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [76, 30, 58, 92, 82],
+          outer: [74, 28, 54, 94, 80],
+          line: "\uC6D0\uCE59\uB300\uB85C \uD310\uB2E8\uD558\uACE0 \uADF8\uB300\uB85C \uB9D0\uD558\uB294, \uAC89\uACFC \uC18D\uC774 \uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uAC10\uC815\uBCF4\uB2E4 \uC6D0\uCE59\uB300\uB85C \uD310\uB2E8\uD55C\uB2E4",
+          outerLine: "\uD560 \uB9D0\uC740 \uB3CC\uB824 \uB9D0\uD558\uC9C0 \uC54A\uB294 \uB2E8\uC7A5"
+        },
+        {
+          id: "anton-chigurh",
+          name: "\uC548\uD1A4 \uC2DC\uAC70",
+          work: "\uB178\uC778\uC744 \uC704\uD55C \uB098\uB77C\uB294 \uC5C6\uB2E4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2007,
+          type: "transparent",
+          key: "\uAE08",
+          villain: true,
+          inner: [82, 14, 8, 94, 70],
+          outer: [80, 12, 6, 92, 72],
+          line: "\uC790\uAE30\uB9CC\uC758 \uADDC\uCE59\uC744 \uD55C \uCE58\uB3C4 \uC5B4\uAE30\uC9C0 \uC54A\uACE0 \uADF8\uB300\uB85C \uB4DC\uB7EC\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC815\uD55C \uADDC\uCE59\uC740 \uC608\uC678 \uC5C6\uC774 \uB530\uB978\uB2E4",
+          outerLine: "\uB3D9\uC804 \uD558\uB098\uB85C \uC6B4\uBA85\uC744 \uC815\uD558\uB294 \uB0C9\uD639\uD55C \uC0AC\uB78C"
+        },
+        // ── 투명형 × 통찰력(수)
+        {
+          id: "sherlock",
+          name: "\uC15C\uB85D \uD648\uC988",
+          work: "\uC15C\uB85D",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 2010,
+          type: "transparent",
+          key: "\uC218",
+          inner: [72, 56, 30, 64, 96],
+          outer: [70, 60, 28, 62, 94],
+          line: "\uAFF0\uB6AB\uC5B4 \uBCF4\uB294 \uD798\uC744 \uC228\uAE30\uC9C0 \uC54A\uACE0 \uADF8\uB300\uB85C \uB4DC\uB7EC\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uBCF4\uC774\uB294 \uAC83\uB9CC\uC73C\uB85C\uB3C4 \uB2E4 \uC54C \uC218 \uC788\uB2E4",
+          outerLine: "\uCD94\uB9AC\uB97C \uC228\uAE40\uC5C6\uC774 \uC3DF\uC544 \uB0B4\uB294 \uD0D0\uC815"
+        },
+        {
+          id: "hwang-simok",
+          name: "\uD669\uC2DC\uBAA9",
+          work: "\uBE44\uBC00\uC758 \uC232",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2017,
+          type: "transparent",
+          key: "\uC218",
+          inner: [60, 20, 48, 88, 92],
+          outer: [58, 18, 46, 86, 94],
+          line: "\uAC10\uC815\uC740 \uC801\uC5B4\uB3C4 \uC0AC\uC2E4\uC744 \uB05D\uAE4C\uC9C0 \uD30C\uACE0\uB4DC\uB294 \uBAA8\uC2B5\uC774 \uD55C\uACB0\uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uC0AC\uC2E4\uB9CC \uB530\uB77C\uAC00\uBA74 \uB41C\uB2E4",
+          outerLine: "\uD45C\uC815 \uC5C6\uC774 \uB05D\uAE4C\uC9C0 \uD30C\uACE0\uB4DC\uB294 \uAC80\uC0AC"
+        },
+        {
+          id: "hannibal-lecter",
+          name: "\uD55C\uB2C8\uBC1C \uB809\uD130",
+          work: "\uC591\uB4E4\uC758 \uCE68\uBB35",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1991,
+          type: "transparent",
+          key: "\uC218",
+          villain: true,
+          inner: [70, 60, 20, 72, 96],
+          outer: [68, 64, 24, 70, 94],
+          line: "\uC0C1\uB300\uB97C \uB2E8\uBC88\uC5D0 \uC77D\uC5B4 \uB0B4\uB294 \uB0A0\uCE74\uB85C\uC6C0\uC744 \uC5EC\uC720\uB86D\uAC8C \uB4DC\uB7EC\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC0AC\uB78C\uC740 \uBA87 \uB9C8\uB514\uBA74 \uB2E4 \uC77D\uD78C\uB2E4",
+          outerLine: "\uC0C1\uB300\uB97C \uB2E8\uBC88\uC5D0 \uAFF0\uB6AB\uB294 \uC5EC\uC720\uB85C\uC6B4 \uC0AC\uB78C"
+        },
+        // ════ 2026-09-29 추가 90명 (조합마다 6명, 핵심 차이 크기 12~44로 고르게) ════
+        // ── 숨김형 × 추진력(목) (추가)
+        {
+          id: "moon-dongeun",
+          name: "\uBB38\uB3D9\uC740",
+          work: "\uB354 \uAE00\uB85C\uB9AC",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2022,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [92, 28, 38, 72, 75],
+          outer: [48, 25, 40, 70, 78],
+          line: "\uC870\uC6A9\uD788 \uC0AC\uB294 \uB4EF \uBCF4\uC774\uC9C0\uB9CC \uC624\uB798 \uC900\uBE44\uD55C \uACC4\uD68D\uC744 \uD558\uB098\uC529 \uC2E4\uD589\uD558\uB294 \uC0AC\uB78C",
+          innerLine: "\uB05D\uAE4C\uC9C0 \uD574\uB0BC \uC77C\uC774 \uD558\uB098 \uC788\uB2E4",
+          outerLine: "\uB9D0\uC218 \uC801\uACE0 \uB208\uC5D0 \uB744\uC9C0 \uC54A\uB294 \uC120\uC0DD\uB2D8"
+        },
+        {
+          id: "yagami-light",
+          name: "\uC57C\uAC00\uBBF8 \uB77C\uC774\uD1A0",
+          work: "\uB370\uC2A4\uB178\uD2B8",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2006,
+          type: "hidden",
+          key: "\uBAA9",
+          villain: true,
+          inner: [93, 58, 52, 69, 85],
+          outer: [55, 60, 50, 72, 82],
+          line: "\uBAA8\uBC94\uC0DD\uC758 \uC5BC\uAD74 \uB4A4\uC5D0 \uC138\uC0C1\uC744 \uBC14\uAFB8\uACA0\uB2E4\uB294 \uC57C\uC2EC\uC744 \uC228\uAE34 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC138\uC0C1\uC744 \uB0B4 \uC190\uC73C\uB85C \uBC14\uAFB8\uACA0\uB2E4",
+          outerLine: "\uC131\uC801 \uC88B\uACE0 \uC608\uC758 \uBC14\uB978 \uBAA8\uBC94\uC0DD"
+        },
+        {
+          id: "mulan",
+          name: "\uBBAC\uB780",
+          work: "\uBBAC\uB780",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1998,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [80, 57, 67, 65, 64],
+          outer: [50, 55, 70, 62, 66],
+          line: "\uC58C\uC804\uD55C \uB538\uC758 \uC5ED\uD560 \uB4A4\uC5D0 \uC2A4\uC2A4\uB85C\uB97C \uC99D\uBA85\uD558\uACE0 \uC2F6\uC740 \uB9C8\uC74C\uC744 \uD488\uC740 \uC0AC\uB78C",
+          innerLine: "\uB098\uB3C4 \uB204\uAD70\uAC00\uC5D0\uAC8C \uB3C4\uC6C0\uC774 \uB418\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uC5B4\uB518\uAC00 \uC11C\uD230 \uC58C\uC804\uD55C \uC9D1\uC548\uC758 \uB538"
+        },
+        {
+          id: "remy",
+          name: "\uB808\uBBF8",
+          work: "\uB77C\uB530\uB69C\uC774",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2007,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [76, 55, 63, 53, 74],
+          outer: [52, 58, 60, 55, 72],
+          line: "\uD3C9\uBC94\uD55C \uC950\uB85C \uBCF4\uC774\uC9C0\uB9CC \uC694\uB9AC\uC0AC\uC758 \uAFC8\uC744 \uB193\uC9C0 \uC54A\uB294 \uC874\uC7AC",
+          innerLine: "\uC5B8\uC820\uAC00 \uC81C\uB300\uB85C \uB41C \uC694\uB9AC\uB97C \uD558\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uC8FC\uBC29 \uAD6C\uC11D\uC5D0 \uC228\uC5B4 \uC0AC\uB294 \uC791\uC740 \uC950"
+        },
+        {
+          id: "peter-parker",
+          name: "\uD53C\uD130 \uD30C\uCEE4",
+          work: "\uC2A4\uD30C\uC774\uB354\uB9E8",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2002,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [63, 53, 64, 70, 69],
+          outer: [45, 50, 66, 68, 72],
+          line: "\uC18C\uC2EC\uD55C \uD559\uC0DD\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC73C\uB85C\uB294 \uB204\uAD6C\uBCF4\uB2E4 \uB098\uC11C\uACE0 \uC2F6\uC740 \uC0AC\uB78C",
+          innerLine: "\uB0B4\uAC00 \uD560 \uC218 \uC788\uB294 \uC77C\uC774\uBA74 \uD574\uC57C \uD55C\uB2E4",
+          outerLine: "\uC22B\uAE30 \uC5C6\uACE0 \uC870\uC6A9\uD55C \uACE0\uB4F1\uD559\uC0DD"
+        },
+        {
+          id: "andy-dufresne",
+          name: "\uC564\uB514 \uB4C0\uD504\uB808\uC778",
+          work: "\uC1FC\uC0DD\uD06C \uD0C8\uCD9C",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1994,
+          type: "hidden",
+          key: "\uBAA9",
+          inner: [67, 33, 62, 69, 83],
+          outer: [55, 35, 60, 72, 80],
+          line: "\uC870\uC6A9\uD55C \uBAA8\uBC94\uC218\uCC98\uB7FC \uC9C0\uB0B4\uC9C0\uB9CC \uC624\uB79C \uC2DC\uAC04 \uD55C \uAC00\uC9C0 \uBAA9\uD45C\uB97C \uD5A5\uD574 \uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uC5B8\uC820\uAC00 \uBC18\uB4DC\uC2DC \uC774\uACF3\uC744 \uB098\uAC04\uB2E4",
+          outerLine: "\uB9D0\uC5C6\uC774 \uADDC\uCE59\uC744 \uC9C0\uD0A4\uB294 \uBAA8\uBC94\uC218"
+        },
+        // ── 숨김형 × 표현력(화) (추가)
+        {
+          id: "elsa",
+          name: "\uC5D8\uC0AC",
+          work: "\uACA8\uC6B8\uC655\uAD6D",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2013,
+          type: "hidden",
+          key: "\uD654",
+          inner: [57, 82, 57, 73, 66],
+          outer: [55, 38, 60, 70, 68],
+          line: "\uCC28\uBD84\uD558\uACE0 \uC808\uC81C\uB41C \uBAA8\uC2B5 \uB4A4\uC5D0 \uB118\uCE58\uB294 \uAC10\uC815\uC744 \uAFB9 \uB204\uB974\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uB9C8\uC74C\uC744 \uB4E4\uD0A4\uBA74 \uC548 \uB41C\uB2E4",
+          outerLine: "\uB298 \uCE68\uCC29\uD558\uACE0 \uAC70\uB9AC\uB97C \uB450\uB294 \uC5B8\uB2C8"
+        },
+        {
+          id: "mr-darcy",
+          name: "\uB2E4\uC544\uC2DC",
+          work: "\uC624\uB9CC\uACFC \uD3B8\uACAC",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2005,
+          type: "hidden",
+          key: "\uD654",
+          inner: [57, 70, 58, 76, 74],
+          outer: [60, 32, 55, 78, 72],
+          line: "\uC624\uB9CC\uD574 \uBCF4\uC774\uB294 \uBB34\uD45C\uC815 \uB4A4\uC5D0 \uC11C\uD230 \uC9C4\uC2EC\uC744 \uD488\uC740 \uC0AC\uB78C",
+          innerLine: "\uB9C8\uC74C\uC744 \uB9D0\uB85C \uAEBC\uB0B4\uB294 \uAC8C \uC5B4\uB835\uB2E4",
+          outerLine: "\uCC28\uAC11\uACE0 \uAC70\uB9CC\uD574 \uBCF4\uC774\uB294 \uC2E0\uC0AC"
+        },
+        {
+          id: "mr-gu",
+          name: "\uAD6C\uC528",
+          work: "\uB098\uC758 \uD574\uBC29\uC77C\uC9C0",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2022,
+          type: "hidden",
+          key: "\uD654",
+          inner: [45, 60, 53, 60, 67],
+          outer: [42, 30, 55, 58, 70],
+          line: "\uBB34\uD45C\uC815\uD558\uAC8C \uC220\uB9CC \uB9C8\uC2DC\uB294 \uB4EF\uD558\uC9C0\uB9CC \uC18D\uC5D4 \uAE4A\uC740 \uC0C1\uCC98\uC640 \uB9C8\uC74C\uC774 \uC788\uB294 \uC0AC\uB78C",
+          innerLine: "\uB9D0\uD558\uC9C0 \uC54A\uC740 \uC774\uC57C\uAE30\uAC00 \uB108\uBB34 \uB9CE\uB2E4",
+          outerLine: "\uBB34\uB69D\uB69D\uD558\uACE0 \uB9D0 \uC5C6\uB294 \uC774\uC6C3"
+        },
+        {
+          id: "do-minjoon",
+          name: "\uB3C4\uBBFC\uC900",
+          work: "\uBCC4\uC5D0\uC11C \uC628 \uADF8\uB300",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2013,
+          type: "hidden",
+          key: "\uD654",
+          inner: [50, 64, 52, 73, 83],
+          outer: [52, 40, 50, 76, 80],
+          line: "\uB0C9\uC815\uD55C \uCC99 \uC120\uC744 \uAE0B\uC9C0\uB9CC \uC18D\uC73C\uB85C\uB294 \uB204\uAD6C\uBCF4\uB2E4 \uB9C8\uC74C\uC774 \uD754\uB4E4\uB9AC\uB294 \uC0AC\uB78C",
+          innerLine: "\uAC00\uAE4C\uC6CC\uC9C0\uBA74 \uC548 \uB418\uB294\uB370 \uC790\uAFB8 \uB9C8\uC74C\uC774 \uAC04\uB2E4",
+          outerLine: "\uAE4C\uCE60\uD558\uACE0 \uC120\uC744 \uAE0B\uB294 \uAD50\uC218"
+        },
+        {
+          id: "kim-junghwan",
+          name: "\uAE40\uC815\uD658",
+          work: "\uC751\uB2F5\uD558\uB77C 1988",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2015,
+          type: "hidden",
+          key: "\uD654",
+          inner: [57, 60, 59, 63, 62],
+          outer: [55, 42, 62, 60, 64],
+          line: "\uBB34\uC2EC\uD558\uAC8C \uD22D\uD22D \uB358\uC9C0\uC9C0\uB9CC \uC18D\uC73C\uB85C\uB294 \uC88B\uC544\uD558\uB294 \uB9C8\uC74C\uC774 \uAC00\uB4DD\uD55C \uC0AC\uB78C",
+          innerLine: "\uD558\uACE0 \uC2F6\uC740 \uB9D0\uC740 \uB298 \uD0C0\uC774\uBC0D\uC744 \uB193\uCE5C\uB2E4",
+          outerLine: "\uBB34\uC2EC\uD558\uACE0 \uD22D\uD22D \uB358\uC9C0\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "violet-evergarden",
+          name: "\uBC14\uC774\uC62C\uB81B \uC5D0\uBC84\uAC00\uB4E0",
+          work: "\uBC14\uC774\uC62C\uB81B \uC5D0\uBC84\uAC00\uB4E0",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2018,
+          type: "hidden",
+          key: "\uD654",
+          inner: [59, 52, 58, 78, 72],
+          outer: [62, 40, 55, 80, 70],
+          line: "\uAC10\uC815\uC744 \uBAA8\uB974\uB294 \uC0AC\uB78C\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC5D0\uC11C \uB9C8\uC74C\uC744 \uBC30\uC6CC \uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uB9C8\uC74C\uC758 \uC774\uB984\uC744 \uC54C\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uAC10\uC815 \uC5C6\uC774 \uC815\uD655\uD558\uAC8C \uC77C\uD558\uB294 \uB300\uD544\uAC00"
+        },
+        // ── 숨김형 × 포용력(토) (추가)
+        {
+          id: "shrek",
+          name: "\uC288\uB809",
+          work: "\uC288\uB809",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2001,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [58, 53, 74, 52, 49],
+          outer: [55, 55, 30, 50, 52],
+          line: "\uAD34\uBB3C\uCC98\uB7FC \uC0AC\uB78C\uC744 \uBC00\uC5B4\uB0B4\uC9C0\uB9CC \uACC1\uC5D0 \uB454 \uC774\uB4E4\uC740 \uB05D\uAE4C\uC9C0 \uCC59\uAE30\uB294 \uC874\uC7AC",
+          innerLine: "\uC0AC\uC2E4 \uB204\uAD70\uAC00 \uACC1\uC5D0 \uC788\uC5B4 \uC8FC\uBA74 \uC88B\uACA0\uB2E4",
+          outerLine: "\uD63C\uC790 \uC0B4\uACE0 \uC2F6\uC740 \uD241\uBA85\uC2A4\uB7EC\uC6B4 \uAD34\uBB3C"
+        },
+        {
+          id: "the-beast",
+          name: "\uC57C\uC218",
+          work: "\uBBF8\uB140\uC640 \uC57C\uC218",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1991,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [60, 52, 68, 57, 53],
+          outer: [62, 50, 30, 60, 50],
+          line: "\uC0AC\uB0A9\uACE0 \uBB34\uC11C\uC6CC \uBCF4\uC774\uC9C0\uB9CC \uC18D\uC5D4 \uB2E4\uC815\uD574\uC9C0\uACE0 \uC2F6\uC740 \uB9C8\uC74C\uC774 \uC788\uB294 \uC874\uC7AC",
+          innerLine: "\uB098\uB3C4 \uB204\uAD70\uAC00\uB97C \uC544\uB084 \uC218 \uC788\uC744\uAE4C",
+          outerLine: "\uC131 \uC548\uC5D0 \uAC07\uD600 \uD654\uB9CC \uB0B4\uB294 \uC57C\uC218"
+        },
+        {
+          id: "levi",
+          name: "\uB9AC\uBC14\uC774",
+          work: "\uC9C4\uACA9\uC758 \uAC70\uC778",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2013,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [72, 27, 68, 83, 73],
+          outer: [70, 30, 38, 80, 75],
+          line: "\uB0C9\uC815\uD55C \uB9D0\uD22C \uB4A4\uC5D0 \uBD80\uD558\uB4E4\uC744 \uB204\uAD6C\uBCF4\uB2E4 \uC544\uB07C\uB294 \uC0AC\uB78C",
+          innerLine: "\uB3D9\uB8CC\uB97C \uC783\uB294 \uAC8C \uAC00\uC7A5 \uD798\uB4E4\uB2E4",
+          outerLine: "\uBB34\uC12D\uACE0 \uB0C9\uC815\uD55C \uBCD1\uC7A5"
+        },
+        {
+          id: "kim-sabu",
+          name: "\uAE40\uC0AC\uBD80",
+          work: "\uB0AD\uB9CC\uB2E5\uD130 \uAE40\uC0AC\uBD80",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2016,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [65, 48, 69, 70, 82],
+          outer: [68, 45, 45, 72, 80],
+          line: "\uAD34\uD30D\uD558\uACE0 \uB3C5\uC124\uAC00\uC9C0\uB9CC \uD658\uC790\uC640 \uD6C4\uBC30\uB97C \uB05D\uAE4C\uC9C0 \uCC45\uC784\uC9C0\uB294 \uC0AC\uB78C",
+          innerLine: "\uC0AC\uB78C\uC744 \uC0B4\uB9AC\uB294 \uAC8C \uBA3C\uC800\uB2E4",
+          outerLine: "\uAD34\uD30D\uD558\uACE0 \uB9D0\uC774 \uAC70\uCE5C \uC758\uC0AC"
+        },
+        {
+          id: "walt-kowalski",
+          name: "\uC6D4\uD2B8 \uCF54\uC648\uC2A4\uD0A4",
+          work: "\uADF8\uB79C \uD1A0\uB9AC\uB178",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2008,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [58, 38, 58, 77, 57],
+          outer: [55, 40, 40, 75, 60],
+          line: "\uAE4C\uCE60\uD55C \uB178\uC778\uC774\uC9C0\uB9CC \uACB0\uAD6D \uC774\uC6C3 \uC18C\uB144\uC744 \uC9C0\uD0A4\uB824 \uB098\uC11C\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC544\uC774\uB9CC\uD07C\uC740 \uC81C\uB300\uB85C \uC0B4\uC558\uC73C\uBA74",
+          outerLine: "\uC774\uC6C3\uACFC \uB2F4\uC744 \uC313\uC740 \uAE4C\uCE60\uD55C \uB178\uC778"
+        },
+        {
+          id: "kang-gunwoo",
+          name: "\uAC15\uB9C8\uC5D0",
+          work: "\uBCA0\uD1A0\uBCA4 \uBC14\uC774\uB7EC\uC2A4",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2008,
+          type: "hidden",
+          key: "\uD1A0",
+          inner: [68, 60, 54, 79, 73],
+          outer: [70, 58, 42, 82, 70],
+          line: "\uB3C5\uC124\uB85C \uB2E8\uC6D0\uB4E4\uC744 \uBAB0\uC544\uBD99\uC774\uC9C0\uB9CC \uC18D\uC73C\uB860 \uADF8\uB4E4\uC744 \uB204\uAD6C\uBCF4\uB2E4 \uBBFF\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC0AC\uB78C\uB4E4\uC774 \uD574\uB0BC \uAC70\uB77C\uACE0 \uBBFF\uB294\uB2E4",
+          outerLine: "\uB3C5\uC124\uC744 \uD37C\uBD93\uB294 \uAE50\uAE50\uD55C \uC9C0\uD718\uC790"
+        },
+        // ── 숨김형 × 원칙성(금) (추가)
+        {
+          id: "kakashi",
+          name: "\uD558\uD0C0\uCF00 \uCE74\uCE74\uC2DC",
+          work: "\uB098\uB8E8\uD1A0",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2002,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [52, 42, 63, 84, 73],
+          outer: [50, 45, 60, 40, 75],
+          line: "\uB298 \uB2A6\uACE0 \uB290\uAE0B\uD574 \uBCF4\uC774\uC9C0\uB9CC \uB3D9\uB8CC\uB97C \uBC84\uB9AC\uC9C0 \uC54A\uB294\uB2E4\uB294 \uC6D0\uCE59\uC740 \uD655\uACE0\uD55C \uC0AC\uB78C",
+          innerLine: "\uB3D9\uB8CC\uB97C \uBC84\uB9AC\uB294 \uC77C\uC740 \uC808\uB300 \uC5C6\uB2E4",
+          outerLine: "\uC9C0\uAC01\uD558\uACE0 \uCC45\uB9CC \uC77D\uB294 \uB290\uAE0B\uD55C \uC120\uC0DD"
+        },
+        {
+          id: "spike-spiegel",
+          name: "\uC2A4\uD30C\uC774\uD06C \uC2A4\uD53C\uAC94",
+          work: "\uCE74\uC6B0\uBCF4\uC774 \uBE44\uBC25",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1998,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [57, 53, 43, 74, 72],
+          outer: [60, 50, 45, 36, 70],
+          line: "\uAC8C\uC73C\uB974\uACE0 \uBB34\uC2EC\uD574 \uBCF4\uC774\uC9C0\uB9CC \uC790\uAE30\uB9CC\uC758 \uC120\uC740 \uB118\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uB0B4\uAC00 \uC815\uD55C \uBC29\uC2DD\uB300\uB85C \uC0B0\uB2E4",
+          outerLine: "\uBC30\uACE0\uD504\uACE0 \uAC8C\uC73C\uB978 \uD604\uC0C1\uAE08 \uC0AC\uB0E5\uAFBC"
+        },
+        {
+          id: "hong-dusik",
+          name: "\uD64D\uB450\uC2DD",
+          work: "\uAC2F\uB9C8\uC744 \uCC28\uCC28\uCC28",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2021,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [58, 63, 72, 75, 69],
+          outer: [55, 65, 70, 45, 72],
+          line: "\uB3D9\uB124 \uD55C\uB7C9\uCC98\uB7FC \uC9C0\uB0B4\uC9C0\uB9CC \uC9C0\uCF1C\uC57C \uD560 \uC120\uC740 \uBD84\uBA85\uD788 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uBC1B\uC740 \uB9CC\uD07C\uC740 \uAF2D \uB3CC\uB824\uC900\uB2E4",
+          outerLine: "\uBB34\uC2A8 \uC77C\uC774\uB4E0 \uAC70\uB4DC\uB294 \uB3D9\uB124 \uD55C\uB7C9"
+        },
+        {
+          id: "john-wick",
+          name: "\uC874 \uC705",
+          work: "\uC874 \uC705",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2014,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [58, 32, 42, 79, 73],
+          outer: [60, 30, 45, 55, 70],
+          line: "\uC870\uC6A9\uD55C \uC740\uD1F4\uC790\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC790\uAE30 \uADDC\uCE59\uC740 \uC808\uB300 \uC5B4\uAE30\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uC57D\uC18D\uACFC \uADDC\uCE59\uC740 \uC9C0\uCF1C\uC57C \uD55C\uB2E4",
+          outerLine: "\uAC1C\uC640 \uD568\uAED8 \uC870\uC6A9\uD788 \uC0AC\uB294 \uB0A8\uC790"
+        },
+        {
+          id: "aragorn",
+          name: "\uC544\uB77C\uACE4",
+          work: "\uBC18\uC9C0\uC758 \uC81C\uC655",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [67, 37, 65, 78, 68],
+          outer: [65, 40, 62, 60, 70],
+          line: "\uB5A0\uB3CC\uC774 \uC21C\uCC30\uC790\uB85C \uBCF4\uC774\uC9C0\uB9CC \uC655\uC758 \uCC45\uC784\uC744 \uC18D\uC5D0 \uD488\uC740 \uC0AC\uB78C",
+          innerLine: "\uD53C\uD560 \uC218 \uC5C6\uB294 \uCC45\uC784\uC774 \uC788\uB2E4",
+          outerLine: "\uB9D0\uC218 \uC801\uC740 \uB5A0\uB3CC\uC774 \uC21C\uCC30\uC790"
+        },
+        {
+          id: "ben-whittaker",
+          name: "\uBCA4 \uD718\uD0DC\uCEE4",
+          work: "\uC778\uD134",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2015,
+          type: "hidden",
+          key: "\uAE08",
+          inner: [47, 58, 70, 74, 72],
+          outer: [50, 55, 72, 62, 70],
+          line: "\uC628\uD654\uD55C \uB178\uC778 \uC778\uD134\uC774\uC9C0\uB9CC \uC77C\uACFC \uC0AC\uB78C\uC744 \uB300\uD558\uB294 \uAE30\uC900\uC774 \uD655\uACE0\uD55C \uC0AC\uB78C",
+          innerLine: "\uD574\uC57C \uD560 \uC77C\uC740 \uC81C\uB300\uB85C \uD55C\uB2E4",
+          outerLine: "\uB298 \uC6C3\uB294 \uB098\uC774 \uB9CE\uC740 \uC778\uD134"
+        },
+        // ── 숨김형 × 통찰력(수) (추가)
+        {
+          id: "columbo",
+          name: "\uCF5C\uB86C\uBCF4",
+          work: "\uD615\uC0AC \uCF5C\uB86C\uBCF4",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 1971,
+          type: "hidden",
+          key: "\uC218",
+          inner: [58, 53, 62, 55, 84],
+          outer: [55, 55, 60, 58, 40],
+          line: "\uC5B4\uC218\uB8E9\uD558\uAC8C \uC9C8\uBB38\uC744 \uB298\uC5B4\uB193\uC9C0\uB9CC \uC774\uBBF8 \uC9C4\uC2E4\uC744 \uB2E4 \uBCF4\uACE0 \uC788\uB294 \uD615\uC0AC",
+          innerLine: "\uC774\uBBF8 \uB2F5\uC740 \uBCF4\uC778\uB2E4",
+          outerLine: "\uD5C8\uB984\uD55C \uCF54\uD2B8\uC758 \uC5B4\uC218\uB8E9\uD55C \uD615\uC0AC"
+        },
+        {
+          id: "oh-ilnam",
+          name: "\uC624\uC77C\uB0A8",
+          work: "\uC624\uC9D5\uC5B4 \uAC8C\uC784",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2021,
+          type: "hidden",
+          key: "\uC218",
+          villain: true,
+          inner: [38, 62, 59, 48, 83],
+          outer: [40, 60, 62, 45, 45],
+          line: "\uD798\uC5C6\uB294 \uB178\uC778\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uD310 \uC804\uCCB4\uB97C \uC124\uACC4\uD55C \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC774 \uD310\uC744 \uCC98\uC74C\uBD80\uD130 \uC54C\uACE0 \uC788\uB2E4",
+          outerLine: "\uAE30\uC5B5\uC774 \uD750\uB9B0 \uD798\uC5C6\uB294 \uB178\uC778"
+        },
+        {
+          id: "yoda",
+          name: "\uC694\uB2E4",
+          work: "\uC2A4\uD0C0\uC6CC\uC988 \uC81C\uAD6D\uC758 \uC5ED\uC2B5",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1980,
+          type: "hidden",
+          key: "\uC218",
+          inner: [42, 52, 68, 60, 85],
+          outer: [40, 55, 65, 62, 55],
+          line: "\uC7A5\uB09C\uC2A4\uB7EC\uC6B4 \uB299\uC740\uC774\uCC98\uB7FC \uAD74\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uAE4A\uC740 \uC9C0\uD61C\uB97C \uAC00\uC9C4 \uC874\uC7AC",
+          innerLine: "\uBCF4\uC774\uB294 \uAC8C \uC804\uBD80\uAC00 \uC544\uB2C8\uB2E4",
+          outerLine: "\uC5C9\uB6B1\uD558\uACE0 \uAD34\uC9DC \uAC19\uC740 \uB299\uC740\uC774"
+        },
+        {
+          id: "kindaichi",
+          name: "\uD0A8\uB2E4\uC774\uCE58 \uD558\uC9C0\uBA54",
+          work: "\uC18C\uB144\uD0D0\uC815 \uAE40\uC804\uC77C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1997,
+          type: "hidden",
+          key: "\uC218",
+          inner: [37, 65, 56, 57, 74],
+          outer: [40, 62, 58, 55, 50],
+          line: "\uAC8C\uC73C\uB978 \uD559\uC0DD\uCC98\uB7FC \uBCF4\uC774\uC9C0\uB9CC \uC0AC\uAC74 \uC55E\uC5D0\uC120 \uB204\uAD6C\uBCF4\uB2E4 \uB0A0\uCE74\uB85C\uC6B4 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC218\uC218\uAED8\uB07C\uB294 \uD480 \uC218 \uC788\uB2E4",
+          outerLine: "\uACF5\uBD80 \uC2EB\uC5B4\uD558\uB294 \uAC8C\uC73C\uB978 \uD559\uC0DD"
+        },
+        {
+          id: "song-seorae",
+          name: "\uC1A1\uC11C\uB798",
+          work: "\uD5E4\uC5B4\uC9C8 \uACB0\uC2EC",
+          kind: "\uD55C\uAD6D \uC601\uD654",
+          year: 2022,
+          type: "hidden",
+          key: "\uC218",
+          inner: [58, 38, 57, 47, 80],
+          outer: [55, 40, 55, 50, 62],
+          line: "\uC11C\uD230 \uB9D0\uD22C\uC758 \uC870\uC6A9\uD55C \uC0AC\uB78C\uC774\uC9C0\uB9CC \uBAA8\uB4E0 \uAC78 \uC77D\uACE0 \uACC4\uC0B0\uD558\uB294 \uC0AC\uB78C",
+          innerLine: "\uC0C1\uB300\uC758 \uB9C8\uC74C\uC744 \uBA3C\uC800 \uC77D\uB294\uB2E4",
+          outerLine: "\uD55C\uAD6D\uB9D0\uC774 \uC11C\uD230 \uC870\uC6A9\uD55C \uC5EC\uC778"
+        },
+        {
+          id: "kuroko",
+          name: "\uCFE0\uB85C\uCF54 \uD14C\uCE20\uC57C",
+          work: "\uCFE0\uB85C\uCF54\uC758 \uB18D\uAD6C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2012,
+          type: "hidden",
+          key: "\uC218",
+          inner: [58, 37, 62, 63, 74],
+          outer: [60, 35, 65, 60, 62],
+          line: "\uC874\uC7AC\uAC10 \uC5C6\uB294 \uC120\uC218\uC9C0\uB9CC \uACBD\uAE30\uC758 \uD750\uB984\uC744 \uAC00\uC7A5 \uC798 \uC77D\uB294 \uC0AC\uB78C",
+          innerLine: "\uBCF4\uC774\uC9C0 \uC54A\uC544\uB3C4 \uD750\uB984\uC740 \uBCF4\uC778\uB2E4",
+          outerLine: "\uC788\uB294\uC9C0\uB3C4 \uBAA8\uB97C \uB9CC\uD07C \uC870\uC6A9\uD55C \uC120\uC218"
+        },
+        // ── 맹점형 × 추진력(목) (추가)
+        {
+          id: "chihiro",
+          name: "\uCE58\uD788\uB85C",
+          work: "\uC13C\uACFC \uCE58\uD788\uB85C\uC758 \uD589\uBC29\uBD88\uBA85",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2001,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [35, 45, 62, 58, 55],
+          outer: [79, 47, 59, 61, 53],
+          line: "\uC2A4\uC2A4\uB85C\uB294 \uAC81 \uB9CE\uC740 \uC544\uC774\uC9C0\uB9CC \uB05D\uAE4C\uC9C0 \uD574\uB0B4\uB294 \uBAA8\uC2B5\uC744 \uBCF4\uC5EC \uC8FC\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uAC81 \uB9CE\uACE0 \uB290\uB9B0 \uC544\uC774\uB2E4",
+          outerLine: "\uBB34\uC11C\uC6CC\uB3C4 \uB05D\uAE4C\uC9C0 \uD574\uB0B4\uB294 \uC544\uC774"
+        },
+        {
+          id: "bilbo",
+          name: "\uBE4C\uBCF4 \uBC30\uAE34\uC2A4",
+          work: "\uD638\uBE57",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2012,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [30, 50, 65, 60, 62],
+          outer: [68, 47, 68, 58, 64],
+          line: "\uD3B8\uD55C \uC9D1\uC774 \uC81C\uC77C\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uACB0\uAD6D \uBA3C \uAE38\uC744 \uD574\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC9D1\uC5D0\uC11C \uC26C\uB294 \uAC8C \uC81C\uC77C \uC88B\uB2E4",
+          outerLine: "\uBA3C \uBAA8\uD5D8\uC744 \uB05D\uAE4C\uC9C0 \uD574\uB0B4\uB294 \uD638\uBE57"
+        },
+        {
+          id: "elle-woods",
+          name: "\uC5D8 \uC6B0\uC988",
+          work: "\uAE08\uBC1C\uC774 \uB108\uBB34\uD574",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [45, 78, 70, 55, 60],
+          outer: [75, 81, 68, 57, 57],
+          line: "\uADF8\uC800 \uC88B\uC544\uC11C \uC2DC\uC791\uD588\uB2E4\uACE0 \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uB05D\uAE4C\uC9C0 \uBC00\uACE0 \uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uADF8\uB0E5 \uD558\uACE0 \uC2F6\uC5B4\uC11C \uC2DC\uC791\uD588\uC744 \uBFD0\uC774\uB2E4",
+          outerLine: "\uD55C\uBC88 \uC815\uD558\uBA74 \uB05D\uAE4C\uC9C0 \uBC00\uC5B4\uBD99\uC774\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "andy-sachs",
+          name: "\uC564\uB514 \uC0AD\uC2A4",
+          work: "\uC545\uB9C8\uB294 \uD504\uB77C\uB2E4\uB97C \uC785\uB294\uB2E4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2006,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [48, 55, 58, 65, 62],
+          outer: [72, 53, 60, 62, 65],
+          line: "\uC7A0\uAE50 \uAC70\uCCD0 \uAC00\uB294 \uC77C\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uBE60\uB974\uAC8C \uCE58\uACE0 \uB098\uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uC7A0\uAE50 \uAC70\uCCD0 \uAC00\uB294 \uC790\uB9AC\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uBE60\uB974\uAC8C \uC801\uC751\uD574 \uCE58\uACE0 \uB098\uAC00\uB294 \uC2E0\uC785"
+        },
+        {
+          id: "neo",
+          name: "\uB124\uC624",
+          work: "\uB9E4\uD2B8\uB9AD\uC2A4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1999,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [50, 35, 50, 55, 75],
+          outer: [68, 37, 47, 58, 73],
+          line: "\uD3C9\uBC94\uD55C \uD68C\uC0AC\uC6D0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC8FC\uBCC0\uC740 \uADF8\uAC00 \uD574\uB0BC \uAC70\uB77C \uBBFF\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uADF8\uB0E5 \uD3C9\uBC94\uD55C \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uC138\uC0C1\uC744 \uBC14\uAFC0 \uAC70\uB77C \uAE30\uB300\uBC1B\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "seo-dalmi",
+          name: "\uC11C\uB2EC\uBBF8",
+          work: "\uC2A4\uD0C0\uD2B8\uC5C5",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2020,
+          type: "blind",
+          key: "\uBAA9",
+          inner: [60, 68, 62, 55, 58],
+          outer: [72, 65, 65, 53, 60],
+          line: "\uD3C9\uBC94\uD55C \uACC4\uC57D\uC9C1\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uAFC8\uC744 \uD5A5\uD574 \uACC4\uC18D \uCE58\uACE0 \uB098\uAC00\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC544\uC9C1 \uB0B4\uC138\uC6B8 \uAC8C \uC5C6\uB2E4",
+          outerLine: "\uAFC8\uC744 \uD5A5\uD574 \uAC70\uCE68\uC5C6\uC774 \uB6F0\uB294 \uC0AC\uB78C"
+        },
+        // ── 맹점형 × 표현력(화) (추가)
+        {
+          id: "dory",
+          name: "\uB3C4\uB9AC",
+          work: "\uB2C8\uBAA8\uB97C \uCC3E\uC544\uC11C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2003,
+          type: "blind",
+          key: "\uD654",
+          inner: [55, 40, 70, 40, 45],
+          outer: [58, 84, 68, 42, 42],
+          line: "\uC790\uAFB8 \uC78A\uC5B4\uBC84\uB9AC\uB294 \uBB3C\uACE0\uAE30\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB298 \uBD84\uC704\uAE30\uB97C \uBC1D\uD788\uB294 \uC874\uC7AC",
+          innerLine: "\uB098\uB294 \uC798 \uC78A\uC5B4\uBC84\uB9AC\uB294 \uBB3C\uACE0\uAE30\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uC5B4\uB514\uC11C\uB4E0 \uBD84\uC704\uAE30\uB97C \uBC1D\uD788\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "bing-bong",
+          name: "\uBE59\uBD09",
+          work: "\uC778\uC0AC\uC774\uB4DC \uC544\uC6C3",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2015,
+          type: "blind",
+          key: "\uD654",
+          inner: [45, 45, 75, 45, 50],
+          outer: [43, 83, 77, 42, 53],
+          line: "\uC78A\uD78C \uC0C1\uC0C1 \uCE5C\uAD6C\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uB530\uB73B\uD55C \uC6C3\uC74C\uC744 \uC8FC\uB294 \uC874\uC7AC",
+          innerLine: "\uC774\uC81C \uC544\uBB34\uB3C4 \uB0A0 \uAE30\uC5B5\uD558\uC9C0 \uC54A\uB294\uB2E4",
+          outerLine: "\uD568\uAED8 \uC788\uC73C\uBA74 \uC6C3\uC74C\uC774 \uB098\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "amelie",
+          name: "\uC544\uBA5C\uB9AC\uC5D0",
+          work: "\uC544\uBA5C\uB9AC\uC5D0",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "blind",
+          key: "\uD654",
+          inner: [45, 40, 70, 50, 68],
+          outer: [47, 70, 67, 53, 66],
+          line: "\uC218\uC90D\uC740 \uC0AC\uB78C\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC8FC\uBCC0\uC758 \uC0B6\uC744 \uD658\uD558\uAC8C \uB9CC\uB4DC\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC218\uC90D\uACE0 \uC870\uC6A9\uD55C \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uC8FC\uBCC0\uC744 \uBAB0\uB798 \uD658\uD558\uAC8C \uB9CC\uB4DC\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "nodame",
+          name: "\uB178\uB2E4\uBA54",
+          work: "\uB178\uB2E4\uBA54 \uCE78\uD0C0\uBE4C\uB808",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2007,
+          type: "blind",
+          key: "\uD654",
+          inner: [55, 58, 60, 35, 60],
+          outer: [52, 82, 63, 33, 62],
+          line: "\uADF8\uC800 \uD53C\uC544\uB178\uAC00 \uC88B\uC744 \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB0A8\uB4E4\uC740 \uC790\uC720\uB85C\uC6B4 \uD45C\uD604\uC5D0 \uB180\uB77C\uB294 \uC0AC\uB78C",
+          innerLine: "\uADF8\uB0E5 \uCE58\uACE0 \uC2F6\uC740 \uB300\uB85C \uCE60 \uBFD0\uC774\uB2E4",
+          outerLine: "\uC790\uC720\uB85C\uC6B4 \uC5F0\uC8FC\uB85C \uBAA8\uB450\uB97C \uB180\uB77C\uAC8C \uD558\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "oh-haeyoung",
+          name: "\uC624\uD574\uC601",
+          work: "\uB610 \uC624\uD574\uC601",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2016,
+          type: "blind",
+          key: "\uD654",
+          inner: [55, 62, 65, 55, 50],
+          outer: [58, 80, 63, 57, 47],
+          line: "\uADF8\uB0E5 \uD3C9\uBC94\uD55C \uC624\uD574\uC601\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC194\uC9C1\uD568\uC73C\uB85C \uC0AC\uB78C\uC744 \uB04C\uC5B4\uB2F9\uAE30\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB298 \uBE44\uAD50\uB2F9\uD558\uB294 \uD3C9\uBC94\uD55C \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uC194\uC9C1\uD574\uC11C \uB354 \uC0AC\uB791\uC2A4\uB7EC\uC6B4 \uC0AC\uB78C"
+        },
+        {
+          id: "wall-e",
+          name: "\uC6D4-E",
+          work: "\uC6D4-E",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2008,
+          type: "blind",
+          key: "\uD654",
+          inner: [62, 62, 70, 65, 55],
+          outer: [60, 74, 72, 62, 58],
+          line: "\uCCAD\uC18C \uB85C\uBD07\uC77C \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC21C\uC218\uD55C \uB9C8\uC74C\uC73C\uB85C \uC0C1\uB300\uB97C \uC6C0\uC9C1\uC774\uB294 \uC874\uC7AC",
+          innerLine: "\uB098\uB294 \uC4F0\uB808\uAE30\uB97C \uCE58\uC6B0\uB294 \uB85C\uBD07\uC774\uB2E4",
+          outerLine: "\uC21C\uC218\uD55C \uB9C8\uC74C\uC744 \uADF8\uB300\uB85C \uC804\uD558\uB294 \uC874\uC7AC"
+        },
+        // ── 맹점형 × 포용력(토) (추가)
+        {
+          id: "alfred",
+          name: "\uC54C\uD504\uB808\uB4DC \uD398\uB2C8\uC6CC\uC2A4",
+          work: "\uB2E4\uD06C \uB098\uC774\uD2B8",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2008,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [50, 45, 40, 75, 72],
+          outer: [52, 42, 84, 78, 70],
+          line: "\uADF8\uC800 \uC9D1\uC0AC\uC77C \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uB4E0\uB4E0\uD55C \uAC00\uC871 \uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC774 \uC9D1\uC758 \uC9D1\uC0AC\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uAC00\uC871\uCC98\uB7FC \uACC1\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "red",
+          name: "\uB808\uB4DC",
+          work: "\uC1FC\uC0DD\uD06C \uD0C8\uCD9C",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1994,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [45, 50, 40, 55, 70],
+          outer: [42, 53, 78, 53, 72],
+          line: "\uBB3C\uAC74 \uAD6C\uD574 \uC8FC\uB294 \uC0AC\uB78C\uC77C \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uBAA8\uB450\uAC00 \uAE30\uB300\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uADF8\uB0E5 \uBB3C\uAC74\uC744 \uAD6C\uD574 \uC8FC\uB294 \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uBAA8\uB450\uAC00 \uAE30\uB300\uACE0 \uCC3E\uC544\uC624\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "groot",
+          name: "\uADF8\uB8E8\uD2B8",
+          work: "\uAC00\uB514\uC5B8\uC988 \uC624\uBE0C \uAC24\uB7ED\uC2DC",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2014,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [55, 40, 50, 55, 40],
+          outer: [58, 38, 80, 57, 37],
+          line: "\uD560 \uC904 \uC544\uB294 \uB9D0\uC740 \uD558\uB098\uBFD0\uC774\uC9C0\uB9CC \uB3D9\uB8CC\uB97C \uC628\uBAB8\uC73C\uB85C \uAC10\uC2F8\uB294 \uC874\uC7AC",
+          innerLine: "\uB098\uB294 \uB9D0\uC218 \uC801\uC740 \uB098\uBB34\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uBAB8\uC73C\uB85C \uB3D9\uB8CC\uB97C \uAC10\uC2F8\uB294 \uCE5C\uAD6C"
+        },
+        {
+          id: "miss-honey",
+          name: "\uBBF8\uC2A4 \uD5C8\uB2C8",
+          work: "\uB9C8\uD2F8\uB2E4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1996,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [35, 50, 55, 62, 60],
+          outer: [33, 52, 79, 59, 63],
+          line: "\uC18C\uC2EC\uD558\uACE0 \uAC00\uB09C\uD55C \uC120\uC0DD\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC544\uC774\uB97C \uD488\uC5B4 \uC8FC\uB294 \uC5B4\uB978",
+          innerLine: "\uB098\uB294 \uD798\uC5C6\uACE0 \uC18C\uC2EC\uD55C \uC120\uC0DD\uC774\uB2E4",
+          outerLine: "\uC544\uC774\uB97C \uB530\uB73B\uD558\uAC8C \uD488\uC5B4 \uC8FC\uB294 \uC5B4\uB978"
+        },
+        {
+          id: "casper",
+          name: "\uCE90\uC2A4\uD37C",
+          work: "\uAF2C\uB9C8 \uC720\uB839 \uCE90\uC2A4\uD37C",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1995,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [45, 58, 62, 50, 55],
+          outer: [47, 55, 80, 53, 53],
+          line: "\uC678\uB85C\uC6B4 \uC720\uB839\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uC5D0\uAC8C\uB098 \uB2E4\uC815\uD55C \uCE5C\uAD6C",
+          innerLine: "\uB098\uB294 \uBAA8\uB450\uAC00 \uBB34\uC11C\uC6CC\uD558\uB294 \uC720\uB839\uC774\uB2E4",
+          outerLine: "\uB204\uAD6C\uC5D0\uAC8C\uB098 \uB2E4\uC815\uD55C \uCE5C\uAD6C"
+        },
+        {
+          id: "ahn-jungwon",
+          name: "\uC548\uC815\uC6D0",
+          work: "\uC2AC\uAE30\uB85C\uC6B4 \uC758\uC0AC\uC0DD\uD65C",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2020,
+          type: "blind",
+          key: "\uD1A0",
+          inner: [50, 55, 70, 72, 65],
+          outer: [47, 58, 82, 70, 67],
+          line: "\uD3C9\uBC94\uD55C \uC758\uC0AC\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC8FC\uBCC0\uC5D0\uC120 \uB204\uAD6C\uBCF4\uB2E4 \uD488\uC774 \uB113\uB2E4\uACE0 \uB290\uB07C\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uD560 \uC77C\uC744 \uD560 \uBFD0\uC778 \uC758\uC0AC\uB2E4",
+          outerLine: "\uB204\uAD6C\uC5D0\uAC8C\uB098 \uD488\uC774 \uB113\uC740 \uC0AC\uB78C"
+        },
+        // ── 맹점형 × 원칙성(금) (추가)
+        {
+          id: "marge-gunderson",
+          name: "\uB9C8\uC9C0 \uAD70\uB354\uC2A8",
+          work: "\uD30C\uACE0",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1996,
+          type: "blind",
+          key: "\uAE08",
+          inner: [55, 60, 70, 35, 62],
+          outer: [58, 58, 72, 79, 59],
+          line: "\uD3C9\uBC94\uD55C \uC2DC\uACE8 \uACBD\uCC30\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB05D\uAE4C\uC9C0 \uC6D0\uCE59\uB300\uB85C \uC0AC\uAC74\uC744 \uD478\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC18C\uBC15\uD55C \uC2DC\uACE8 \uACBD\uCC30\uC774\uB2E4",
+          outerLine: "\uD754\uB4E4\uB9BC \uC5C6\uC774 \uC6D0\uCE59\uB300\uB85C \uAC00\uB294 \uACBD\uCC30"
+        },
+        {
+          id: "atticus-finch",
+          name: "\uC560\uD2F0\uCEE4\uC2A4 \uD540\uCE58",
+          work: "\uC575\uBB34\uC0C8 \uC8FD\uC774\uAE30",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1962,
+          type: "blind",
+          key: "\uAE08",
+          inner: [50, 45, 70, 42, 68],
+          outer: [48, 47, 67, 80, 71],
+          line: "\uD3C9\uBC94\uD55C \uC2DC\uACE8 \uBCC0\uD638\uC0AC\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uBAA8\uB450\uAC00 \uC6D0\uCE59\uC758 \uC0C1\uC9D5\uC73C\uB85C \uBCF4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uD560 \uC77C\uC744 \uD558\uB294 \uBCC0\uD638\uC0AC\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uB204\uAD6C\uB3C4 \uD754\uB4E4 \uC218 \uC5C6\uB294 \uC6D0\uCE59\uC758 \uC0AC\uB78C"
+        },
+        {
+          id: "oh-sangsik",
+          name: "\uC624\uC0C1\uC2DD",
+          work: "\uBBF8\uC0DD",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2014,
+          type: "blind",
+          key: "\uAE08",
+          inner: [62, 55, 65, 50, 62],
+          outer: [64, 52, 68, 80, 60],
+          line: "\uADF8\uC800 \uBC84\uD2F0\uB294 \uACFC\uC7A5\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uD6C4\uBC30\uB4E4 \uB208\uC5D4 \uC6D0\uCE59\uC744 \uC9C0\uD0A4\uB294 \uC0C1\uC0AC",
+          innerLine: "\uB098\uB294 \uB9E4\uC77C \uBC84\uD2F0\uB294 \uD3C9\uBC94\uD55C \uACFC\uC7A5\uC774\uB2E4",
+          outerLine: "\uC6D0\uCE59\uC744 \uC9C0\uD0A4\uB294 \uBBFF\uC74C\uC9C1\uD55C \uC0C1\uC0AC"
+        },
+        {
+          id: "daniel-blake",
+          name: "\uB2E4\uB2C8\uC5D8 \uBE14\uB808\uC774\uD06C",
+          work: "\uB098, \uB2E4\uB2C8\uC5D8 \uBE14\uB808\uC774\uD06C",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2016,
+          type: "blind",
+          key: "\uAE08",
+          inner: [50, 55, 65, 55, 50],
+          outer: [47, 58, 63, 79, 52],
+          line: "\uD3C9\uBC94\uD55C \uBAA9\uC218\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB05D\uAE4C\uC9C0 \uC874\uC5C4\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uADF8\uB0E5 \uD3C9\uBC94\uD55C \uBAA9\uC218\uB2E4",
+          outerLine: "\uB05D\uAE4C\uC9C0 \uC874\uC5C4\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "kim-jehyuk",
+          name: "\uAE40\uC81C\uD601",
+          work: "\uC2AC\uAE30\uB85C\uC6B4 \uAC10\uBE75\uC0DD\uD65C",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2017,
+          type: "blind",
+          key: "\uAE08",
+          inner: [62, 52, 68, 62, 48],
+          outer: [65, 50, 70, 80, 45],
+          line: "\uADF8\uC800 \uC57C\uAD6C \uC120\uC218\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC5B4\uB514\uC11C\uB4E0 \uBC14\uB974\uAC8C \uBC84\uD2F0\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC57C\uAD6C\uBC16\uC5D0 \uBAA8\uB974\uB294 \uC0AC\uB78C\uC774\uB2E4",
+          outerLine: "\uC5B4\uB514\uC11C\uB4E0 \uBC14\uB974\uAC8C \uBC84\uD2F0\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "judy-hopps",
+          name: "\uC8FC\uB514 \uD649\uC2A4",
+          work: "\uC8FC\uD1A0\uD53C\uC544",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2016,
+          type: "blind",
+          key: "\uAE08",
+          inner: [75, 62, 58, 62, 65],
+          outer: [73, 64, 55, 74, 68],
+          line: "\uC791\uC740 \uD1A0\uB07C \uACBD\uCC30\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uC6D0\uCE59\uC744 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uC544\uC9C1 \uC778\uC815\uBC1B\uC9C0 \uBABB\uD55C \uC2E0\uCC38\uC774\uB2E4",
+          outerLine: "\uADDC\uCE59\uC744 \uC9C0\uD0A4\uBA70 \uB05D\uAE4C\uC9C0 \uAC00\uB294 \uACBD\uCC30"
+        },
+        // ── 맹점형 × 통찰력(수) (추가)
+        {
+          id: "will-hunting",
+          name: "\uC70C \uD5CC\uD305",
+          work: "\uAD7F \uC70C \uD5CC\uD305",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1997,
+          type: "blind",
+          key: "\uC218",
+          inner: [45, 55, 50, 40, 45],
+          outer: [47, 52, 53, 38, 89],
+          line: "\uD3C9\uBC94\uD55C \uCCAD\uC18C\uBD80\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB0A8\uB4E4\uC740 \uBC88\uB729\uC774\uB294 \uCC9C\uC7AC\uC131\uC5D0 \uB180\uB77C\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB3D9\uB124 \uCCAD\uC18C\uBD80\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uB204\uAD6C\uB3C4 \uBABB \uD47C \uBB38\uC81C\uB97C \uD478\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "jang-geum",
+          name: "\uC7A5\uAE08\uC774",
+          work: "\uB300\uC7A5\uAE08",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2003,
+          type: "blind",
+          key: "\uC218",
+          inner: [62, 55, 65, 60, 45],
+          outer: [59, 58, 63, 62, 83],
+          line: "\uADF8\uC800 \uB9DB\uC774 \uAD81\uAE08\uD560 \uBFD0\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB9DB\uC758 \uBCF8\uC9C8\uC744 \uAFF0\uB6AB\uB294 \uC0AC\uB78C",
+          innerLine: "\uADF8\uB0E5 \uAD81\uAE08\uD574\uC11C \uD574 \uBCF4\uB294 \uAC83\uBFD0\uC774\uB2E4",
+          outerLine: "\uB9DB\uC758 \uBCF8\uC9C8\uC744 \uAFF0\uB6AB\uC5B4 \uBCF4\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "anya-forger",
+          name: "\uC544\uB0D0 \uD3EC\uC800",
+          work: "\uC2A4\uD30C\uC774 \uD328\uBC00\uB9AC",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2022,
+          type: "blind",
+          key: "\uC218",
+          inner: [55, 75, 60, 35, 45],
+          outer: [58, 73, 62, 32, 75],
+          line: "\uB545\uCF69 \uC88B\uC544\uD558\uB294 \uC544\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC5B4\uB978\uB4E4 \uC18D\uC744 \uBA3C\uC800 \uC77D\uB294 \uC544\uC774",
+          innerLine: "\uB098\uB294 \uB545\uCF69\uC744 \uC88B\uC544\uD558\uB294 \uC544\uC774\uB2E4",
+          outerLine: "\uC5B4\uB978\uB4E4 \uC18D\uC744 \uBA3C\uC800 \uC77D\uB294 \uC544\uC774"
+        },
+        {
+          id: "kevin-mccallister",
+          name: "\uCF00\uBE48 \uB9E5\uCE7C\uB9AC\uC2A4\uD130",
+          work: "\uB098 \uD640\uB85C \uC9D1\uC5D0",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1990,
+          type: "blind",
+          key: "\uC218",
+          inner: [62, 62, 45, 40, 50],
+          outer: [60, 64, 42, 43, 74],
+          line: "\uB9D0\uC37D\uAFB8\uB7EC\uAE30\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uC601\uB9AC\uD55C \uC791\uC804\uC744 \uC9DC\uB294 \uC544\uC774",
+          innerLine: "\uB098\uB294 \uB298 \uD63C\uB098\uB294 \uB9C9\uB0B4\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uC5B4\uB978\uC744 \uC774\uAE30\uB294 \uC601\uB9AC\uD55C \uC791\uC804\uAC00"
+        },
+        {
+          id: "matilda",
+          name: "\uB9C8\uD2F8\uB2E4",
+          work: "\uB9C8\uD2F8\uB2E4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1996,
+          type: "blind",
+          key: "\uC218",
+          inner: [50, 45, 62, 60, 62],
+          outer: [52, 42, 65, 58, 80],
+          line: "\uCC45 \uC88B\uC544\uD558\uB294 \uC544\uC774\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uC5B4\uB978\uBCF4\uB2E4 \uBA40\uB9AC \uBCF4\uB294 \uC544\uC774",
+          innerLine: "\uB098\uB294 \uCC45\uC774 \uC88B\uC740 \uD3C9\uBC94\uD55C \uC544\uC774\uB2E4",
+          outerLine: "\uC5B4\uB978\uBCF4\uB2E4 \uBA40\uB9AC \uBCF4\uB294 \uC544\uC774"
+        },
+        {
+          id: "newt-scamander",
+          name: "\uB274\uD2B8 \uC2A4\uCE90\uB9E8\uB354",
+          work: "\uC2E0\uBE44\uD55C \uB3D9\uBB3C\uC0AC\uC804",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2016,
+          type: "blind",
+          key: "\uC218",
+          inner: [45, 38, 72, 62, 70],
+          outer: [42, 41, 70, 64, 82],
+          line: "\uB3D9\uBB3C \uC88B\uC544\uD558\uB294 \uAD34\uC9DC\uB77C \uC5EC\uAE30\uC9C0\uB9CC \uB204\uAD6C\uBCF4\uB2E4 \uAE4A\uC774 \uC544\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uB3D9\uBB3C\uC774 \uC88B\uC740 \uAD34\uC9DC\uC77C \uBFD0\uC774\uB2E4",
+          outerLine: "\uB204\uAD6C\uBCF4\uB2E4 \uAE4A\uC774 \uC544\uB294 \uC804\uBB38\uAC00"
+        },
+        // ── 투명형 × 추진력(목) (추가)
+        {
+          id: "moana",
+          name: "\uBAA8\uC544\uB098",
+          work: "\uBAA8\uC544\uB098",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2016,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [88, 70, 65, 55, 62],
+          outer: [86, 73, 64, 57, 59],
+          line: "\uAC00\uC57C \uD560 \uACF3\uC744 \uD5A5\uD574 \uB9DD\uC124\uC784 \uC5C6\uC774 \uB098\uC544\uAC00\uB294, \uBCF4\uC774\uB294 \uADF8\uB300\uB85C\uC758 \uC0AC\uB78C",
+          innerLine: "\uBC14\uB2E4 \uB108\uBA38\uB85C \uAC00\uC57C \uD55C\uB2E4",
+          outerLine: "\uB9DD\uC124\uC784 \uC5C6\uC774 \uB098\uC544\uAC00\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "kang-baekho",
+          name: "\uAC15\uBC31\uD638",
+          work: "\uC2AC\uB7A8\uB369\uD06C",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1993,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [92, 80, 50, 35, 40],
+          outer: [95, 79, 52, 32, 38],
+          line: "\uD558\uACE0 \uC2F6\uC740 \uAC78 \uD5A5\uD574 \uC628\uBAB8\uC73C\uB85C \uBD80\uB52A\uCE58\uB294 \uC0AC\uB78C",
+          innerLine: "\uB098\uB294 \uBB50\uB4E0 \uD574\uB0BC \uC218 \uC788\uB2E4",
+          outerLine: "\uC628\uBAB8\uC73C\uB85C \uBD80\uB52A\uCE58\uB294 \uC5F4\uD608 \uC120\uC218"
+        },
+        {
+          id: "rocky-balboa",
+          name: "\uB85D\uD0A4 \uBC1C\uBCF4\uC544",
+          work: "\uB85D\uD0A4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1976,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [86, 55, 65, 55, 40],
+          outer: [85, 57, 62, 53, 43],
+          line: "\uB05D\uAE4C\uC9C0 \uC11C \uC788\uC73C\uB824\uB294 \uB9C8\uC74C\uC774 \uC548\uD30E\uC73C\uB85C \uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uB05D\uAE4C\uC9C0 \uBC84\uD168 \uC11C \uC788\uACE0 \uC2F6\uB2E4",
+          outerLine: "\uBA87 \uBC88\uC744 \uB9DE\uC544\uB3C4 \uC77C\uC5B4\uC11C\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "naruto",
+          name: "\uC6B0\uC988\uB9C8\uD0A4 \uB098\uB8E8\uD1A0",
+          work: "\uB098\uB8E8\uD1A0",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2002,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [94, 82, 70, 50, 45],
+          outer: [96, 79, 68, 53, 44],
+          line: "\uC778\uC815\uBC1B\uACE0 \uC2F6\uC740 \uB9C8\uC74C\uACFC \uAFC8\uC744 \uC228\uAE40\uC5C6\uC774 \uC678\uCE58\uB294 \uC0AC\uB78C",
+          innerLine: "\uBAA8\uB450\uC5D0\uAC8C \uC778\uC815\uBC1B\uB294 \uC0AC\uB78C\uC774 \uB418\uACA0\uB2E4",
+          outerLine: "\uAFC8\uC744 \uD06C\uAC8C \uC678\uCE58\uACE0 \uB2EC\uB9AC\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "furiosa",
+          name: "\uD4E8\uB9AC\uC624\uC0AC",
+          work: "\uB9E4\uB4DC\uB9E5\uC2A4 \uBD84\uB178\uC758 \uB3C4\uB85C",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2015,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [90, 35, 55, 72, 68],
+          outer: [87, 33, 58, 71, 70],
+          line: "\uC815\uD55C \uAE38\uC744 \uD5A5\uD574 \uAC70\uCE68\uC5C6\uC774 \uB2EC\uB9AC\uB294 \uC0AC\uB78C",
+          innerLine: "\uBAA8\uB450\uB97C \uB370\uB9AC\uACE0 \uBC18\uB4DC\uC2DC \uBE60\uC838\uB098\uAC04\uB2E4",
+          outerLine: "\uAC70\uCE68\uC5C6\uC774 \uAE38\uC744 \uC5EC\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "choi-aera",
+          name: "\uCD5C\uC560\uB77C",
+          work: "\uC308, \uB9C8\uC774\uC6E8\uC774",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2017,
+          type: "transparent",
+          key: "\uBAA9",
+          inner: [84, 78, 62, 50, 55],
+          outer: [82, 81, 61, 52, 52],
+          line: "\uD558\uACE0 \uC2F6\uC740 \uAC78 \uD5A5\uD574 \uAC70\uCE68\uC5C6\uC774 \uBD80\uB52A\uCE58\uB294 \uC0AC\uB78C",
+          innerLine: "\uB0A8\uB4E4 \uB208\uCE58 \uB9D0\uACE0 \uB0B4 \uAE38\uC744 \uAC04\uB2E4",
+          outerLine: "\uAFC8\uC744 \uD5A5\uD574 \uAC70\uCE68\uC5C6\uC774 \uBD80\uB52A\uCE58\uB294 \uC0AC\uB78C"
+        },
+        // ── 투명형 × 표현력(화) (추가)
+        {
+          id: "joy",
+          name: "\uAE30\uC068\uC774",
+          work: "\uC778\uC0AC\uC774\uB4DC \uC544\uC6C3",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2015,
+          type: "transparent",
+          key: "\uD654",
+          inner: [75, 92, 68, 45, 40],
+          outer: [78, 91, 70, 42, 38],
+          line: "\uAE30\uC068\uC744 \uC628\uBAB8\uC73C\uB85C \uB4DC\uB7EC\uB0B4\uB294 \uC874\uC7AC",
+          innerLine: "\uC624\uB298\uB3C4 \uC990\uAC70\uC6B4 \uC77C\uC744 \uB9CC\uB4E4 \uAC70\uB2E4",
+          outerLine: "\uC5B8\uC81C\uB098 \uBC1D\uAC8C \uC6C3\uB294 \uC874\uC7AC"
+        },
+        {
+          id: "donkey",
+          name: "\uB3D9\uD0A4",
+          work: "\uC288\uB809",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2001,
+          type: "transparent",
+          key: "\uD654",
+          inner: [62, 90, 70, 30, 35],
+          outer: [61, 92, 67, 28, 38],
+          line: "\uC0DD\uAC01\uB098\uB294 \uB300\uB85C \uB9D0\uD558\uACE0 \uC6C3\uB294, \uC18D\uACFC \uAC89\uC774 \uAC19\uC740 \uC218\uB2E4\uC7C1\uC774",
+          innerLine: "\uB098\uB294 \uCE5C\uAD6C\uB791 \uB5A0\uB4DC\uB294 \uAC8C \uC88B\uB2E4",
+          outerLine: "\uC26C\uC9C0 \uC54A\uACE0 \uB5A0\uB4DC\uB294 \uC218\uB2E4\uC7C1\uC774"
+        },
+        {
+          id: "genie",
+          name: "\uC9C0\uB2C8",
+          work: "\uC54C\uB77C\uB518",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1992,
+          type: "transparent",
+          key: "\uD654",
+          inner: [70, 95, 72, 40, 60],
+          outer: [72, 92, 70, 43, 59],
+          line: "\uB118\uCE58\uB294 \uD765\uACFC \uC7AC\uCE58\uB97C \uADF8\uB300\uB85C \uC3DF\uC544 \uB0B4\uB294 \uC874\uC7AC",
+          innerLine: "\uC990\uAC81\uAC8C \uD574 \uC8FC\uB294 \uAC8C \uB0B4 \uD2B9\uAE30\uB2E4",
+          outerLine: "\uD765\uACFC \uC7AC\uCE58\uAC00 \uB118\uCE58\uB294 \uC874\uC7AC"
+        },
+        {
+          id: "oh-malsoon",
+          name: "\uC624\uB9D0\uC21C",
+          work: "\uC218\uC0C1\uD55C \uADF8\uB140",
+          kind: "\uD55C\uAD6D \uC601\uD654",
+          year: 2014,
+          type: "transparent",
+          key: "\uD654",
+          inner: [70, 88, 60, 50, 55],
+          outer: [67, 86, 63, 49, 57],
+          line: "\uD560 \uB9D0\uC740 \uD558\uACE0 \uB178\uB798\uB3C4 \uBD80\uB974\uB294, \uAC70\uCE68\uC5C6\uB294 \uC0AC\uB78C",
+          innerLine: "\uD558\uACE0 \uC2F6\uC740 \uB9D0\uC740 \uCC38\uC9C0 \uC54A\uB294\uB2E4",
+          outerLine: "\uAC70\uCE68\uC5C6\uC774 \uB9D0\uD558\uACE0 \uB178\uB798\uD558\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "jack-sparrow",
+          name: "\uC7AD \uC2A4\uD328\uB85C\uC6B0",
+          work: "\uCE90\uB9AC\uBE44\uC548\uC758 \uD574\uC801",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2003,
+          type: "transparent",
+          key: "\uD654",
+          inner: [65, 88, 40, 25, 72],
+          outer: [63, 91, 39, 27, 69],
+          line: "\uB2A5\uCCAD\uACFC \uD5C8\uC138\uB97C \uC228\uAE30\uC9C0 \uC54A\uACE0 \uC990\uAE30\uB294 \uC0AC\uB78C",
+          innerLine: "\uC778\uC0DD\uC740 \uC990\uAE30\uB294 \uC0AC\uB78C\uC774 \uC774\uAE34\uB2E4",
+          outerLine: "\uB2A5\uCCAD\uC2A4\uB7FD\uACE0 \uD5C8\uC138 \uAC00\uB4DD\uD55C \uC120\uC7A5"
+        },
+        {
+          id: "lim-jinju",
+          name: "\uC784\uC9C4\uC8FC",
+          work: "\uBA5C\uB85C\uAC00 \uCCB4\uC9C8",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2019,
+          type: "transparent",
+          key: "\uD654",
+          inner: [60, 85, 62, 50, 70],
+          outer: [63, 84, 64, 47, 68],
+          line: "\uB5A0\uC624\uB974\uB294 \uB9D0\uC744 \uADF8\uB300\uB85C \uC3DF\uC544 \uB0B4\uB294 \uC194\uC9C1\uD55C \uC0AC\uB78C",
+          innerLine: "\uC0DD\uAC01\uB098\uB294 \uAC74 \uB9D0\uD574\uC57C \uC18D\uC774 \uC2DC\uC6D0\uD558\uB2E4",
+          outerLine: "\uB9D0\uC774 \uB9CE\uACE0 \uC194\uC9C1\uD55C \uC791\uAC00"
+        },
+        // ── 투명형 × 포용력(토) (추가)
+        {
+          id: "maria-von-trapp",
+          name: "\uB9C8\uB9AC\uC544",
+          work: "\uC0AC\uC6B4\uB4DC \uC624\uBE0C \uBBA4\uC9C1",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1965,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [65, 80, 90, 45, 55],
+          outer: [64, 82, 87, 43, 58],
+          line: "\uC544\uC774\uB4E4\uC744 \uD5A5\uD55C \uB530\uB73B\uD568\uC744 \uB178\uB798\uCC98\uB7FC \uB4DC\uB7EC\uB0B4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC544\uC774\uB4E4\uC774 \uC6C3\uC5C8\uC73C\uBA74 \uC88B\uACA0\uB2E4",
+          outerLine: "\uB178\uB798\uB85C \uC544\uC774\uB4E4\uC744 \uD488\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "ted-lasso",
+          name: "\uD14C\uB4DC \uB798\uC18C",
+          work: "\uD14C\uB4DC \uB798\uC18C",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 2020,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [62, 80, 92, 50, 60],
+          outer: [64, 77, 90, 53, 59],
+          line: "\uC0AC\uB78C\uC744 \uBBFF\uACE0 \uB2E4\uC815\uD568\uC744 \uC228\uAE30\uC9C0 \uC54A\uB294 \uAC10\uB3C5",
+          innerLine: "\uC0AC\uB78C\uC744 \uBBFF\uB294 \uAC8C \uBA3C\uC800\uB2E4",
+          outerLine: "\uB204\uAD6C\uC5D0\uAC8C\uB098 \uB2E4\uC815\uD55C \uAC10\uB3C5"
+        },
+        {
+          id: "doraemon",
+          name: "\uB3C4\uB77C\uC5D0\uBABD",
+          work: "\uB3C4\uB77C\uC5D0\uBABD",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 1979,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [45, 65, 88, 50, 55],
+          outer: [42, 63, 91, 49, 57],
+          line: "\uCE5C\uAD6C\uB97C \uB3D5\uB294 \uB9C8\uC74C\uC744 \uADF8\uB300\uB85C \uB0B4\uBCF4\uC774\uB294 \uC874\uC7AC",
+          innerLine: "\uCE5C\uAD6C\uAC00 \uACE4\uB780\uD558\uBA74 \uB3C4\uC640\uC57C \uD55C\uB2E4",
+          outerLine: "\uB298 \uCE5C\uAD6C\uB97C \uB3C4\uC640\uC8FC\uB294 \uC874\uC7AC"
+        },
+        {
+          id: "lee-ikjun",
+          name: "\uC774\uC775\uC900",
+          work: "\uC2AC\uAE30\uB85C\uC6B4 \uC758\uC0AC\uC0DD\uD65C",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2020,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [60, 82, 86, 50, 70],
+          outer: [58, 85, 85, 52, 67],
+          line: "\uC7A5\uB09C\uC2A4\uB7FD\uC9C0\uB9CC \uC0AC\uB78C\uC744 \uC544\uB07C\uB294 \uB9C8\uC74C\uC774 \uB2E4 \uBCF4\uC774\uB294 \uC0AC\uB78C",
+          innerLine: "\uB0B4 \uC0AC\uB78C\uC740 \uB0B4\uAC00 \uCC59\uAE34\uB2E4",
+          outerLine: "\uC7A5\uB09C\uC2A4\uB7FD\uACE0 \uB2E4\uC815\uD55C \uC758\uC0AC"
+        },
+        {
+          id: "sophie-hatter",
+          name: "\uC18C\uD53C \uD574\uD130",
+          work: "\uD558\uC6B8\uC758 \uC6C0\uC9C1\uC774\uB294 \uC131",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2004,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [62, 50, 85, 68, 60],
+          outer: [65, 49, 87, 65, 58],
+          line: "\uACC1\uC758 \uC0AC\uB78C\uB4E4\uC744 \uBB35\uBB35\uD788 \uB3CC\uBCF4\uB294 \uBAA8\uC2B5\uC774 \uD55C\uACB0\uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uB0B4\uAC00 \uD560 \uC218 \uC788\uB294 \uB9CC\uD07C \uB3CC\uBCF8\uB2E4",
+          outerLine: "\uBB35\uBB35\uD788 \uBAA8\uB450\uB97C \uB3CC\uBCF4\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "tala",
+          name: "\uD0C8\uB77C \uD560\uBA38\uB2C8",
+          work: "\uBAA8\uC544\uB098",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2016,
+          type: "transparent",
+          key: "\uD1A0",
+          inner: [50, 65, 88, 45, 78],
+          outer: [49, 67, 85, 43, 81],
+          line: "\uC190\uB140\uB97C \uBBFF\uACE0 \uD488\uC5B4 \uC8FC\uB294 \uB9C8\uC74C\uC744 \uADF8\uB300\uB85C \uBCF4\uC5EC \uC8FC\uB294 \uC0AC\uB78C",
+          innerLine: "\uC774 \uC544\uC774\uB97C \uBBFF\uC5B4 \uC900\uB2E4",
+          outerLine: "\uC190\uB140\uB97C \uD488\uC5B4 \uC8FC\uB294 \uD560\uBA38\uB2C8"
+        },
+        // ── 투명형 × 원칙성(금) (추가)
+        {
+          id: "steve-rogers",
+          name: "\uC2A4\uD2F0\uBE0C \uB85C\uC800\uC2A4",
+          work: "\uCEA1\uD2F4 \uC544\uBA54\uB9AC\uCE74",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2011,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [80, 50, 70, 92, 60],
+          outer: [82, 47, 68, 95, 59],
+          line: "\uC633\uB2E4\uACE0 \uBBFF\uB294 \uAC83\uC744 \uC228\uAE40\uC5C6\uC774 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uC633\uC740 \uC77C\uC740 \uB05D\uAE4C\uC9C0 \uD55C\uB2E4",
+          outerLine: "\uD754\uB4E4\uB9BC \uC5C6\uC774 \uC633\uC740 \uD3B8\uC5D0 \uC11C\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "miranda-priestly",
+          name: "\uBBF8\uB780\uB2E4 \uD504\uB9AC\uC2AC\uB9AC",
+          work: "\uC545\uB9C8\uB294 \uD504\uB77C\uB2E4\uB97C \uC785\uB294\uB2E4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2006,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [80, 45, 25, 94, 82],
+          outer: [77, 43, 28, 93, 84],
+          line: "\uC790\uAE30 \uAE30\uC900\uC744 \uB204\uAD6C\uC5D0\uAC8C\uB3C4 \uAD7D\uD788\uC9C0 \uC54A\uB294 \uC0AC\uB78C",
+          innerLine: "\uAE30\uC900\uC5D0 \uBABB \uBBF8\uCE58\uBA74 \uBC1B\uC544\uB4E4\uC77C \uC218 \uC5C6\uB2E4",
+          outerLine: "\uAE30\uC900\uC774 \uB192\uACE0 \uB0C9\uC815\uD55C \uD3B8\uC9D1\uC7A5"
+        },
+        {
+          id: "darth-vader",
+          name: "\uB2E4\uC2A4 \uBCA0\uC774\uB354",
+          work: "\uC2A4\uD0C0\uC6CC\uC988",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1977,
+          type: "transparent",
+          key: "\uAE08",
+          villain: true,
+          inner: [82, 30, 20, 90, 70],
+          outer: [80, 33, 19, 92, 67],
+          line: "\uBA85\uB839\uACFC \uC9C8\uC11C\uB97C \uADF8\uB300\uB85C \uBC00\uC5B4\uBD99\uC774\uB294 \uC0AC\uB78C",
+          innerLine: "\uC9C8\uC11C\uB294 \uD798\uC73C\uB85C \uC9C0\uD0A8\uB2E4",
+          outerLine: "\uB450\uB824\uC6C0\uC73C\uB85C \uC9C8\uC11C\uB97C \uC138\uC6B0\uB294 \uC0AC\uB78C"
+        },
+        {
+          id: "mary-poppins",
+          name: "\uBA54\uB9AC \uD3EC\uD540\uC2A4",
+          work: "\uBA54\uB9AC \uD3EC\uD540\uC2A4",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 1964,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [62, 72, 65, 88, 70],
+          outer: [65, 71, 67, 85, 68],
+          line: "\uC815\uD55C \uADDC\uCE59\uC744 \uB2E8\uC815\uD558\uAC8C \uC9C0\uD0A4\uBA74\uC11C\uB3C4 \uB530\uB73B\uD55C \uC0AC\uB78C",
+          innerLine: "\uADDC\uCE59\uC774 \uC788\uC5B4\uC57C \uC990\uAC70\uC6C0\uB3C4 \uC788\uB2E4",
+          outerLine: "\uB2E8\uC815\uD558\uACE0 \uAE50\uAE50\uD55C \uBCF4\uBAA8"
+        },
+        {
+          id: "ned-stark",
+          name: "\uB124\uB4DC \uC2A4\uD0C0\uD06C",
+          work: "\uC655\uC88C\uC758 \uAC8C\uC784",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 2011,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [60, 40, 70, 92, 55],
+          outer: [59, 42, 67, 90, 58],
+          line: "\uBA85\uC608\uC640 \uC6D0\uCE59\uC744 \uAC89\uACFC \uC18D \uBAA8\uB450 \uC9C0\uD0A4\uB294 \uC0AC\uB78C",
+          innerLine: "\uBA85\uC608\uB97C \uBC84\uB9B4 \uC218\uB294 \uC5C6\uB2E4",
+          outerLine: "\uBA85\uC608\uB97C \uC9C0\uD0A4\uB294 \uACE7\uC740 \uC601\uC8FC"
+        },
+        {
+          id: "go-aeshin",
+          name: "\uACE0\uC560\uC2E0",
+          work: "\uBBF8\uC2A4\uD130 \uC158\uC0E4\uC778",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2018,
+          type: "transparent",
+          key: "\uAE08",
+          inner: [80, 50, 55, 90, 72],
+          outer: [82, 47, 53, 93, 71],
+          line: "\uC9C0\uD0A4\uB824\uB294 \uC2E0\uB150\uC744 \uC228\uAE30\uC9C0 \uC54A\uACE0 \uD589\uB3D9\uD558\uB294 \uC0AC\uB78C",
+          innerLine: "\uC9C0\uD0AC \uAC83\uC744 \uC704\uD574 \uB05D\uAE4C\uC9C0 \uC2F8\uC6B4\uB2E4",
+          outerLine: "\uC2E0\uB150\uB300\uB85C \uD589\uB3D9\uD558\uB294 \uC0AC\uB78C"
+        },
+        // ── 투명형 × 통찰력(수) (추가)
+        {
+          id: "l-lawliet",
+          name: "L",
+          work: "\uB370\uC2A4\uB178\uD2B8",
+          kind: "\uC560\uB2C8\uBA54\uC774\uC158",
+          year: 2006,
+          type: "transparent",
+          key: "\uC218",
+          inner: [60, 30, 35, 70, 95],
+          outer: [57, 28, 38, 69, 97],
+          line: "\uAD34\uC9DC \uAC19\uC740 \uBAA8\uC2B5 \uADF8\uB300\uB85C \uCD94\uB9AC\uB97C \uC228\uAE30\uC9C0 \uC54A\uB294 \uD0D0\uC815",
+          innerLine: "\uBAA8\uB4E0 \uAC00\uB2A5\uC131\uC744 \uB530\uC838 \uBCF8\uB2E4",
+          outerLine: "\uAD34\uC9DC \uAC19\uACE0 \uB0A0\uCE74\uB85C\uC6B4 \uD0D0\uC815"
+        },
+        {
+          id: "gandalf",
+          name: "\uAC04\uB2EC\uD504",
+          work: "\uBC18\uC9C0\uC758 \uC81C\uC655",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2001,
+          type: "transparent",
+          key: "\uC218",
+          inner: [72, 62, 75, 70, 92],
+          outer: [70, 65, 74, 72, 89],
+          line: "\uAE4A\uC740 \uC9C0\uD61C\uB97C \uD544\uC694\uD55C \uC21C\uAC04 \uADF8\uB300\uB85C \uB4DC\uB7EC\uB0B4\uB294 \uC874\uC7AC",
+          innerLine: "\uB54C\uAC00 \uB418\uBA74 \uC54C\uAC8C \uB41C\uB2E4",
+          outerLine: "\uBAA8\uB4E0 \uAC78 \uB0B4\uB2E4\uBCF4\uB294 \uB9C8\uBC95\uC0AC"
+        },
+        {
+          id: "spock",
+          name: "\uC2A4\uD30D",
+          work: "\uC2A4\uD0C0 \uD2B8\uB809",
+          kind: "\uD574\uC678 \uC601\uD654",
+          year: 2009,
+          type: "transparent",
+          key: "\uC218",
+          inner: [55, 25, 45, 85, 92],
+          outer: [58, 24, 47, 82, 90],
+          line: "\uAC10\uC815\uBCF4\uB2E4 \uB17C\uB9AC\uB97C \uC55E\uC138\uC6B0\uB294 \uBAA8\uC2B5\uC774 \uD55C\uACB0\uAC19\uC740 \uC0AC\uB78C",
+          innerLine: "\uB17C\uB9AC\uC801\uC73C\uB85C \uB530\uC838\uC57C \uD55C\uB2E4",
+          outerLine: "\uB17C\uB9AC\uB85C \uD310\uB2E8\uD558\uB294 \uBD80\uD568\uC7A5"
+        },
+        {
+          id: "gregory-house",
+          name: "\uADF8\uB808\uACE0\uB9AC \uD558\uC6B0\uC2A4",
+          work: "\uD558\uC6B0\uC2A4",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 2004,
+          type: "transparent",
+          key: "\uC218",
+          inner: [65, 62, 25, 40, 94],
+          outer: [64, 64, 22, 38, 97],
+          line: "\uBB34\uB840\uD560 \uB9CC\uD07C \uC194\uC9C1\uD558\uAC8C \uC9C4\uB2E8\uC744 \uC3DF\uC544 \uB0B4\uB294 \uC758\uC0AC",
+          innerLine: "\uC0AC\uB78C \uB9D0\uBCF4\uB2E4 \uC99D\uAC70\uB97C \uBBFF\uB294\uB2E4",
+          outerLine: "\uBB34\uB840\uD558\uC9C0\uB9CC \uC815\uD655\uD55C \uC758\uC0AC"
+        },
+        {
+          id: "park-haeyoung",
+          name: "\uBC15\uD574\uC601",
+          work: "\uC2DC\uADF8\uB110",
+          kind: "\uD55C\uAD6D \uB4DC\uB77C\uB9C8",
+          year: 2016,
+          type: "transparent",
+          key: "\uC218",
+          inner: [68, 45, 50, 72, 88],
+          outer: [70, 42, 48, 75, 87],
+          line: "\uB0A0\uCE74\uB85C\uC6B4 \uCD94\uB9AC\uB97C \uC228\uAE40\uC5C6\uC774 \uB4DC\uB7EC\uB0B4\uB294 \uD504\uB85C\uD30C\uC77C\uB7EC",
+          innerLine: "\uC0AC\uAC74\uC5D0\uB294 \uBC18\uB4DC\uC2DC \uC774\uC720\uAC00 \uC788\uB2E4",
+          outerLine: "\uB0A0\uCE74\uB86D\uAC8C \uCD94\uB9AC\uD558\uB294 \uD504\uB85C\uD30C\uC77C\uB7EC"
+        },
+        {
+          id: "hercule-poirot",
+          name: "\uC5D0\uB974\uD03C \uD478\uC544\uB85C",
+          work: "\uBA85\uD0D0\uC815 \uD478\uC544\uB85C",
+          kind: "\uD574\uC678 \uB4DC\uB77C\uB9C8",
+          year: 1989,
+          type: "transparent",
+          key: "\uC218",
+          inner: [55, 65, 50, 80, 92],
+          outer: [52, 63, 53, 79, 94],
+          line: "\uC790\uC2E0\uC758 \uCD94\uB9AC\uB825\uC744 \uB2F9\uB2F9\uD558\uAC8C \uB4DC\uB7EC\uB0B4\uB294 \uD0D0\uC815",
+          innerLine: "\uB0B4 \uCD94\uB9AC\uB294 \uD2C0\uB9AC\uC9C0 \uC54A\uB294\uB2E4",
+          outerLine: "\uC790\uC2E0\uB9CC\uB9CC\uD558\uACE0 \uAF3C\uAF3C\uD55C \uD0D0\uC815"
+        }
+      ];
+      module.exports = { CHARACTERS };
     }
   });
 
-  // src/index.browser.js
-  var require_index_browser = __commonJS({
-    "src/index.browser.js"(exports, module) {
+  // src/persona/persona.js
+  var require_persona = __commonJS({
+    "src/persona/persona.js"(exports, module) {
+      "use strict";
+      var { CHARACTERS } = require_characters();
+      var OH_KEYS = ["\uBAA9", "\uD654", "\uD1A0", "\uAE08", "\uC218"];
+      var TRANSPARENT_CUT = 8;
+      var TYPE_LABEL = { hidden: "\uC228\uAE40\uD615", blind: "\uB9F9\uC810\uD615", transparent: "\uD22C\uBA85\uD615" };
+      var TRAIT_LABEL = { \uBAA9: "\uCD94\uC9C4\uB825", \uD654: "\uD45C\uD604\uB825", \uD1A0: "\uD3EC\uC6A9\uB825", \uAE08: "\uC6D0\uCE59\uC131", \uC218: "\uD1B5\uCC30\uB825" };
+      var vec = (v) => Array.isArray(v) ? OH_KEYS.reduce((o, k, i) => (o[k] = +v[i] || 0, o), {}) : OH_KEYS.reduce((o, k) => (o[k] = +(v && v[k]) || 0, o), {});
+      function analyzeGap(A, O) {
+        const a = vec(A), o = vec(O);
+        const d = {}, mean = {};
+        OH_KEYS.forEach((k) => {
+          d[k] = a[k] - o[k];
+          mean[k] = (a[k] + o[k]) / 2;
+        });
+        const top = OH_KEYS.slice().sort((x, y) => Math.abs(d[y]) - Math.abs(d[x]))[0];
+        let type, key;
+        if (Math.abs(d[top]) < TRANSPARENT_CUT) {
+          type = "transparent";
+          key = OH_KEYS.slice().sort((x, y) => mean[y] - mean[x])[0];
+        } else {
+          type = d[top] > 0 ? "hidden" : "blind";
+          key = top;
+        }
+        return { type, key, d, mean, typeLabel: TYPE_LABEL[type], traitLabel: TRAIT_LABEL[key] };
+      }
+      var PREPARED = CHARACTERS.map((c) => Object.assign({}, c, { gap: analyzeGap(c.inner, c.outer) }));
+      function distance(g1, g2) {
+        return OH_KEYS.reduce((s, k) => s + Math.abs(g1.d[k] - g2.d[k]) + 0.3 * Math.abs(g1.mean[k] - g2.mean[k]), 0);
+      }
+      function similarity(dist) {
+        return Math.max(40, Math.min(99, Math.round(100 - 0.35 * dist)));
+      }
+      function publicView(c, dist) {
+        return {
+          id: c.id,
+          name: c.name,
+          work: c.work,
+          kind: c.kind,
+          year: c.year,
+          line: c.line,
+          innerLine: c.innerLine,
+          outerLine: c.outerLine,
+          villain: !!c.villain,
+          type: c.gap.type,
+          key: c.gap.key,
+          distance: +dist.toFixed(1),
+          similarity: similarity(dist)
+        };
+      }
+      function matchCharacters(A, O, opts) {
+        opts = opts || {};
+        const limit = opts.limit || 3;
+        const me = analyzeGap(A, O);
+        let pool = PREPARED.filter((c) => !(opts.excludeVillain && c.villain));
+        const tiers = [
+          pool.filter((c) => c.gap.type === me.type && c.gap.key === me.key),
+          pool.filter((c) => c.gap.type === me.type),
+          pool
+        ];
+        const ranked = [];
+        const seen = /* @__PURE__ */ new Set();
+        for (const tier of tiers) {
+          tier.map((c) => ({ c, dist: distance(me, c.gap) })).sort((x, y) => x.dist - y.dist).forEach(({ c, dist }) => {
+            if (!seen.has(c.id)) {
+              seen.add(c.id);
+              ranked.push(publicView(c, dist));
+            }
+          });
+          if (ranked.length >= limit) break;
+        }
+        const list = ranked.slice(0, limit);
+        return {
+          type: me.type,
+          key: me.key,
+          typeLabel: me.typeLabel,
+          traitLabel: me.traitLabel,
+          main: list[0] || null,
+          others: list.slice(1)
+        };
+      }
+      module.exports = { analyzeGap, matchCharacters, CHARACTERS, TYPE_LABEL, TRAIT_LABEL, OH_KEYS };
+    }
+  });
+
+  // src/index.js
+  var require_index = __commonJS({
+    "src/index.js"(exports, module) {
       var saju = require_saju();
       var personality = require_personality();
       var synergy = require_synergy();
       var branchRelations = require_relations();
-      var daewoon = require_daewoon();
       var sewoon = require_sewoon();
+      var daewoon = require_daewoon();
+      var twelveStages = require_twelve_stages();
+      var sinsal = require_sinsal();
+      var johu = require_johu();
       var timeline = require_timeline();
       var transit = require_transit();
-      var twelveStages = require_twelve_stages();
-      module.exports = { saju, personality, synergy, branchRelations, daewoon, sewoon, timeline, transit, twelveStages };
+      var persona = require_persona();
+      module.exports = {
+        saju,
+        personality,
+        synergy,
+        branchRelations,
+        sewoon,
+        daewoon,
+        twelveStages,
+        sinsal,
+        johu,
+        timeline,
+        transit,
+        persona
+      };
     }
   });
-  return require_index_browser();
+  return require_index();
 })();
