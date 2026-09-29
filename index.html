@@ -661,13 +661,13 @@ function renderProfileForm(){
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
     <div class="card">
       <div class="grid3">
-        <div><label class="f">년</label><input id="by" type="number" value="${p.birth_year||''}" placeholder="1986"></div>
-        <div><label class="f">월</label><input id="bm" type="number" value="${p.birth_month||''}" placeholder="9"></div>
-        <div><label class="f">일</label><input id="bd" type="number" value="${p.birth_day||''}" placeholder="17"></div>
+        <div><label class="f">년</label><input id="by" type="number" value="${p.birth_year||''}" placeholder="0000"></div>
+        <div><label class="f">월</label><input id="bm" type="number" value="${p.birth_month||''}" placeholder="00"></div>
+        <div><label class="f">일</label><input id="bd" type="number" value="${p.birth_day||''}" placeholder="00"></div>
       </div>
       <div class="grid2" style="margin-top:10px">
-        <div><label class="f">시 (모르면 비움)</label><input id="bh" type="number" value="${p.birth_hour==null?'':p.birth_hour}" placeholder="8"></div>
-        <div><label class="f">분</label><input id="bmin" type="number" value="${p.birth_minute==null?'':p.birth_minute}" placeholder="30"></div>
+        <div><label class="f">시 (모르면 비움)</label><input id="bh" type="number" value="${p.birth_hour==null?'':p.birth_hour}" placeholder="00"></div>
+        <div><label class="f">분</label><input id="bmin" type="number" value="${p.birth_minute==null?'':p.birth_minute}" placeholder="00"></div>
       </div>
       <div class="grid2" style="margin-top:10px">
         <div><label class="f">양력/음력</label><select id="cal"><option value="solar"${(p.calendar||'solar')==='solar'?' selected':''}>양력</option><option value="lunar"${p.calendar==='lunar'?' selected':''}>음력</option></select></div>
