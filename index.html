@@ -237,7 +237,7 @@ function daeunPillars(){
   const g=profile&&profile.gender==='M'?'male':profile&&profile.gender==='F'?'female':null;
   let list=[];
   if(g && saju){ try{
-    const birth={year:profile.birth_year,month:profile.birth_month,day:profile.birth_day,
+    const birth={year:saju.solar.y,month:saju.solar.m,day:saju.solar.d, /* 음력 입력도 양력 생일로 (엔진 computeSaju가 변환한 값) */
       hour:profile.birth_hour==null?0:profile.birth_hour,minute:profile.birth_minute==null?0:profile.birth_minute};
     list=DW.daewoon(saju.pillars,birth,g,10).pillars;
   }catch(e){} }
@@ -1535,7 +1535,7 @@ function daewoonSewoonHtml(){
   const g = profile.gender==='M'?'male':profile.gender==='F'?'female':null;
   if(!g) return `<div class="prof-sub" style="margin-top:16px">대운 · 세운</div>
     <p class="muted" style="font-size:12px;margin:4px 0 0">성별을 입력하면 대운·세운을 계산해 보여드려요. (위 ‘사주 수정’에서 성별 선택)</p>`;
-  const birth={year:profile.birth_year,month:profile.birth_month,day:profile.birth_day,
+  const birth={year:saju.solar.y,month:saju.solar.m,day:saju.solar.d, /* 음력 입력도 양력 생일로 (엔진 computeSaju가 변환한 값) */
     hour:profile.birth_hour==null?0:profile.birth_hour,minute:profile.birth_minute==null?0:profile.birth_minute};
   let dw; try{ dw=DW.daewoon(saju.pillars, birth, g, 8); }catch(e){ return ''; }
   const nowY=new Date().getFullYear();
