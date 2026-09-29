@@ -196,17 +196,14 @@ const EL_COL={목:'var(--mok)',화:'var(--hwa)',토:'var(--to)',금:'var(--geum)
 /* ============ 유틸 ============ */
 // 앱 아이콘과 동일한 심볼: 흰 원판에 오행 오색점(화·토·금·수) + 목 자리 네잎클로버, 골드 배경/스탬프 테두리
 const SEAL=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
-  +`<rect x="0" y="0" width="100" height="100" fill="#b8912e"/>`
-  +`<rect x="6.5" y="6.5" width="87" height="87" rx="15" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/>`
-  +`<circle cx="50" cy="50" r="33" fill="#fff"/>`
-  +`<circle cx="75" cy="42" r="7" fill="#c0392b"/>`   /* 화 */
-  +`<circle cx="65" cy="71" r="7" fill="#b8860b"/>`   /* 토 */
-  +`<circle cx="35" cy="71" r="7" fill="#7f8c8d"/>`   /* 금 */
-  +`<circle cx="25" cy="42" r="7" fill="#2c3e50"/>`   /* 수 */
-  +`<circle cx="50" cy="50" r="4.5" fill="#b8912e"/>` /* 중앙 */
-  +`<rect x="49.3" y="24" width="1.4" height="8" rx="0.7" fill="#2e7d5b"/>` /* 목: 줄기 */
-  +`<g fill="#2e7d5b"><circle cx="46.4" cy="20.6" r="4.1"/><circle cx="53.6" cy="20.6" r="4.1"/>`
-  +`<circle cx="46.4" cy="27.4" r="4.1"/><circle cx="53.6" cy="27.4" r="4.1"/></g>` /* 목: 네잎클로버 */
+  +`<rect width="100" height="100" fill="#279A56"/>`
+  +`<path d="M51.2 68.4 C 52.3 76.9 58.2 80.9 66.4 82.4" fill="none" stroke="#F4FBF4" stroke-width="2.9" stroke-linecap="round"/>`
+  +`<circle cx="50" cy="32.4" r="12.5" fill="#F4FBF4"/><circle cx="67.6" cy="50" r="12.5" fill="#F4FBF4"/>`
+  +`<circle cx="50" cy="67.6" r="12.5" fill="#F4FBF4"/><circle cx="32.4" cy="50" r="12.5" fill="#F4FBF4"/>`
+  +`<circle cx="50" cy="40.2" r="6.45" fill="#2F7D5B"/>`   /* 목 */
+  +`<circle cx="58.2" cy="54.3" r="6.45" fill="#C0392B"/>` /* 화 */
+  +`<circle cx="41.8" cy="54.3" r="6.45" fill="#33465A"/>` /* 수 */
+  +`<circle cx="50" cy="49.2" r="3.5" fill="#C6A03A"/>`    /* 토(중심) */
   +`</svg>`;
 // 공개용 사행성·연령 고지 (시안 C: 상단 배지 + 한 줄)
 const RESP_BADGE='<span style="display:inline-flex;align-items:center;gap:5px;background:#b23a26;color:#fff;font-size:11.5px;font-weight:600;padding:3px 11px;border-radius:20px">🔞 19세 미만 이용 불가</span>';
