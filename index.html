@@ -861,7 +861,7 @@ function viewCalendar(){
     return `<div style="flex:1 1 60px;text-align:center;border:1px solid ${c.bd};border-radius:10px;padding:7px 3px;background:${c.bg}${best?';box-shadow:0 0 0 2px var(--gold)':''}"><div style="font-size:13px;font-weight:800;color:var(--ink)">${best?'⭐':''}${x.d}일</div><div style="font-size:10px;font-weight:700;color:${c.fg};margin-top:2px">${c.tag}</div><div class="muted" style="font-size:9.5px;margin-top:1px">${dd}</div></div>`;
   }).join('');
   const bestTxt=bestSat?(bestSat.money?`${bestSat.d}일이 가장 유리해요 (목돈 기운)`:bestSat.caution?`이번 달 추첨일은 기운이 약한 편 — 그나마 ${bestSat.d}일`:`${bestSat.d}일이 무난해요`):'';
-  const satCard=saturdays.length?`<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 8px;font-size:15px">🗓️ 이번 달 로또 추첨일(토)</h3><div style="display:flex;gap:5px;flex-wrap:wrap">${satChips}</div>${bestTxt?`<p class="muted" style="font-size:12px;margin:8px 0 0">→ <b style="color:var(--ink)">${bestTxt}</b></p>`:''}</div>`:'';
+  const satCard=saturdays.length?`<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 8px;font-size:15px">이번 달 로또 추첨일(토)</h3><div style="display:flex;gap:5px;flex-wrap:wrap">${satChips}</div>${bestTxt?`<p class="muted" style="font-size:12px;margin:8px 0 0">→ <b style="color:var(--ink)">${bestTxt}</b></p>`:''}</div>`:'';
   return `${satCard}<div class="section on card">
     <div class="cal-head">
       <button class="btn ghost sm" onclick="calMove(-1)">‹</button>
@@ -1025,12 +1025,12 @@ function viewRec(){
     ${murphyEditMode?`<button class="btn ghost sm" style="margin-top:10px" onclick="clearMurphy()">모두 지우기</button>`:''}
     <div class="row" style="gap:8px;margin-top:10px">
       ${mc?`<button class="btn ghost sm" style="flex:1" onclick="importMurphyFromLatest()">📥 최신 티켓 다시 불러오기</button>`:''}
-      <button class="btn ghost sm" style="flex:1" onclick="scanTicket('murphy')">📷 용지 스캔</button>
+      <button class="btn ghost sm" style="flex:1" onclick="scanTicket('murphy')">용지 스캔</button>
     </div>`
     :(mc?`<button class="btn wide" onclick="importMurphyFromLatest()">📥 구매한 최신 티켓 불러오기${mc.round?` · ${mc.round}회`:''} <span style="opacity:.85">(${mc.nums.length}개)</span></button>
-      <button class="btn ghost wide" style="margin-top:8px" onclick="scanTicket('murphy')">📷 대신 용지 스캔</button>`
+      <button class="btn ghost wide" style="margin-top:8px" onclick="scanTicket('murphy')">대신 용지 스캔</button>`
     :`<p class="muted" style="font-size:12px;margin:0 0 8px">내 로또에 번호가 있는 티켓을 먼저 담아주세요 (용지 스캔).</p>
-      <button class="btn ghost wide" onclick="scanTicket('murphy')">📷 산 용지 스캔</button>`)}
+      <button class="btn ghost wide" onclick="scanTicket('murphy')">산 용지 스캔</button>`)}
   </div>`;})()}
   ${myNumbers.fate.length||myNumbers.favorite.length?'':'<p class="muted" style="font-size:12px;text-align:center">‘내숫자’ 탭에서 나만의 숫자를 저장하면 추천 가중치에 반영돼요.</p>'}
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
@@ -1125,12 +1125,12 @@ function viewLotto(){
   return `<div class="section on card" style="text-align:center">
     <h2 style="margin:0 0 4px">내 로또</h2>
     <p class="muted" style="font-size:12px;margin:0 0 12px">사진만 찍으면 한 장으로 저장 · 당첨은 자동 확인돼요. 날짜는 나중에 입력해도 됩니다.</p>
-    <button class="btn wide" style="padding:15px;font-size:15px" onclick="scanTicket()">📷 용지 스캔 — 기록 · 당첨확인</button>
+    <button class="btn wide" style="padding:15px;font-size:15px" onclick="scanTicket()">용지 스캔 — 기록 · 당첨확인</button>
     <button class="btn ghost wide" style="margin-top:8px" onclick="addManual()">＋ 직접 입력</button>
   </div>
   <div class="section on card"><div class="plist">${list}</div></div>
   <details class="section on card" style="padding:12px 16px">
-    <summary style="cursor:pointer;font-size:14px;font-weight:600">🔎 당첨번호 조회 (최신 · 지난 회차)</summary>
+    <summary style="cursor:pointer;font-size:14px;font-weight:600">당첨번호 조회 (최신 · 지난 회차)</summary>
     <div class="row" style="margin-top:10px"><div style="flex:1;font-size:12px;color:var(--sub)">최신 회차</div><button class="btn ghost sm" onclick="refreshDraw()">새로고침</button></div>
     <div id="latestBox" style="margin-top:8px">${latestHtml}</div>
     <div class="row" style="margin-top:12px"><input id="roundInput" type="number" placeholder="지난 회차 (예: 1200)" style="flex:1"><button class="btn sm" onclick="lookupRound()">조회</button></div>
@@ -1253,7 +1253,7 @@ function scanShell(inner,title){
   return `<div class="section on">
     <button class="btn ghost sm" onclick="renderTab()">‹ 뒤로</button>
     <div class="card" style="margin-top:12px">
-      <h2 style="margin:0 0 10px">${title||'📷 용지 스캔 결과'}</h2>
+      <h2 style="margin:0 0 10px">${title||'용지 스캔 결과'}</h2>
       ${inner}
       ${r&&r.qrText?`<details style="margin-top:14px" open><summary class="muted" style="font-size:12px;cursor:pointer">QR 원문 보기(파서 조정용) · ${r.games?r.games.length:0}줄 인식</summary>
         <p id="qrRaw" style="font-size:11px;word-break:break-all;color:var(--sub);margin:6px 0 6px">${esc(r.qrText)}</p>
@@ -1274,7 +1274,7 @@ function renderScanConfirm(){
       <p class="muted" style="font-size:11.5px;margin:6px 0 0">남는 ${45-uniq.length}개 중에서 추천합니다.${45-uniq.length<6?' <span style="color:var(--hwa)">제외가 너무 많아 6개를 다 못 뽑을 수 있어요.</span>':''}</p>
       <p class="muted" style="font-size:11.5px;margin:4px 0 0">이 <b>${r.games.length}게임</b>은 <b>내 로또</b>에도 함께 기록돼요. (날짜는 나중에 수동 입력)</p>
       <button class="btn wide" style="margin-top:12px" onclick="applyMurphy()">추천에서 제외 + 내 로또에 기록</button>`;
-    $('#body').innerHTML=scanShell(body,'📷 머피의 법칙 — 제외 번호');
+    $('#body').innerHTML=scanShell(body,'머피의 법칙 — 제외 번호');
     return;
   }
   const draw=r.round?draws[r.round]:null;
@@ -1581,7 +1581,7 @@ function viewMe(){
       <button class="btn ghost sm" onclick="renderProfileForm()">사주 수정</button>
       ${user?'<button class="btn ghost sm" onclick="logout()">로그아웃</button>':'<button class="btn ghost sm" onclick="renderLogin()">클라우드 로그인</button>'}
     </div>
-    <p class="muted" style="font-size:11.5px;margin:10px 0 0">${user?`☁ 클라우드 동기화 중${user.email?' · '+esc(user.email):''}`:'📱 이 기기에 저장 중 — 로그인하면 여러 기기에서 동기화돼요.'}</p>
+    <p class="muted" style="font-size:11.5px;margin:10px 0 0">${user?`☁ 클라우드 동기화 중${user.email?' · '+esc(user.email):''}`:'이 기기에 저장 중 — 로그인하면 여러 기기에서 동기화돼요.'}</p>
     <p class="disclaimer">재물운 달력·번호는 위 용신/재성 분석을 근거로 계산됩니다.</p>
   </div>
   <div class="section on card">
