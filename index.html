@@ -99,9 +99,22 @@
   .legend .bar{height:9px;width:90px;border-radius:5px;
     background:linear-gradient(90deg,#fff, #f0e2b6, var(--gold))}
 
-  /* 하단 탭 */
-  nav.tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
-    display:flex;max-width:520px;margin:0 auto;z-index:20}
+  /* 하단 도크(앵커 광고 + 탭바) */
+  .dock{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;z-index:20;
+    background:var(--card);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .ad-anchor{border-top:1px solid var(--line)}
+  /* 광고 자리표시자 */
+  .adph{position:relative;display:flex;align-items:center;justify-content:center;height:56px;
+    color:#9a8250;font-size:12.5px;font-weight:600;
+    background:repeating-linear-gradient(45deg,#f4eeda,#f4eeda 9px,#efe6cd 9px,#efe6cd 18px)}
+  .adph-lg{height:180px;flex-direction:column;gap:4px;border-radius:10px;text-align:center;line-height:1.5}
+  .adph small{font-weight:400;color:#b09a5e}
+  .adph-tag{position:absolute;top:5px;right:9px;font-size:8.5px;color:#b09a5e;font-weight:700;letter-spacing:.05em}
+  /* 인터스티셜(다시 뽑기 5회) */
+  .ad-gate{position:fixed;inset:0;background:rgba(20,18,10,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
+  .ad-gate-box{background:var(--card);border-radius:16px;padding:16px;max-width:340px;width:100%;box-shadow:var(--shadow)}
+  .ad-gate-h{font-size:14.5px;font-weight:700;text-align:center;margin:0 0 12px}
+  nav.tabs{background:var(--card);border-top:1px solid var(--line);display:flex}
   nav.tabs button{flex:1;border:none;background:none;padding:9px 0 11px;color:var(--sub);
     font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
   nav.tabs button.on{color:var(--green);font-weight:600}
@@ -185,6 +198,13 @@ let purchases=[];
 let luckyDays=new Set();   // 'YYYY-MM-DD' 운 좋았던 날
 let dreams={};             // {'YYYY-MM-DD': {note, tags:[]}}
 let recNonce=0;
+/* ===== 광고 설정 ===== */
+let redrawCount=0;                 // 추천 '다시 뽑기' 누적(세션)
+const ADS_ENABLED=true;            // 광고 표시 on/off
+// ▼▼ 실제 광고 코드는 여기에 붙여넣으세요 (쿠팡 파트너스 배너 / 카카오 애드핏 광고단위 등) ▼▼
+const AD_BANNER_HTML=`<div class="adph"><span class="adph-tag">AD</span>광고 자리 · 쿠팡/애드핏 배너</div>`;
+const AD_INTER_HTML =`<div class="adph adph-lg"><span class="adph-tag">AD</span>광고 · 여기에 쿠팡/애드핏 배너<br><small>실제 광고 코드로 교체하세요</small></div>`;
+// ▲▲ (innerHTML 삽입이라 <script> 광고는 노드로 따로 실행 필요 — 발급 후 안내) ▲▲
 const now=new Date();
 let calView={y:now.getFullYear(), m:now.getMonth()+1};
 let tab='cal';
@@ -779,13 +799,28 @@ function renderApp(){
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">오행 로또</div><div class="s">${sajuLine()}</div></div><div class="sp"></div></header>
     <div id="body"></div>
   </div>
-  <nav class="tabs">
-    ${[['cal','달력'],['rec','추천'],['lotto','내로또'],['ins','분석'],['num','내숫자'],['me','나']]
-      .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><span class="ic">${NAVSVG[k]}</span>${l}</button>`).join('')}
-  </nav>`;
+  <div class="dock">
+    ${ADS_ENABLED?`<div class="ad-anchor">${AD_BANNER_HTML}</div>`:''}
+    <nav class="tabs">
+      ${[['cal','달력'],['rec','추천'],['lotto','내로또'],['ins','분석'],['num','내숫자'],['me','나']]
+        .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><span class="ic">${NAVSVG[k]}</span>${l}</button>`).join('')}
+    </nav>
+  </div>`;
   renderTab();
+  requestAnimationFrame(()=>{const d=document.querySelector('.dock'); if(d) document.body.style.paddingBottom=(d.offsetHeight+6)+'px';});
 }
 function go(t){tab=t;document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('on',['cal','rec','lotto','ins','num','me'][i]===t));renderTab();}
+function reroll(){ recNonce++; redrawCount++; renderTab();
+  if(ADS_ENABLED && redrawCount%5===0) showAdGate(); }
+function showAdGate(){
+  if(document.querySelector('.ad-gate')) return;
+  const ov=document.createElement('div'); ov.className='ad-gate';
+  ov.innerHTML=`<div class="ad-gate-box"><p class="ad-gate-h">잠깐, 광고 보고 계속하기</p>${AD_INTER_HTML}
+    <button class="btn wide" id="adGateClose" style="margin-top:12px" disabled>3초 후 닫기</button></div>`;
+  document.body.appendChild(ov);
+  const btn=ov.querySelector('#adGateClose'); let n=3;
+  const t=setInterval(()=>{ n--; if(n<=0){ clearInterval(t); btn.disabled=false; btn.textContent='닫기'; btn.onclick=()=>ov.remove(); } else btn.textContent=n+'초 후 닫기'; },1000);
+}
 function sajuLine(){
   const d=saju.deep;
   return `일간 ${saju.dayMasterElem} · ${d.status} · 용신 ${(d.yongsin||[]).join('/')}`;
@@ -979,7 +1014,7 @@ function viewRec(){
     ? `기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.`
     : `지금은 <b>사주 미반영</b> — 기운과 무관하게 <b>무작위</b>로 뽑습니다.${hasMyNum?' 단, ‘내 숫자’ 가중치는 그대로 유지됩니다.':''} 패턴·회피 설정은 계속 적용돼요.`;
   return `<div class="section on card">
-    <div class="row"><h2 style="margin:0;flex:1;font-size:22px">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="recNonce++;renderTab()">다시 뽑기</button></div>
+    <div class="row"><h2 style="margin:0;flex:1;font-size:22px">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="reroll()">다시 뽑기</button></div>
     <div class="row" style="align-items:center;gap:8px;margin-top:8px">
       <span style="font-size:13px;font-weight:700;color:var(--ink)">사주 반영</span>
       <button class="switch ${sajuOn?'on':''}" role="switch" aria-checked="${sajuOn}" aria-label="사주 반영" onclick="toggleSaju()"></button>
