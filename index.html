@@ -205,7 +205,10 @@ function coupangBanner(id,w,h){
 }
 // 앵커(하단 고정): 카카오 애드핏 320x50 — 심사 중. 같은 도메인 adfit-anchor.html을 iframe으로 로드(도메인 매칭)
 const AD_BANNER_HTML=`<iframe title="광고" scrolling="no" frameborder="0" loading="lazy" style="border:0;width:320px;height:50px;display:block;margin:0 auto" src="adfit-anchor.html"></iframe>`;
-const AD_INTER_HTML =coupangBanner(1034695,300,250);  // 인터스티셜(다시 뽑기 5회) — 쿠팡 유지
+// 인터스티셜(다시 뽑기 5회): 쿠팡 ↔ 애드핏 번갈아 노출
+const AD_INTER_COUPANG=coupangBanner(1034695,300,250);
+const AD_INTER_ADFIT=`<iframe title="광고" scrolling="no" frameborder="0" loading="lazy" style="border:0;width:300px;height:250px;display:block;margin:0 auto" src="adfit-inter.html"></iframe>`;
+let interFlip=0;  // 홀짝으로 번갈아
 // ▲▲
 const now=new Date();
 let calView={y:now.getFullYear(), m:now.getMonth()+1};
@@ -823,8 +826,10 @@ function reroll(){ recNonce++; redrawCount++; renderTab();
 function showAdGate(){
   if(document.querySelector('.ad-gate')) return;
   const ov=document.createElement('div'); ov.className='ad-gate';
-  ov.innerHTML=`<div class="ad-gate-box"><p class="ad-gate-h">잠깐, 광고 보고 계속하기</p>${AD_INTER_HTML}
-    <p class="ad-disc">쿠팡 파트너스 활동의 일환으로 수수료를 제공받습니다</p>
+  const useCoupang=(interFlip++ %2===0);   // 번갈아: 쿠팡 → 애드핏 → 쿠팡 …
+  const adHtml=useCoupang?AD_INTER_COUPANG:AD_INTER_ADFIT;
+  const disc=useCoupang?`<p class="ad-disc">쿠팡 파트너스 활동의 일환으로 수수료를 제공받습니다</p>`:'';
+  ov.innerHTML=`<div class="ad-gate-box"><p class="ad-gate-h">잠깐, 광고 보고 계속하기</p>${adHtml}${disc}
     <button class="btn wide" id="adGateClose" style="margin-top:10px" disabled>3초 후 닫기</button></div>`;
   document.body.appendChild(ov);
   const btn=ov.querySelector('#adGateClose'); let n=3;
