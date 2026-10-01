@@ -799,7 +799,8 @@ const NAVSVG=(()=>{const w=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="curr
   lotto:w('<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M12 6.5v11" stroke-dasharray="1.5 2.2"/>'),
   ins:w('<path d="M4 20h16"/><path d="M7.5 20v-6M12 20v-10M16.5 20v-4.5"/>'),
   num:w('<path d="M9.6 4L7.6 20M16.4 4l-2 16M4.5 9.5h15M3.5 14.5h15"/>'),
-  me:w('<circle cx="12" cy="8" r="3.6"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>')
+  me:w('<circle cx="12" cy="8" r="3.6"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>'),
+  md:w('<path d="M12 21s-6-5.4-6-10a6 6 0 1 1 12 0c0 4.6-6 10-6 10z"/><circle cx="12" cy="11" r="2.3"/>')
 };})();
 function renderApp(){
   $('#root').innerHTML=`<div class="wrap">
@@ -809,14 +810,14 @@ function renderApp(){
   <div class="dock">
     ${ADS_ENABLED?`<div class="ad-anchor">${AD_BANNER_HTML}</div>`:''}
     <nav class="tabs">
-      ${[['cal','달력'],['rec','추천'],['lotto','내로또'],['ins','분석'],['num','내숫자'],['me','나']]
+      ${[['cal','달력'],['rec','추천'],['md','명당'],['lotto','내로또'],['ins','분석'],['num','내숫자'],['me','나']]
         .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><span class="ic">${NAVSVG[k]}</span>${l}</button>`).join('')}
     </nav>
   </div>`;
   renderTab();
   requestAnimationFrame(()=>{const d=document.querySelector('.dock'); if(d) document.body.style.paddingBottom=(d.offsetHeight+6)+'px';});
 }
-function go(t){tab=t;document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('on',['cal','rec','lotto','ins','num','me'][i]===t));renderTab();}
+function go(t){tab=t;document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('on',['cal','rec','md','lotto','ins','num','me'][i]===t));renderTab();}
 function reroll(){ recNonce++; redrawCount++; renderTab();
   if(ADS_ENABLED && redrawCount%5===0) showAdGate(); }
 function showAdGate(){
@@ -865,6 +866,7 @@ function renderTab(){
   const b=$('#body');
   if(tab==='cal')b.innerHTML=viewCalendar();
   else if(tab==='rec')b.innerHTML=viewRec();
+  else if(tab==='md')b.innerHTML=viewMyeongdang();
   else if(tab==='lotto')b.innerHTML=viewLotto();
   else if(tab==='num')b.innerHTML=viewNum();
   else if(tab==='ins')b.innerHTML=viewInsights();
@@ -1057,7 +1059,6 @@ function viewRec(){
     </div>
     ${recOpts.pastWin&&!winCombos.length&&drawSrcError?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:#c0392b">⚠ 당첨 데이터 소스 연결 실패 — 온라인일 때 다시 시도돼요.</p>`:''}
   </div>
-  ${recMyeongdang()}
   ${(()=>{ const mc=latestUnconfirmedTicket(); return `
   <div class="section on card">
     <h3 style="margin:0 0 2px;font-size:16px">🙃 머피의 법칙 <span class="muted" style="font-weight:400;font-size:12px">· 내가 산 번호는 안 나온다</span></h3>
@@ -1090,13 +1091,13 @@ function toggleSaju(){ recOpts.saju=!recOpts.saju; try{localStorage.setItem('lot
 function setSajuCount(v){ recOpts.sajuCount=(v==='auto')?'auto':Math.max(0,Math.min(6,+v)); try{localStorage.setItem('lotto_saju_count', ''+recOpts.sajuCount);}catch(e){} renderTab(); }
 
 /* ===== 내 주변 로또 명당 (서울 MVP · 동행복권 공개 1등 배출점) ===== */
-let myeongdang=[], mdState='idle', mdNote='', myLoc=null, myLocErr='', mdGu='';
+let myeongdang=[], mdRegions=[], mdState='idle', mdNote='', myLoc=null, myLocErr='', mdGu='';
 async function loadMyeongdang(){
   if(mdState==='loading'||mdState==='done') return;
   mdState='loading';
-  try{ const r=await fetch('myeongdang-seoul.json'); const j=await r.json(); myeongdang=j.stores||[]; mdNote=j._note||''; mdState='done'; }
+  try{ const r=await fetch('myeongdang.json'); const j=await r.json(); myeongdang=j.stores||[]; mdNote=j._note||''; mdRegions=j.regions||[...new Set(myeongdang.map(s=>s.region))]; mdState='done'; }
   catch(e){ mdState='error'; }
-  if(tab==='rec') renderTab();
+  if(tab==='md') renderTab();
 }
 function findMyeongdangLoc(){
   if(!navigator.geolocation){ myLocErr='이 기기는 위치를 지원하지 않아요'; renderTab(); return; }
@@ -1110,36 +1111,40 @@ function setMdGu(v){ mdGu=v; renderTab(); }
 function mdHaversine(a,b,c,d){ const R=6371,t=x=>x*Math.PI/180; const dLa=t(c-a),dLo=t(d-b); const x=Math.sin(dLa/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dLo/2)**2; return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); }
 function mdBearing(a,b,c,d){ const t=x=>x*Math.PI/180; const y=Math.sin(t(d-b))*Math.cos(t(c)); const x=Math.cos(t(a))*Math.sin(t(c))-Math.sin(t(a))*Math.cos(t(c))*Math.cos(t(d-b)); return (Math.atan2(y,x)*180/Math.PI+360)%360; }
 const MD_DIRS=['북','북동','동','남동','남','남서','서','북서'], MD_DIR_EL={북:'수',동:'목',남:'화',서:'금'};
-function recMyeongdang(){
+function viewMyeongdang(){
   if(mdState!=='done'){ if(mdState==='idle') loadMyeongdang();
-    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:16px">📍 내 주변 로또 명당 <span class="muted" style="font-weight:400;font-size:12px">· 서울 1등 다배출</span></h3><p class="muted" style="font-size:12px;margin:8px 0 0">${mdState==='error'?'명당 데이터를 불러오지 못했어요.':'명당 데이터 불러오는 중…'}</p></div>`; }
+    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 로또 명당</h3><p class="muted" style="font-size:12px;margin:8px 0 0">${mdState==='error'?'명당 데이터를 불러오지 못했어요.':'명당 데이터 불러오는 중…'}</p></div>`; }
   const favDirSet=['북','동','남','서'].filter(c=>favorSet.has(MD_DIR_EL[c]));
-  const gus=[...new Set(myeongdang.map(s=>s.gu))];
-  let list=myeongdang.map(s=>{ const o={...s};
+  const annotate=s=>{ const o={...s};
     if(myLoc){ o.dist=mdHaversine(myLoc.lat,myLoc.lng,s.lat,s.lng); o.dir=MD_DIRS[Math.round(mdBearing(myLoc.lat,myLoc.lng,s.lat,s.lng)/45)%8]; o.match=[...o.dir].some(c=>favDirSet.includes(c)); }
-    return o; });
-  if(mdGu) list=list.filter(s=>s.gu===mdGu);
-  list.sort((a,b)=> myLoc ? (((a.match?0:1)-(b.match?0:1))||(a.dist-b.dist)) : (b.win1-a.win1));
-  const items=list.map(s=>`
+    return o; };
+  const item=(s,showRegion)=>`
     <div style="border:0.5px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
       <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px">
         <span style="font-size:13.5px;font-weight:700;color:var(--ink)">${s.name}</span>
         <span class="muted" style="font-size:11.5px;white-space:nowrap">${s.dist!=null?`${s.dist<1?Math.round(s.dist*1000)+'m':s.dist.toFixed(1)+'km'} · ${s.dir}`:`1등 ${s.win1}회`}</span>
       </div>
-      <p class="muted" style="font-size:11.5px;margin:3px 0 0">${s.gu}${s.dong?' '+s.dong:''}${s.match?' · <b style="color:var(--gold)">방위 일치 ★</b>':''}${s.dist!=null?` · 1등 ${s.win1}회`:''}</p>
-    </div>`).join('');
+      <p class="muted" style="font-size:11.5px;margin:3px 0 0">${showRegion?s.region+' ':''}${s.gu}${s.dong?' '+s.dong:''}${s.match?' · <b style="color:var(--gold)">방위 일치 ★</b>':''}${s.dist!=null?` · 1등 ${s.win1}회`:''}</p>
+    </div>`;
+  let body;
+  if(mdGu){ const list=myeongdang.filter(s=>s.gu===mdGu).map(annotate).sort((a,b)=>myLoc?(a.dist-b.dist):(b.win1-a.win1));
+    body=list.map(s=>item(s,true)).join('')||'<p class="muted" style="font-size:12px;margin:8px 0 0">해당 지역 데이터가 없어요.</p>'; }
+  else if(myLoc){ const list=myeongdang.map(annotate).sort((a,b)=>((a.match?0:1)-(b.match?0:1))||(a.dist-b.dist));
+    body=list.map(s=>item(s,true)).join(''); }
+  else { body=mdRegions.map(r=>{ const list=myeongdang.filter(s=>s.region===r).sort((a,b)=>b.win1-a.win1);
+    return `<p class="muted" style="font-size:12.5px;font-weight:700;color:var(--ink);margin:14px 0 0">${r} <span style="font-weight:400">· 1등 다배출 상위 ${list.length}</span></p>${list.map(s=>item(annotate(s),false)).join('')}`; }).join(''); }
   return `<div class="section on card">
-    <h3 style="margin:0 0 2px;font-size:16px">📍 내 주변 로또 명당 <span class="muted" style="font-weight:400;font-size:12px">· 서울 1등 다배출</span></h3>
-    <div class="row" style="gap:8px;margin-top:8px;align-items:center">
+    <h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 로또 명당 <span class="muted" style="font-weight:400;font-size:12px">· 서울·경기 1등 다배출</span></h3>
+    <div class="row" style="gap:8px;margin-top:10px;align-items:center">
       <button class="btn ghost sm" onclick="findMyeongdangLoc()">${myLoc?'위치 새로고침':'내 위치로 찾기'}</button>
       <select onchange="setMdGu(this.value)" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">
-        <option value=""${mdGu?'':' selected'}>서울 구 전체</option>
-        ${gus.map(g=>`<option value="${g}"${mdGu===g?' selected':''}>${g}</option>`).join('')}
+        <option value=""${mdGu?'':' selected'}>지역 전체</option>
+        ${mdRegions.map(r=>`<optgroup label="${r}">${[...new Set(myeongdang.filter(s=>s.region===r).map(s=>s.gu))].map(g=>`<option value="${g}"${mdGu===g?' selected':''}>${g}</option>`).join('')}</optgroup>`).join('')}
       </select>
     </div>
-    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'#c0392b'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">내 용희신 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b> 가까운 곳을 ★로 우선 표시해요.</p>`:'')}
-    ${items||'<p class="muted" style="font-size:12px;margin:8px 0 0">해당 구에 데이터가 없어요.</p>'}
-    <p class="muted" style="font-size:10.5px;margin:10px 0 0">${mdNote} · 출처: 동행복권 공개 1등 배출점</p>
+    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'#c0392b'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${myLoc?'내 용희신 방위 일치 ★ 가까운 순':'<b>내 위치로 찾기</b>로 가까운 명당을 거리순으로 볼 수 있어요'} · 유리 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b></p>`:'')}
+    ${body}
+    <p class="muted" style="font-size:10.5px;margin:12px 0 0">${mdNote} · 출처: 동행복권 공개 1등 배출점</p>
   </div>`;
 }
 async function togglePastWin(){
