@@ -203,8 +203,9 @@ function coupangBanner(id,w,h){
     +`<script>new PartnersCoupang.G({"id":${id},"template":"carousel","trackingCode":"${CP_TRACK}","width":"${w}","height":"${h}"});<\/script>`;
   return `<iframe title="광고" scrolling="no" frameborder="0" loading="lazy" style="border:0;width:${w}px;height:${h}px;display:block;margin:0 auto" srcdoc='${doc.replace(/'/g,'&#39;')}'></iframe>`;
 }
-const AD_BANNER_HTML=coupangBanner(1034694,320,50)+`<p class="ad-disc">쿠팡 파트너스 활동의 일환으로 수수료를 제공받습니다</p>`;   // 앵커(하단 고정)
-const AD_INTER_HTML =coupangBanner(1034695,300,250);  // 인터스티셜(다시 뽑기 5회)
+// 앵커(하단 고정): 카카오 애드핏 320x50 — 심사 중. 같은 도메인 adfit-anchor.html을 iframe으로 로드(도메인 매칭)
+const AD_BANNER_HTML=`<iframe title="광고" scrolling="no" frameborder="0" loading="lazy" style="border:0;width:320px;height:50px;display:block;margin:0 auto" src="adfit-anchor.html"></iframe>`;
+const AD_INTER_HTML =coupangBanner(1034695,300,250);  // 인터스티셜(다시 뽑기 5회) — 쿠팡 유지
 // ▲▲
 const now=new Date();
 let calView={y:now.getFullYear(), m:now.getMonth()+1};
