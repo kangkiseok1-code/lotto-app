@@ -2898,7 +2898,6 @@ var OhaengEngine = (() => {
         let yongsin, reason;
         const S5 = { \uBE44\uAC81: bongi[bigyeopE], \uC2DD\uC0C1: bongi[sikE], \uC7AC\uC131: bongi[jaeE], \uAD00\uC131: bongi[gwanE], \uC778\uC131: bongi[inseongE] };
         const byeong = Object.entries(S5).sort((a, b) => b[1] - a[1])[0][0];
-        const muroot = tonggeunState !== "\uC720\uADFC";
         const deepDual = dualState && seryeokDiff < -0.2;
         if (gyeok === "\uC804\uC655\uACA9") {
           yongsin = [.../* @__PURE__ */ new Set([maxElem, SHENG[maxElem]])];
@@ -2922,8 +2921,21 @@ var OhaengEngine = (() => {
           yongsin = [inseongE];
           reason = "\uC2DD\uC0C1\uC774 \uB9CE\uC544 \uC778\uC131\uC73C\uB85C \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
         } else if (byeong === "\uC7AC\uC131") {
-          yongsin = muroot ? [inseongE] : [bigyeopE];
-          reason = muroot ? "\uC7AC\uB2E4\uC2E0\uC57D\uC778\uB370 \uBE44\uAC81\uC774 \uBB34\uADFC\uC774\uB77C, \uC778\uC131\uC73C\uB85C \uC7AC\uC131\uC744 \uC124\uAE30\uD574 \uC77C\uAC04\uC744 \uC9C0\uCF1C\uC694." : "\uC7AC\uC131\uC774 \uB9CE\uC544 \uBE44\uAC81\uC73C\uB85C \uB300\uC801\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uBC29\uC2E0).";
+          if (wPower[inseongE] < 1) {
+            if (tonggeunState === "\uBB34\uADFC") {
+              yongsin = [bigyeopE];
+              reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC5D0 \uC778\uC131\uB3C4 \uBFCC\uB9AC\uB3C4 \uC5C6\uC5B4, \uBE44\uAC81\uC73C\uB85C \uC7AC\uC131\uC5D0 \uC9C1\uC811 \uB300\uC801\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uBC29\uC2E0).";
+            } else {
+              yongsin = [inseongE];
+              reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC774\uB77C, \uC6D0\uAD6D\uC5D0 \uC5C6\uC5B4\uB3C4 \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uC0DD\uC870\uBC1B\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC6B4\uC5D0\uC11C \uC778\uC131\uC744 \uAE30\uB2E4\uB824\uC694).";
+            }
+          } else if (sibsin.\uC2DD\uC0C1 === 0) {
+            yongsin = [bigyeopE];
+            reason = "\uC7AC\uC131\uB9CC \uD0DC\uACFC\uD558\uACE0 \uC2DD\uC0C1\uC774 \uC5C6\uC5B4, \uBE44\uAC81\uC73C\uB85C \uC7AC\uC131\uC744 \uB098\uB220 \uB300\uC801\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uBC29\uC2E0).";
+          } else {
+            yongsin = [inseongE];
+            reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC774\uB77C \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uC0DD\uC870\uD558\uACE0 \uC2DD\uC0C1\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+          }
         } else {
           yongsin = [.../* @__PURE__ */ new Set([sikE, bigyeopE])];
           reason = "\uAD00\uC131\uC774 \uB9CE\uC544 \uC2DD\uC0C1(\uC81C\uC0B4) \uB610\uB294 \uBE44\uAC81(\uBC29\uC2E0)\uC774 \uC6A9\uC2E0\uC774\uC5D0\uC694 \u2014 \uC5B4\uB290 \uCABD\uC778\uC9C0\uB294 \uC0C1\uB2F4\uC0AC\uAC00 \uD310\uB2E8\uD558\uC138\uC694.";
