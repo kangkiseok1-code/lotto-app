@@ -327,6 +327,7 @@ function monthData(y,m){
 
 /* ============ 번호 추천 ============ */
 let recOpts={carry:false, consec:false, sameTail:false, recentN:0, oddEven:'auto', murphy:false,
+             sajuCount:(()=>{try{const v=localStorage.getItem('lotto_saju_count');return(v==null||v==='auto')?'auto':Math.max(0,Math.min(6,+v));}catch(e){return 'auto';}})(),  // 6개 중 용희신 반영 개수(자동=전부)
              saju:(()=>{try{return localStorage.getItem('lotto_saju_on')!=='0';}catch(e){return true;}})(),   // 기본 켜짐
              pastWin:(()=>{try{return localStorage.getItem('lotto_pastwin_on')==='1';}catch(e){return false;}})()};
 // 머피의 법칙 패턴: 내가 산 번호는 안 나온다 → 스캔한 티켓 번호를 추천에서 제외
@@ -362,8 +363,8 @@ function transitFavor(){
   }catch(e){}
   _tfCache=favor; _tfKey=key; return favor;
 }
-function baseWeights(){
-  const useSaju=recOpts.saju!==false;          // 사주 반영 on/off
+function baseWeights(forceSaju){
+  const useSaju=(forceSaju!=null)?forceSaju:(recOpts.saju!==false);   // 사주 반영 on/off (개수 제어용 오버라이드)
   const tf=useSaju?transitFavor():new Set();    // 대운·세운·월운·일운(오늘 기운) 유리 오행
   const W={};
   for(let n=1;n<=45;n++){const el=hadoElem(n);let w=1;
@@ -373,20 +374,24 @@ function baseWeights(){
 }
 // 사주 기반(가중치) + 선택 패턴 제약을 만족하는 6개 생성
 function recommend(y,m,nonce,forceNum){
-  const W=baseWeights();
+  const Wsaju=baseWeights(true), Wflat=baseWeights(false);        // 용희신 가중 / 무작위(내 숫자만 유지)
+  const sajuOn=recOpts.saju!==false;
+  const sajuTarget=!sajuOn?0:((recOpts.sajuCount==null||recOpts.sajuCount==='auto')?6:Math.max(0,Math.min(6,+recOpts.sajuCount)));  // 6개 중 용희신 반영 개수
   const rng=mulberry32(seedFrom((user?user.id:'demo')+':'+y+':'+m+':'+nonce+':'+(forceNum==null?'':forceNum)+':'+JSON.stringify(recOpts)));
-  const pick=(pool)=>{ if(!pool||!pool.length)return null; const tot=pool.reduce((a,n)=>a+W[n],0); let r=rng()*tot,i=0; while(i<pool.length-1&&r>W[pool[i]]){r-=W[pool[i]];i++;} return pool[i]; };
+  const pickFrom=(pool,Wm)=>{ if(!pool||!pool.length)return null; const tot=pool.reduce((a,n)=>a+Wm[n],0); let r=rng()*tot,i=0; while(i<pool.length-1&&r>Wm[pool[i]]){r-=Wm[pool[i]];i++;} return pool[i]; };
   const oe = recOpts.oddEven==='5:1'?[5,1]:recOpts.oddEven==='4:2'?[4,2]:recOpts.oddEven==='3:3'?[3,3]:recOpts.oddEven==='2:4'?[2,4]:recOpts.oddEven==='1:5'?[1,5]:null; // [짝,홀]
   const excl = (recOpts.murphy && murphyExclude.length) ? new Set(murphyExclude) : new Set(); // 머피: 산 번호 제외
   const carryPool=(latestDraw?latestDraw.numbers:[]).filter(n=>!excl.has(n));
   const nrPool=recentNonRepeat().filter(n=>!excl.has(n));
   function attempt(){
     const set=new Set(); const add=n=>{ if(n!=null&&!set.has(n)&&!excl.has(n)&&set.size<6) set.add(n); };
+    let sajuLeft=sajuTarget;   // 남은 용희신 가중 슬롯: 소진되면 무작위로 채움
+    const pick=(pool)=>{ const useS=sajuLeft>0; const n=pickFrom(pool, useS?Wsaju:Wflat); if(n!=null&&useS)sajuLeft--; return n; };
     if(forceNum!=null) set.add(forceNum);   // 앵커: 이 줄에 전주 번호 1개 강제 포함(제외 무시)
     if(recOpts.carry && forceNum==null){ add(pick(carryPool.filter(n=>!set.has(n)))); }
     if(recOpts.recentN>0){ let p=nrPool.filter(n=>!set.has(n)); let c=recOpts.recentN; while(c-->0&&p.length){const n=pick(p); add(n); p=p.filter(x=>x!==n);} }
     if(recOpts.consec){ let cand=[]; for(let b=1;b<=44;b++) if(!set.has(b)&&!set.has(b+1)&&!excl.has(b)&&!excl.has(b+1)) cand.push(b);
-      if(cand.length){ const tot=cand.reduce((a,b)=>a+W[b]+W[b+1],0); let r=rng()*tot,i=0; while(i<cand.length-1&&r>W[cand[i]]+W[cand[i]+1]){r-=W[cand[i]]+W[cand[i]+1];i++;} add(cand[i]); add(cand[i]+1); } }
+      if(cand.length){ const useS=sajuLeft>0; const Wm=useS?Wsaju:Wflat; const tot=cand.reduce((a,b)=>a+Wm[b]+Wm[b+1],0); let r=rng()*tot,i=0; while(i<cand.length-1&&r>Wm[cand[i]]+Wm[cand[i]+1]){r-=Wm[cand[i]]+Wm[cand[i]+1];i++;} const before=set.size; add(cand[i]); add(cand[i]+1); if(useS) sajuLeft-=(set.size-before); } }
     if(recOpts.sameTail){ const dg=Math.floor(rng()*10); let p=[]; for(let n=1;n<=45;n++) if(n%10===dg&&!set.has(n)&&!excl.has(n)) p.push(n);
       for(let k=0;k<2&&p.length;k++){ const n=pick(p); add(n); p=p.filter(x=>x!==n); } }
     let guard=0;
@@ -1011,6 +1016,7 @@ function viewRec(){
   const tog=(key,label)=>`<button class="tgl ${recOpts[key]?'on':''}" onclick="toggleRecOpt('${key}')">${label}</button>`;
   const cnt=(v,label)=>`<button class="tgl ${recOpts.recentN===v?'on':''}" onclick="setRecentN(${v})">${label}</button>`;
   const oe=(v,label)=>`<button class="tgl ${recOpts.oddEven===v?'on':''}" onclick="setOddEven('${v}')">${label}</button>`;
+  const sc=(v,label)=>`<button class="tgl ${(''+recOpts.sajuCount)===(''+v)?'on':''}" onclick="setSajuCount('${v}')">${label}</button>`;
   const sajuOn=recOpts.saju!==false;
   const hasMyNum=myNumbers.fate.length||myNumbers.favorite.length;
   const desc=sajuOn
@@ -1023,6 +1029,10 @@ function viewRec(){
       <button class="switch ${sajuOn?'on':''}" role="switch" aria-checked="${sajuOn}" aria-label="사주 반영" onclick="toggleSaju()"></button>
       <span class="muted" style="font-size:11.5px;flex:1">${sajuOn?'내 기운(용희신·대운세운·재성) 반영':'기운 무시 · 무작위 추천'}</span>
     </div>
+    ${sajuOn?`<div style="margin-top:8px">
+      <span class="muted" style="font-size:11.5px">반영 개수 <span style="opacity:.75">· 6개 중 용희신 숫자 ${recOpts.sajuCount==='auto'?'전부':recOpts.sajuCount+'개'}, 나머지는 무작위</span></span>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${sc('auto','자동')}${sc(6,'6')}${sc(5,'5')}${sc(4,'4')}${sc(3,'3')}${sc(2,'2')}${sc(1,'1')}${sc(0,'0')}</div>
+    </div>`:''}
     <div style="margin:10px 0 4px">${balls}</div>
     ${prev7?`<p class="muted" style="font-size:11.5px;margin:2px 0 6px">전주 앵커 — ${prev7.map((n,i)=>`${String.fromCharCode(65+i)}:<b>${n}</b>${i===6?'(보너스)':''}`).join(' · ')} <span style="opacity:.8">· 각 줄에 전주 번호 1개씩 고정</span></p>`:''}
     ${statusHtml}
@@ -1076,6 +1086,7 @@ function viewRec(){
 }
 function toggleRecOpt(k){ recOpts[k]=!recOpts[k]; renderTab(); }
 function toggleSaju(){ recOpts.saju=!recOpts.saju; try{localStorage.setItem('lotto_saju_on', recOpts.saju?'1':'0');}catch(e){} renderTab(); }
+function setSajuCount(v){ recOpts.sajuCount=(v==='auto')?'auto':Math.max(0,Math.min(6,+v)); try{localStorage.setItem('lotto_saju_count', ''+recOpts.sajuCount);}catch(e){} renderTab(); }
 async function togglePastWin(){
   recOpts.pastWin=!recOpts.pastWin;
   try{ localStorage.setItem('lotto_pastwin_on', recOpts.pastWin?'1':'0'); }catch(e){}
