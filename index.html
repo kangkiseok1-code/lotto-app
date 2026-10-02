@@ -1113,6 +1113,13 @@ function findMyeongdangLoc(){
     {enableHighAccuracy:false, timeout:8000, maximumAge:300000});
 }
 function setMdGu(v){ mdGu=v; renderTab(); }
+function copyMdAddr(el){
+  const t=el.dataset.addr; if(!t) return;
+  const done=()=>toast('주소 복사됨 — 지도앱에 붙여넣으세요');
+  const fb=()=>{ const ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly',''); ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('복사 실패 — 주소를 길게 눌러 복사하세요'); } ta.remove(); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(fb); else fb();
+}
 function mdHaversine(a,b,c,d){ const R=6371,t=x=>x*Math.PI/180; const dLa=t(c-a),dLo=t(d-b); const x=Math.sin(dLa/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dLo/2)**2; return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); }
 function mdBearing(a,b,c,d){ const t=x=>x*Math.PI/180; const y=Math.sin(t(d-b))*Math.cos(t(c)); const x=Math.cos(t(a))*Math.sin(t(c))-Math.sin(t(a))*Math.cos(t(c))*Math.cos(t(d-b)); return (Math.atan2(y,x)*180/Math.PI+360)%360; }
 const MD_DIRS=['북','북동','동','남동','남','남서','서','북서'], MD_DIR_EL={북:'수',동:'목',남:'화',서:'금'};
@@ -1124,12 +1131,13 @@ function viewMyeongdang(){
     if(myLoc){ o.dist=mdHaversine(myLoc.lat,myLoc.lng,s.lat,s.lng); o.dir=MD_DIRS[Math.round(mdBearing(myLoc.lat,myLoc.lng,s.lat,s.lng)/45)%8]; o.match=[...o.dir].some(c=>favDirSet.includes(c)); }
     return o; };
   const item=(s,showRegion)=>`
-    <div style="border:0.5px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
+    <div role="button" tabindex="0" onclick="copyMdAddr(this)" data-addr="${(s.addr||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" style="border:0.5px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;cursor:pointer">
       <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px">
         <span style="font-size:13.5px;font-weight:700;color:var(--ink)">${s.name}</span>
         <span class="muted" style="font-size:11.5px;white-space:nowrap">${s.dist!=null?`${s.dist<1?Math.round(s.dist*1000)+'m':s.dist.toFixed(1)+'km'} · ${s.dir}`:`1등 ${s.win1}회`}</span>
       </div>
       <p class="muted" style="font-size:11.5px;margin:3px 0 0">${showRegion?s.region+' ':''}${s.gu}${s.dong?' '+s.dong:''}${s.match?' · <b style="color:var(--gold)">방위 일치 ★</b>':''}${s.dist!=null?` · 1등 ${s.win1}회`:''}</p>
+      <p class="muted" style="font-size:11px;margin:4px 0 0;color:var(--sub)">${s.addr} <span style="color:var(--green);white-space:nowrap">· 눌러서 주소 복사</span></p>
     </div>`;
   let body;
   const NEAR=12;
