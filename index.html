@@ -1102,7 +1102,7 @@ async function loadMyeongdang(){
   mdState='loading';
   try{ const r=await fetch('myeongdang.json'); const j=await r.json(); myeongdang=j.stores||[]; mdNote=j._note||''; mdRegions=j.regions||[...new Set(myeongdang.map(s=>s.region))]; mdState='done'; }
   catch(e){ mdState='error'; }
-  if(tab==='md') renderTab();
+  if(tab==='md' && document.getElementById('body')) renderTab();   // 앱 화면이 떠 있을 때만 갱신
 }
 function findMyeongdangLoc(){
   if(!navigator.geolocation){ myLocErr='이 기기는 위치를 지원하지 않아요'; renderTab(); return; }
