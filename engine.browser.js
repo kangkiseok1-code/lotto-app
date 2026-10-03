@@ -2712,6 +2712,59 @@ var OhaengEngine = (() => {
         });
         return { branchOverride, branchDamp, stemOverride, stemDamp, applied: uniq };
       }
+      var HX_KEEP = { \uD569: 0.6, \uCDA9: 0.7, \uD615: 0.8 };
+      function hapChungChange(pillars) {
+        const keys = ["year", "month", "day", "hour"].filter((k) => pillars[k]);
+        const POS = { year: "\uC5F0", month: "\uC6D4", day: "\uC77C", hour: "\uC2DC" };
+        const cols = keys.map((k) => ({ id: k, ji: JI[pillars[k].ji], gan: GAN[pillars[k].gan] }));
+        const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: c.ji })));
+        const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: c.gan })));
+        const items = {};
+        keys.forEach((k) => {
+          items["g_" + k] = { el: GAN_ELEM[pillars[k].gan], w: YUPA.POSITION_WEIGHT.\uCC9C\uAC04[POS[k]] };
+          items["j_" + k] = { el: JI_ELEM[pillars[k].ji], w: YUPA.POSITION_WEIGHT.\uC9C0\uC9C0[POS[k]] };
+        });
+        const tot = {};
+        Object.values(items).forEach((x) => {
+          tot[x.el] = (tot[x.el] || 0) + x.w;
+        });
+        const mult = {}, applied = [], inHap = /* @__PURE__ */ new Set();
+        const haps = [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].map((h) => ({ keys: h.ids.map((i) => "j_" + i), text: h.jis.join("") + " " + h.type })).concat(st.hap.map((h) => ({ keys: h.ids.map((i) => "g_" + i), text: h.gans.join("") + " \uCC9C\uAC04\uD569" })));
+        haps.forEach((h) => {
+          h.keys.forEach((k) => inHap.add(k));
+          applied.push({ text: h.text, effect: "\uBB36\uC784" });
+        });
+        inHap.forEach((k) => {
+          mult[k] = (mult[k] || 1) * HX_KEEP.\uD569;
+        });
+        const chungs = br.clashes.map((c) => ({ keys: c.ids.map((i) => "j_" + i), chars: c.jis, text: c.jis.join("") + " \uCDA9" })).concat(st.chung.map((c) => ({ keys: c.ids.map((i) => "g_" + i), chars: c.gans, text: c.gans.join("") + " \uCC9C\uAC04\uCDA9" })));
+        chungs.forEach((c) => {
+          const [a, b] = c.keys.map((k) => items[k]);
+          const idx = tot[a.el] === tot[b.el] ? [0, 1] : [tot[a.el] < tot[b.el] ? 0 : 1];
+          const hit = idx.filter((i) => !inHap.has(c.keys[i]));
+          hit.forEach((i) => {
+            mult[c.keys[i]] = (mult[c.keys[i]] || 1) * HX_KEEP.\uCDA9;
+          });
+          applied.push({ text: c.text, effect: hit.length ? hit.map((i) => c.chars[i]).join("\xB7") + " \uC57D\uD654" : "\uD0D0\uD569\uB9DD\uCDA9(\uBA74\uC81C)" });
+        });
+        [...br.punishTrio, ...br.punishTrioPartial, ...br.punishSelf, ...br.punishPair].forEach((h) => {
+          h.ids.forEach((i) => {
+            mult["j_" + i] = (mult["j_" + i] || 1) * HX_KEEP.\uD615;
+          });
+          applied.push({ text: h.jis.join("") + " " + (h.name || h.type), effect: "\uC190\uC0C1" });
+        });
+        const wp = { \uBAA9: 0, \uD654: 0, \uD1A0: 0, \uAE08: 0, \uC218: 0 };
+        Object.entries(items).forEach(([k, x]) => {
+          wp[x.el] += x.w * (mult[k] || 1);
+        });
+        const seen = /* @__PURE__ */ new Set();
+        return { wp, applied: applied.filter((x) => {
+          const k = [...x.text.split(" ")[0]].sort().join("") + x.text.split(" ").slice(1).join(" ");
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        }) };
+      }
       function bongiSeryeok(pillars, mode) {
         const keys = ["year", "month", "day", "hour"].filter((k) => pillars[k]);
         const POS = { year: "\uC5F0", month: "\uC6D4", day: "\uC77C", hour: "\uC2DC" };
@@ -2764,6 +2817,31 @@ var OhaengEngine = (() => {
           }
         }
         return wp;
+      }
+      function fiveShin(yongsin) {
+        const keInv = (t) => Object.keys(KE_).find((k) => KE_[k] === t);
+        const derive5 = (fn) => [...new Set(yongsin.map(fn).filter((e) => e && !yongsin.includes(e)))];
+        return {
+          heeshin: derive5((e) => GENERATED_BY_[e]),
+          hansin: derive5((e) => SHENG[e]),
+          gisin: derive5((e) => keInv(e)),
+          gusin: derive5((e) => {
+            const g = keInv(e);
+            return g ? GENERATED_BY_[g] : null;
+          })
+        };
+      }
+      function withYongsin(deep, yongsin) {
+        const ok = Array.isArray(yongsin) ? [...new Set(yongsin.filter((e) => ELEMS.includes(e)))] : [];
+        if (!deep || !ok.length) return deep;
+        return Object.assign({}, deep, fiveShin(ok), {
+          yongsin: ok,
+          yongheeshin: [],
+          autoYongsin: deep.yongsin,
+          autoReason: deep.reason,
+          manualYongsin: true,
+          reason: "\uC0C1\uB2F4\uC0AC\uAC00 \uD655\uC815\uD55C \uC6A9\uC2E0\uC774\uC5D0\uC694."
+        });
       }
       function deepAnalyze(pillars, opts) {
         if (!pillars || !pillars.day) return null;
@@ -2819,7 +2897,8 @@ var OhaengEngine = (() => {
         });
         const wTotal = Object.values(wPower).reduce((a, b) => a + b, 0) || 1;
         const wr = (e) => Math.round(wPower[e] * 100) / 100;
-        const bongi = bongiSeryeok(pillars, mode);
+        const HX = mode === "natalHX" ? hapChungChange(pillars) : null;
+        const bongi = HX ? HX.wp : bongiSeryeok(pillars, mode);
         const bAku = +(bongi[bigyeopE] + bongi[inseongE]).toFixed(2);
         const bTotal = Object.values(bongi).reduce((a, b) => a + b, 0) || 1;
         const bEnemy = +(bTotal - bAku).toFixed(2);
@@ -2864,11 +2943,13 @@ var OhaengEngine = (() => {
         const ganyeojidong = GAN_ELEM[dayGan] === JI_ELEM[pillars.day.ji];
         const strongRoot = ganyeojidong || tonggeunState === "\uC720\uADFC" && (deukji || deukryeong);
         const seryeokWeak = gangyakGrade === "\uC2E0\uC57D";
-        if (seryeokWeak && strongRoot) {
+        const deepWeakRoot = seryeokWeak && strongRoot && seryeokDiff < -0.2;
+        if (seryeokWeak && strongRoot && !deepWeakRoot) {
           gangyakGrade = "\uC2E0\uAC15";
           status = "\uC2E0\uAC15";
         }
-        const dualState = seryeokWeak && gangyakGrade === "\uC2E0\uAC15" ? "\uC2E0\uC655\uC2E0\uC57D" : null;
+        const dualState = seryeokWeak && strongRoot ? "\uC2E0\uC655\uC2E0\uC57D" : null;
+        const gangyakLabel = deepWeakRoot ? "\uC2E0\uC57D \xB7 \uBFCC\uB9AC \uC2E0\uC655" : gangyakGrade;
         const yongheeshin = dualState ? [.../* @__PURE__ */ new Set([jaeE, gwanE])] : [];
         let maxElem = "\uBAA9", maxVal = -1;
         ELEMS.forEach((e) => {
@@ -2898,13 +2979,17 @@ var OhaengEngine = (() => {
         let yongsin, reason;
         const S5 = { \uBE44\uAC81: bongi[bigyeopE], \uC2DD\uC0C1: bongi[sikE], \uC7AC\uC131: bongi[jaeE], \uAD00\uC131: bongi[gwanE], \uC778\uC131: bongi[inseongE] };
         const byeong = Object.entries(S5).sort((a, b) => b[1] - a[1])[0][0];
-        const deepDual = dualState && seryeokDiff < -0.2;
+        const deepDual = deepWeakRoot;
+        const gwanException = deepWeakRoot && sibsin.\uC2DD\uC0C1 >= 2 && sibsin.\uC7AC\uC131 >= 2 && sibsin.\uC778\uC131 <= 1 && sibsin.\uAD00\uC131 === 0;
         if (gyeok === "\uC804\uC655\uACA9") {
           yongsin = [.../* @__PURE__ */ new Set([maxElem, SHENG[maxElem]])];
           reason = `\uC804\uC655\uACA9(${gyeokDetail}) \u2014 \uADF9\uC655\uD55C ${maxElem} \uC138\uB825\uC744 \uAC70\uC2A4\uB974\uC9C0 \uC54A\uACE0 \uB530\uB974\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC655\uC2E0\uC744 \uADF9\uD558\uB294 \uAE30\uC6B4\uC740 \uD53C\uD574\uC694).`;
         } else if (gyeok === "\uC885\uACA9") {
           yongsin = [maxElem];
           reason = `\uC885\uACA9(${gyeokDetail}) \u2014 \uC77C\uAC04\uC774 \uBB34\uADFC\uC774\uB77C \uAC15\uD55C ${maxElem} \uC138\uB825\uC5D0 \uC885\uC18D\uB3FC\uC694(\uBE44\uAC81\xB7\uC778\uC131\uC740 \uC885\uC744 \uBC29\uD574\uD574 \uAEBC\uB824\uC694).`;
+        } else if (gwanException) {
+          yongsin = [gwanE];
+          reason = "\uBFCC\uB9AC\uAC00 \uC2E0\uC655\uD558\uACE0 \uC2DD\uC0C1\xB7\uC7AC\uC131\uC774 \uBC1C\uB2EC\uD588\uB294\uB370 \uC778\uC131\uC740 \uC57D\uD558\uACE0 \uAD00\uC131\uC774 \uC6D0\uAD6D\uC5D0 \uC5C6\uC5B4\uC694. \uC7AC\uC131\uC774 \uC0DD\uD558\uB294 \uAD00\uC131\uC774 \uC6B4\uC5D0\uC11C \uB4E4\uC5B4\uC62C \uB54C \uC4F0\uC774\uB294 \uAD00\uC131 \uC6A9\uC2E0\uC774\uC5D0\uC694(\uAD00\uC131 \uC6A9\uC2E0 \uC608\uC678).";
         } else if (deepDual) {
           yongsin = [.../* @__PURE__ */ new Set([inseongE, bigyeopE])];
           reason = "\uC2E0\uC655\uC2E0\uC57D(\uC774\uC911) \u2014 \uC138\uB825\uC740 \uC57D\uD558\uB098 \uBFCC\uB9AC\uB85C \uC2E0\uC655\uC774\uC5D0\uC694. \uC6D0\uAD6D\uC740 \uC778\uC131\xB7\uBE44\uAC81\uC73C\uB85C \uBC1B\uCE58\uACE0, \uC6B4\uC758 \uC7AC\uC131\xB7\uAD00\uC131 \uBC1C\uBCF5\uC744 \uBCD1\uD589\uD574 \uBD10\uC694(\uC0C1\uB2F4\uC0AC \uD310\uB2E8).";
@@ -2940,15 +3025,7 @@ var OhaengEngine = (() => {
           yongsin = [.../* @__PURE__ */ new Set([sikE, bigyeopE])];
           reason = "\uAD00\uC131\uC774 \uB9CE\uC544 \uC2DD\uC0C1(\uC81C\uC0B4) \uB610\uB294 \uBE44\uAC81(\uBC29\uC2E0)\uC774 \uC6A9\uC2E0\uC774\uC5D0\uC694 \u2014 \uC5B4\uB290 \uCABD\uC778\uC9C0\uB294 \uC0C1\uB2F4\uC0AC\uAC00 \uD310\uB2E8\uD558\uC138\uC694.";
         }
-        const keInv = (t) => Object.keys(KE_).find((k) => KE_[k] === t);
-        const derive5 = (fn) => [...new Set(yongsin.map(fn).filter((e) => e && !yongsin.includes(e)))];
-        const heeshin = derive5((e) => GENERATED_BY_[e]);
-        const hansin = derive5((e) => SHENG[e]);
-        const gisin = derive5((e) => keInv(e));
-        const gusin = derive5((e) => {
-          const g = keInv(e);
-          return g ? GENERATED_BY_[g] : null;
-        });
+        const { heeshin, hansin, gisin, gusin } = fiveShin(yongsin);
         return {
           sibsin,
           topSibsin,
@@ -2968,6 +3045,7 @@ var OhaengEngine = (() => {
           ganyeojidong,
           tonggeun: { score: tgScore, state: tonggeunState, deukji, deukryeong },
           dualState,
+          gangyakLabel,
           yongheeshin,
           heeshin,
           gisin,
@@ -2978,8 +3056,8 @@ var OhaengEngine = (() => {
           indaState,
           pyeonjung: { elem: maxElem, ratio: pyeonjungRatio },
           mode,
-          hapchung: HC.applied
-          // natalHC일 때 적용된 합충 요약(natal은 [])
+          hapchung: HX ? HX.applied : HC.applied
+          // natalHC: 화신 전환 요약 / natalHX: {text, effect} 기운 변화 요약 / natal: []
         };
       }
       function pillarToIdx(hangul) {
@@ -3068,6 +3146,7 @@ var OhaengEngine = (() => {
         SIBSIN_GROUP,
         sibsinOf,
         deepAnalyze,
+        withYongsin,
         pillarToIdx,
         computeSaju,
         // 음력↔양력 변환 (만세력 라이브러리 그대로). 스크립트·앱에서 음력 생일을 양력으로 바꿀 때 사용

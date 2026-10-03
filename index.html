@@ -1706,7 +1706,7 @@ function viewMe(){
     <p class="muted" style="font-size:10.5px;margin:8px 0 0;text-align:center">십성(위) · 간지(오행색) · 지장간(본기 밑줄) · 지지십성 · 12운성</p>
     <div style="margin-top:14px;font-size:13.5px;line-height:1.9">
       <div>일간 · <b>${saju.dayMasterElem}</b></div>
-      <div>신강/신약 · <b>${d.status}</b>${d.gangyakGrade&&d.gangyakGrade!==d.status?` (${d.gangyakGrade})`:''}</div>
+      <div>신강/신약 · <b>${d.gangyakLabel&&d.gangyakLabel!==d.gangyakGrade?d.gangyakLabel:d.status}</b>${d.gangyakGrade&&d.gangyakGrade!==d.status?` (${d.gangyakGrade})`:''}</div>
       <div>용신 · <b style="color:var(--gold)">${(d.yongsin||[]).join(' / ')||'—'}</b>${(d.yongsin||[]).length>1?' <span class="muted" style="font-size:11px">(복수 후보)</span>':''}</div>
       <div>희신 · ${(d.heeshin||[]).join(' / ')||'—'}</div>
       <div>재성(재물) 오행 · <b style="color:${EL_COL[jaeElem]}">${jaeElem}</b> ${jaeFav?'<span class="pill">길신</span>':'<span class="muted" style="font-size:11px">신약이라 부조 우선</span>'}</div>
