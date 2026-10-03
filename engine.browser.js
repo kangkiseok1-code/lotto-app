@@ -11738,6 +11738,141 @@ var OhaengEngine = (() => {
     }
   });
 
+  // src/ipc/ipc.js
+  var require_ipc = __commonJS({
+    "src/ipc/ipc.js"(exports, module) {
+      "use strict";
+      var OCTANTS = {
+        PA: { deg: 90, m: 2.21, sd: 0.77, name: "\uB9AC\uB354\uD615", desc: "\uC55E\uC5D0 \uB098\uC11C\uC11C \uC774\uB04C\uACE0 \uC8FC\uBAA9\uBC1B\uB294 \uC790\uB9AC\uAC00 \uD3B8\uD574\uC694" },
+        BC: { deg: 135, m: 2.09, sd: 0.73, name: "\uC2B9\uBD80\uC0AC\uD615", desc: "\uD560 \uB9D0\uC740 \uD558\uACE0 \uB530\uC9C8 \uAC74 \uB530\uC9C0\uBA70, \uC9C0\uB294 \uAC78 \uC2EB\uC5B4\uD574\uC694" },
+        DE: { deg: 180, m: 2.24, sd: 0.69, name: "\uB3C5\uB9BD\uD615", desc: "\uAC10\uC815\uBCF4\uB2E4 \uD310\uB2E8\uC774 \uC55E\uC11C\uACE0, \uAC01\uC790 \uC54C\uC544\uC11C \uD558\uB294 \uAD00\uACC4\uB97C \uC120\uD638\uD574\uC694" },
+        FG: { deg: 225, m: 2.81, sd: 0.8, name: "\uAD00\uCC30\uC790\uD615", desc: "\uBB34\uB9AC\uC640 \uAC70\uB9AC\uB97C \uB450\uACE0 \uC870\uC6A9\uD788 \uC9C0\uCF1C\uBCF4\uB294 \uD3B8\uC774\uC5D0\uC694" },
+        HI: { deg: 270, m: 3.19, sd: 0.7, name: "\uC870\uC6A9\uD55C \uC870\uB825\uC790\uD615", desc: "\uB098\uC11C\uAE30\uBCF4\uB2E4 \uD55C\uBC1C \uBB3C\uB7EC\uB098 \uB0A8\uC774 \uB9D0\uD558\uAC8C \uB450\uB294 \uD3B8\uC774\uC5D0\uC694" },
+        JK: { deg: 315, m: 3.8, sd: 0.57, name: "\uBC30\uB824\uD615", desc: "\uC591\uBCF4\uD558\uACE0 \uB9DE\uCDB0 \uC8FC\uBA70 \uAC08\uB4F1\uC744 \uB9CC\uB4E4\uC9C0 \uC54A\uC73C\uB824 \uD574\uC694" },
+        LM: { deg: 0, m: 3.92, sd: 0.57, name: "\uB2E4\uC815\uD615", desc: "\uC0AC\uB78C\uC5D0\uAC8C \uAD00\uC2EC\uC774 \uB9CE\uACE0 \uACC1\uC744 \uB530\uB73B\uD558\uAC8C \uCC59\uACA8\uC694" },
+        NO: { deg: 45, m: 3.17, sd: 0.77, name: "\uBD84\uC704\uAE30\uBA54\uC774\uCEE4\uD615", desc: "\uC0AC\uB78C\uB4E4 \uC0AC\uC774\uC5D0 \uC11E\uC5EC \uB300\uD654\uB97C \uC5F4\uACE0 \uC5B4\uC6B8\uB9AC\uB294 \uAC78 \uC990\uACA8\uC694" }
+      };
+      var OCT_KEYS = ["PA", "BC", "DE", "FG", "HI", "JK", "LM", "NO"];
+      var IPC_Q = [
+        { o: "FG", q: "\uB098\uB294 \uB0AF\uC120 \uC0AC\uB78C\uB4E4 \uC55E\uC5D0\uC11C\uB294 \uC870\uC6A9\uD574\uC9C4\uB2E4", en: "Am quiet around strangers." },
+        { o: "HI", q: "\uB098\uB294 \uBD80\uB4DC\uB7FD\uACE0 \uC791\uC740 \uBAA9\uC18C\uB9AC\uB85C \uB9D0\uD558\uB294 \uD3B8\uC774\uB2E4", en: "Speak softly." },
+        { o: "JK", q: "\uB098\uB294 \uB0A8\uC774 \uD558\uB294 \uC6EC\uB9CC\uD55C \uC77C\uC740 \uCC38\uACE0 \uB118\uC5B4\uAC04\uB2E4", en: "Tolerate a lot from others." },
+        { o: "LM", q: "\uB098\uB294 \uC0AC\uB78C\uB4E4\uC5D0\uAC8C \uAD00\uC2EC\uC774 \uB9CE\uB2E4", en: "Am interested in people." },
+        { o: "NO", q: "\uB098\uB294 \uC0AC\uB78C\uB4E4\uACFC \uD568\uAED8 \uC788\uC744 \uB54C \uD3B8\uC548\uD558\uB2E4", en: "Feel comfortable around people." },
+        { o: "PA", q: "\uB098\uB294 \uB0B4\uAC00 \uAD00\uC2EC\uC758 \uC911\uC2EC\uC774 \uB418\uAE30\uB97C \uBC14\uB780\uB2E4", en: "Demand to be the center of interest." },
+        { o: "BC", q: "\uB098\uB294 \uB0A8\uC744 \uC2E0\uB784\uD558\uAC8C \uAE4E\uC544\uB0B4\uB9B4 \uB54C\uAC00 \uC788\uB2E4", en: "Cut others to pieces." },
+        { o: "DE", q: "\uB098\uB294 \uC0AC\uB78C\uC740 \uAC01\uC790 \uC790\uAE30 \uC55E\uAC00\uB9BC\uC744 \uC2A4\uC2A4\uB85C \uD574\uC57C \uD55C\uB2E4\uACE0 \uC0DD\uAC01\uD55C\uB2E4", en: "Believe people should fend for themselves." },
+        { o: "FG", q: "\uB098\uB294 \uB0B4 \uC774\uC57C\uAE30\uB97C \uC798 \uB4DC\uB7EC\uB0B4\uC9C0 \uC54A\uB294 \uC0AC\uB78C\uC774\uB2E4", en: "Am a very private person." },
+        { o: "HI", q: "\uB098\uB294 \uB0A8\uC774 \uD558\uB358 \uB9D0\uC744 \uB05D\uAE4C\uC9C0 \uD558\uB3C4\uB85D \uAE30\uB2E4\uB824 \uC900\uB2E4", en: "Let others finish what they are saying." },
+        { o: "JK", q: "\uB098\uB294 \uC77C\uC774 \uC0DD\uAE30\uBA74 \uC0DD\uAE30\uB294 \uB300\uB85C \uBC1B\uC544\uB4E4\uC778\uB2E4", en: "Take things as they come." },
+        { o: "LM", q: "\uB098\uB294 \uB2E4\uB978 \uC0AC\uB78C\uC744 \uC548\uC2EC\uC2DC\uCF1C \uC8FC\uB294 \uD3B8\uC774\uB2E4", en: "Reassure others." },
+        { o: "NO", q: "\uB098\uB294 \uBA3C\uC800 \uB300\uD654\uB97C \uC2DC\uC791\uD558\uB294 \uD3B8\uC774\uB2E4", en: "Start conversations." },
+        { o: "PA", q: "\uB098\uB294 \uB300\uD654\uD560 \uB54C \uC8FC\uB85C \uB0B4\uAC00 \uB9D0\uC744 \uB9CE\uC774 \uD55C\uB2E4", en: "Do most of the talking." },
+        { o: "BC", q: "\uB098\uB294 \uB0A8\uC758 \uB9D0\uC5D0 \uBC18\uBC15\uC744 \uC798 \uD55C\uB2E4", en: "Contradict others." },
+        { o: "DE", q: "\uB098\uB294 \uB531\uD55C \uC0AC\uC5F0\uC744 \uB4E4\uC5B4\uB3C4 \uC27D\uAC8C \uB9C8\uC74C\uC774 \uD754\uB4E4\uB9AC\uC9C0 \uC54A\uB294\uB2E4", en: "Don't fall for sob stories." },
+        { o: "FG", q: "\uB098\uB294 \uB9D0\uC744 \uB9CE\uC774 \uD558\uC9C0 \uC54A\uB294\uB2E4", en: "Don't talk a lot." },
+        { o: "HI", q: "\uB098\uB294 \uB0B4 \uC790\uB791\uC744 \uAC70\uC758 \uD558\uC9C0 \uC54A\uB294\uB2E4", en: "Seldom toot my own horn." },
+        { o: "JK", q: "\uB098\uB294 \uB098\uBCF4\uB2E4 \uB0A8\uC744 \uBA3C\uC800 \uC0DD\uAC01\uD55C\uB2E4", en: "Think of others first." },
+        { o: "LM", q: "\uB098\uB294 \uB2E4\uB978 \uC0AC\uB78C\uC758 \uC548\uBD80\uB97C \uC790\uC8FC \uBB3B\uB294\uB2E4", en: "Inquire about others' well-being." },
+        { o: "NO", q: "\uB098\uB294 \uBAA8\uC784\uC5D0\uC11C \uC5EC\uB7EC \uC0AC\uB78C\uACFC \uB450\uB8E8 \uC774\uC57C\uAE30\uD55C\uB2E4", en: "Talk to a lot of different people at parties." },
+        { o: "PA", q: "\uB098\uB294 \uBAA9\uC18C\uB9AC\uAC00 \uD070 \uD3B8\uC774\uB2E4", en: "Speak loudly." },
+        { o: "BC", q: "\uB098\uB294 \uC0AC\uB78C\uB4E4\uC5D0\uAC8C \uD1A1 \uC3D8\uC544\uBD99\uC77C \uB54C\uAC00 \uC788\uB2E4", en: "Snap at people." },
+        { o: "DE", q: "\uB098\uB294 \uC5B4\uB5A4 \uC77C\uC5D0 \uAE4A\uC774 \uACE0\uBBFC\uD558\uC9C0 \uC54A\uACE0 \uB118\uAE30\uB294 \uD3B8\uC774\uB2E4", en: "Don't put a lot of thought into things." },
+        { o: "FG", q: "\uB098\uB294 \uC0AC\uB78C\uB4E4 \uC55E\uC5D0\uC11C \uD560 \uB9D0\uC774 \uBCC4\uB85C \uC5C6\uB294 \uD3B8\uC774\uB2E4", en: "Have little to say." },
+        { o: "HI", q: "\uB098\uB294 \uC8FC\uBAA9\uBC1B\uB294 \uAC83\uC744 \uC2EB\uC5B4\uD55C\uB2E4", en: "Dislike being the center of attention." },
+        { o: "JK", q: "\uB098\uB294 \uC0AC\uC2E4\uC744 \uBD80\uD480\uB824 \uB9D0\uD558\uB294 \uC77C\uC774 \uAC70\uC758 \uC5C6\uB2E4", en: "Seldom stretch the truth." },
+        { o: "LM", q: "\uB098\uB294 \uB2E4\uB978 \uC0AC\uB78C\uB4E4\uACFC \uC798 \uC9C0\uB0B8\uB2E4", en: "Get along well with others." },
+        { o: "NO", q: "\uB098\uB294 \uC0AC\uB78C\uC774 \uB9CE\uC774 \uBAA8\uC774\uB294 \uC790\uB9AC\uB97C \uC544\uC8FC \uC88B\uC544\uD55C\uB2E4", en: "Love large parties." },
+        { o: "PA", q: "\uB098\uB294 \uC0AC\uB78C\uB4E4\uC774 \uB098\uC5D0\uAC8C \uC8FC\uBAA9\uD574 \uC8FC\uAE30\uB97C \uBC14\uB780\uB2E4", en: "Demand attention." },
+        { o: "BC", q: "\uB098\uB294 \uB9D0\uC774 \uB0A0\uCE74\uB85C\uC6B4 \uD3B8\uC774\uB2E4", en: "Have a sharp tongue." },
+        { o: "DE", q: "\uB098\uB294 \uB2E4\uB978 \uC0AC\uB78C\uC758 \uACE0\uBBFC\uC5D0\uB294 \uAD00\uC2EC\uC774 \uC5C6\uB2E4", en: "Am not interested in other people's problems." }
+      ];
+      var BALANCED_CUT = 0.35;
+      var RAD = Math.PI / 180;
+      var norm360 = (d) => (d % 360 + 360) % 360;
+      function octantOf(deg) {
+        const d = norm360(deg);
+        return OCT_KEYS.reduce((best, k) => {
+          const diff = Math.min(Math.abs(d - OCTANTS[k].deg), 360 - Math.abs(d - OCTANTS[k].deg));
+          return diff < best.diff ? { k, diff } : best;
+        }, { k: null, diff: 999 }).k;
+      }
+      function scoreIPC(answers) {
+        if (!Array.isArray(answers)) return null;
+        const sum = {}, n = {};
+        OCT_KEYS.forEach((k) => {
+          sum[k] = 0;
+          n[k] = 0;
+        });
+        IPC_Q.forEach((it, i) => {
+          const v = answers[i];
+          if (v == null || !(v >= 1 && v <= 5)) return;
+          sum[it.o] += v;
+          n[it.o]++;
+        });
+        if (OCT_KEYS.some((k) => !n[k])) return null;
+        const octant = {}, z = {};
+        let dom = 0, warm = 0;
+        OCT_KEYS.forEach((k) => {
+          const o = OCTANTS[k];
+          octant[k] = +(sum[k] / n[k]).toFixed(2);
+          z[k] = (octant[k] - o.m) / o.sd;
+          dom += z[k] * Math.sin(o.deg * RAD);
+          warm += z[k] * Math.cos(o.deg * RAD);
+        });
+        dom *= 0.3;
+        warm *= 0.3;
+        const length = Math.hypot(dom, warm);
+        const angle = norm360(Math.atan2(dom, warm) / RAD);
+        const type = octantOf(angle);
+        return {
+          octant,
+          dominance: +dom.toFixed(3),
+          warmth: +warm.toFixed(3),
+          angle: +angle.toFixed(1),
+          length: +length.toFixed(3),
+          type,
+          typeName: OCTANTS[type].name,
+          balanced: length < BALANCED_CUT
+        };
+      }
+      function averageAnswers(list) {
+        return IPC_Q.map((_, i) => {
+          const vs = list.map((a) => a && a[i]).filter((v) => v != null);
+          return vs.length ? vs.reduce((s, v) => s + v, 0) / vs.length : null;
+        });
+      }
+      function positionGap(a, b) {
+        if (!a || !b) return null;
+        let dAng = Math.abs(a.angle - b.angle);
+        if (dAng > 180) dAng = 360 - dAng;
+        return {
+          distance: +Math.hypot(a.dominance - b.dominance, a.warmth - b.warmth).toFixed(3),
+          angleDiff: +dAng.toFixed(1),
+          dominanceDiff: +(a.dominance - b.dominance).toFixed(3),
+          warmthDiff: +(a.warmth - b.warmth).toFixed(3)
+        };
+      }
+      function complementarity(a, b) {
+        if (!a || !b) return null;
+        let diff = Math.abs(norm360(360 - a.angle) - b.angle);
+        if (diff > 180) diff = 360 - diff;
+        return { score: Math.round(50 + 50 * Math.cos(diff * RAD)), angleDiff: +diff.toFixed(1) };
+      }
+      module.exports = {
+        IPC_Q,
+        OCTANTS,
+        OCT_KEYS,
+        BALANCED_CUT,
+        scoreIPC,
+        averageAnswers,
+        positionGap,
+        complementarity,
+        octantOf
+      };
+    }
+  });
+
   // src/index.js
   var require_index = __commonJS({
     "src/index.js"(exports, module) {
@@ -11753,6 +11888,7 @@ var OhaengEngine = (() => {
       var timeline = require_timeline();
       var transit = require_transit();
       var persona = require_persona();
+      var ipc = require_ipc();
       module.exports = {
         saju,
         personality,
@@ -11765,7 +11901,8 @@ var OhaengEngine = (() => {
         johu,
         timeline,
         transit,
-        persona
+        persona,
+        ipc
       };
     }
   });
