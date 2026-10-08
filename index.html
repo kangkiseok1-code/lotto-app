@@ -694,6 +694,22 @@ function renderLanding(){
   </div>`;
 }
 
+// 만 19세 미만인지 — 음력 입력은 엔진이 바꿔 준 양력 생일로 계산
+function isMinorBirth(y,m,d,cal){
+  let sy=y, sm=m, sd=d;
+  try{ const s=S.computeSaju(y,m,d,'',{calendar:cal||'solar'}); if(s&&s.solar){ sy=s.solar.y; sm=s.solar.m; sd=s.solar.d; } }catch(e){}
+  const t=new Date(); let age=t.getFullYear()-sy; if(t.getMonth()+1<sm || (t.getMonth()+1===sm && t.getDate()<sd)) age--;
+  return age<19;
+}
+function renderMinorBlock(){
+  $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px;max-width:440px;text-align:center">
+    <div>${RESP_BADGE}</div>
+    <h2 style="margin:16px 0 8px">만 19세 이상만 이용할 수 있어요</h2>
+    <p class="muted" style="font-size:13px;margin:0">복권은 19세 미만에게 판매할 수 없어, 오행 로또도 성인만 이용할 수 있어요.</p>
+    <button class="btn ghost" style="margin:20px auto 0" onclick="renderProfileForm()">생년월일 다시 입력</button>
+  </div>`;
+}
+
 /* ============ 화면: 사주 입력 ============ */
 function renderProfileForm(){
   const p=profile||{};
@@ -794,6 +810,7 @@ async function saveProfile(){
   const v=id=>$('#'+id).value.trim();
   const by=+v('by'),bm=+v('bm'),bd=+v('bd');
   if(!by||!bm||!bd){toast('생년월일을 입력해주세요');return;}
+  if(isMinorBirth(by,bm,bd,v('cal'))){ toast('만 19세 이상만 이용할 수 있어요'); return; }
   const p={birth_year:by,birth_month:bm,birth_day:bd,
     birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
     calendar:v('cal'),leap:false,gender:v('gender')||null,city:v('city')||null};
@@ -816,6 +833,7 @@ const NAVSVG=(()=>{const w=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="curr
   md:w('<path d="M12 21s-6-5.4-6-10a6 6 0 1 1 12 0c0 4.6-6 10-6 10z"/><circle cx="12" cy="11" r="2.3"/>')
 };})();
 function renderApp(){
+  if(profile && isMinorBirth(profile.birth_year,profile.birth_month,profile.birth_day,profile.calendar)){ renderMinorBlock(); return; }
   $('#root').innerHTML=`<div class="wrap">
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">오행 로또</div><div class="s">${sajuLine()}</div></div><div class="sp"></div></header>
     <div id="body"></div>
@@ -1135,7 +1153,7 @@ function mdBearing(a,b,c,d){ const t=x=>x*Math.PI/180; const y=Math.sin(t(d-b))*
 const MD_DIRS=['북','북동','동','남동','남','남서','서','북서'], MD_DIR_EL={북:'수',동:'목',남:'화',서:'금'};
 function viewMyeongdang(){
   if(mdState!=='done'){ if(mdState==='idle') loadMyeongdang();
-    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 로또 명당</h3><p class="muted" style="font-size:12px;margin:8px 0 0">${mdState==='error'?'명당 데이터를 불러오지 못했어요.':'명당 데이터 불러오는 중…'}</p></div>`; }
+    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 1등 배출점</h3><p class="muted" style="font-size:12px;margin:8px 0 0">${mdState==='error'?'배출점 정보를 불러오지 못했어요.':'배출점 정보 불러오는 중…'}</p></div>`; }
   const favDirSet=['북','동','남','서'].filter(c=>favorSet.has(MD_DIR_EL[c]));
   const annotate=s=>{ const o={...s};
     if(myLoc){ o.dist=mdHaversine(myLoc.lat,myLoc.lng,s.lat,s.lng); o.dir=MD_DIRS[Math.round(mdBearing(myLoc.lat,myLoc.lng,s.lat,s.lng)/45)%8]; o.match=[...o.dir].some(c=>favDirSet.includes(c)); }
@@ -1155,11 +1173,12 @@ function viewMyeongdang(){
     body=`<p class="muted" style="font-size:12.5px;font-weight:700;color:var(--ink);margin:14px 0 2px">${mdGu} <span style="font-weight:400">· 1등 다배출 상위 ${list.length}</span></p>`
       +(list.map(s=>item(s,false)).join('')||'<p class="muted" style="font-size:12px;margin:8px 0 0">해당 지역 데이터가 없어요.</p>'); }
   else if(myLoc){ const list=myeongdang.map(annotate).sort((a,b)=>((a.match?0:1)-(b.match?0:1))||(a.dist-b.dist)).slice(0,NEAR);
-    body=`<p class="muted" style="font-size:12.5px;font-weight:700;color:var(--ink);margin:14px 0 2px">가까운 명당 ${list.length}곳 <span style="font-weight:400">· 방위 일치 ★ 우선</span></p>`+list.map(s=>item(s,true)).join(''); }
+    body=`<p class="muted" style="font-size:12.5px;font-weight:700;color:var(--ink);margin:14px 0 2px">가까운 배출점 ${list.length}곳 <span style="font-weight:400">· 방위 일치 ★ 우선</span></p>`+list.map(s=>item(s,true)).join(''); }
   else { body=mdRegions.map(r=>{ const list=myeongdang.filter(s=>s.region===r).sort((a,b)=>b.win1-a.win1).slice(0,5);
     return `<p class="muted" style="font-size:12.5px;font-weight:700;color:var(--ink);margin:14px 0 0">${r} <span style="font-weight:400">· 1등 다배출 상위 ${list.length}</span></p>${list.map(s=>item(annotate(s),false)).join('')}`; }).join(''); }
   return `<div class="section on card">
-    <h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 로또 명당 <span class="muted" style="font-weight:400;font-size:12px">· 서울·경기 1등 다배출</span></h3>
+    <h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 1등 배출점 <span class="muted" style="font-weight:400;font-size:12px">· 서울·경기 1등 다배출</span></h3>
+    <p class="muted" style="font-size:11.5px;margin:4px 0 0">어느 판매점에서 사도 당첨 확률은 같아요. 1등이 많이 나온 곳은 그만큼 많이 팔린 곳이에요.</p>
     <div class="row" style="gap:8px;margin-top:10px;align-items:center">
       <button class="btn ghost sm" onclick="findMyeongdangLoc()">${myLoc?'위치 새로고침':'내 위치로 찾기'}</button>
       <select onchange="setMdGu(this.value)" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:12.5px">
@@ -1525,6 +1544,10 @@ function signalMatches(){
   return G;
 }
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+// 무작위로 6개를 골라도 평균 0.8개는 겹침. 한 장당 겹친 개수의 분산(초기하) ≈ 0.61 → 평균의 표준오차 = √(0.61/n).
+// 무작위 기대값 ±2 표준오차 안이면 '우연 범위' — 차이가 있어 보여도 우연과 구별되지 않음
+const CHANCE_VAR=6*(6/45)*(39/45)*(39/44);
+const chanceTag=(a,n)=>Math.abs(a-CHANCE_MATCH)<=2*Math.sqrt(CHANCE_VAR/n) ? ' <span class="muted" style="font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 6px;white-space:nowrap">우연 범위</span>' : '';
 function matchRow(label,arr,baseAvg){
   if(!arr.length) return `<div class="statrow"><span class="lab" style="width:64px">${label}</span><span class="track"></span><span class="val" style="width:120px">표본 없음</span></div>`;
   const a=avg(arr), pct=Math.min(100,Math.round(a/3*100));
@@ -1533,7 +1556,7 @@ function matchRow(label,arr,baseAvg){
 }
 function viewInsights(){
   const A=analyzePurchases();
-  if(!A.total) return `<div class="section on card"><h2 style="margin:0 0 6px">분석</h2><p class="muted" style="font-size:13px;margin:0">구매·결과 기록이 쌓이면 여기서 <b>손익·습관</b>과 <b>내 신호(사주·직감·꿈)가 얼마나 맞았는지</b>를 보여드려요. ‘구매’ 탭에서 기록을 남겨보세요.</p></div>`;
+  if(!A.total) return `<div class="section on card"><h2 style="margin:0 0 6px">분석</h2><p class="muted" style="font-size:13px;margin:0">구매·결과 기록이 쌓이면 여기서 <b>손익·습관</b>과 <b>내 신호(사주·직감·꿈)와 당첨번호가 얼마나 겹쳤는지</b>를 보여드려요. ‘구매’ 탭에서 기록을 남겨보세요.</p></div>`;
   const dowObj={}; ['일','월','화','수','목','금','토'].forEach((n,i)=>dowObj[n]=A.dow[i]);
   const rankBars=[1,2,3,4,5].map(r=>({r,c:purchases.filter(p=>p.won&&p.won_rank===r).length}));
   const rankObj={}; rankBars.forEach(x=>rankObj[x.r+'등']={c:x.c,w:0}); rankObj['꽝']={c:purchases.filter(p=>!p.won).length,w:0};
@@ -1558,14 +1581,14 @@ function viewInsights(){
     <p class="muted" style="font-size:11px;margin:10px 0 0">🎉는 그 칸에서 당첨된 횟수예요.</p>
   </div>
   <div class="section on card">
-    <h2 style="margin:0 0 4px">🎯 내 신호가 맞았나</h2>
-    <p class="muted" style="font-size:12px;margin:0 0 10px">번호 6개를 입력한 구매 <b>${withNums}건</b> 기준, 조건별 <b>회차당 평균 적중 개수</b>. 무작위 기대값은 <b>${CHANCE_MATCH.toFixed(2)}개</b> — 이보다 높으면 ▲.</p>
+    <h2 style="margin:0 0 4px">🎯 내 신호와 겹친 개수</h2>
+    <p class="muted" style="font-size:12px;margin:0 0 10px">번호 6개를 입력한 구매 <b>${withNums}건</b> 기준, 조건별 <b>회차당 당첨번호와 평균 겹친 개수</b>. 무작위 기대값은 <b>${CHANCE_MATCH.toFixed(2)}개</b> — 이보다 높으면 ▲.</p>
     ${withNums? `${signals.map(([l,a])=>matchRow(l,a,base)).join('')}
       <div class="statrow" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:8px"><span class="lab" style="width:64px">전체 평균</span><span class="track"><span class="fill" style="width:${Math.min(100,Math.round(base/3*100))}%;background:var(--sub)"></span></span><span class="val" style="width:120px">평균 ${base.toFixed(2)}개</span></div>
-      ${posSignals.length?`<div class="prof-sub" style="margin-top:14px">🏆 내 신호 랭킹</div>
-        <p style="font-size:13px;margin:4px 0 0">가장 잘 맞은 신호: <b style="color:var(--gold)">${posSignals[0].label}</b> (평균 ${posSignals[0].avg.toFixed(2)}개, ${posSignals[0].n}건)${posSignals[0].avg>base?` · 전체보다 <b style="color:#2e7d5b">+${(posSignals[0].avg-base).toFixed(2)}</b>`:''}</p>
-        <ol style="font-size:12.5px;color:var(--sub);margin:6px 0 0;padding-left:18px">${posSignals.map(s=>`<li>${s.label} — ${s.avg.toFixed(2)}개 (${s.n}건)</li>`).join('')}</ol>`:''}`
-    : '<p class="muted" style="font-size:13px;margin:0">구매 기록에 <b>번호 6개</b>를 입력하면(구매 이력에서 기록 누르기), 결과와 대조해 신호별 적중을 계산해드려요.</p>'}
+      ${posSignals.length?`<div class="prof-sub" style="margin-top:14px">신호별 순위</div>
+        <p style="font-size:13px;margin:4px 0 0">겹친 개수가 가장 많았던 신호: <b>${posSignals[0].label}</b> (평균 ${posSignals[0].avg.toFixed(2)}개, ${posSignals[0].n}건)${chanceTag(posSignals[0].avg,posSignals[0].n)}</p>
+        <ol style="font-size:12.5px;color:var(--sub);margin:6px 0 0;padding-left:18px">${posSignals.map(s=>`<li>${s.label} — ${s.avg.toFixed(2)}개 (${s.n}건)${chanceTag(s.avg,s.n)}</li>`).join('')}</ol>`:''}`
+    : '<p class="muted" style="font-size:13px;margin:0">구매 기록에 <b>번호 6개</b>를 입력하면(구매 이력에서 기록 누르기), 결과와 대조해 신호별로 겹친 개수를 계산해드려요.</p>'}
     <p class="muted" style="font-size:11px;margin:12px 0 0">⚠️ 로또는 매 회차가 독립이라, 이건 예측이 아니라 <b>내 기록의 사후 검증(재미)</b>이에요. 표본이 적으면 우연입니다.</p>
   </div>`;
 }
