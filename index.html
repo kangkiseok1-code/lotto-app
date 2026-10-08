@@ -1164,7 +1164,7 @@ function viewMyeongdang(){
         <span style="font-size:13.5px;font-weight:700;color:var(--ink)">${s.name}</span>
         <span class="muted" style="font-size:11.5px;white-space:nowrap">${s.dist!=null?`${s.dist<1?Math.round(s.dist*1000)+'m':s.dist.toFixed(1)+'km'} · ${s.dir}`:`1등 ${s.win1}회`}</span>
       </div>
-      <p class="muted" style="font-size:11.5px;margin:3px 0 0">${showRegion?s.region+' ':''}${s.gu}${s.dong?' '+s.dong:''}${s.match?' · <b style="color:var(--gold)">방위 일치 ★</b>':''}${s.dist!=null?` · 1등 ${s.win1}회`:''}</p>
+      <p class="muted" style="font-size:11.5px;margin:3px 0 0">${showRegion?s.region+' ':''}${s.gu}${s.dong?' '+s.dong:''}${s.match?' · <b style="color:var(--gold)">방위 일치 ★</b><span style="font-size:10.5px">(참고용)</span>':''}${s.dist!=null?` · 1등 ${s.win1}회`:''}</p>
       <p class="muted" style="font-size:11px;margin:4px 0 0;color:var(--sub)">${s.addr} <span style="color:var(--green);white-space:nowrap">· 눌러서 주소 복사</span></p>
     </div>`;
   let body;
@@ -1186,7 +1186,7 @@ function viewMyeongdang(){
         ${mdRegions.map(r=>`<optgroup label="${r}">${[...new Set(myeongdang.filter(s=>s.region===r).map(s=>s.gu))].map(g=>`<option value="${g}"${mdGu===g?' selected':''}>${g}</option>`).join('')}</optgroup>`).join('')}
       </select>
     </div>
-    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'#c0392b'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${myLoc?'내 용희신 방위 일치 ★ 가까운 순':'구·시를 선택하면 그 지역 상위 5곳 · <b>내 위치로 찾기</b>로 가까운 순'} · 유리 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b></p>`:'')}
+    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'#c0392b'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${myLoc?'내 용희신 방위 일치 ★ 가까운 순':'구·시를 선택하면 그 지역 상위 5곳 · <b>내 위치로 찾기</b>로 가까운 순'} · 유리 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b> <span style="white-space:nowrap">(사주 참고용)</span></p>`:'')}
     ${body}
     <p class="muted" style="font-size:10.5px;margin:12px 0 0">${mdNote} · 출처: 동행복권 공개 1등 배출점</p>
   </div>`;
