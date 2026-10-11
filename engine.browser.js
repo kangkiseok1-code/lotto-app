@@ -2604,11 +2604,13 @@ var OhaengEngine = (() => {
         if (ia < 0 || ib < 0) return true;
         return Math.abs(ia - ib) === 1;
       }
-      function analyzeStemRelations(stems) {
+      function analyzeStemRelations(stems, opts) {
+        const skip = opts && opts.skip || (() => false);
         const hap = [], chung = [];
         for (let i = 0; i < stems.length; i++) {
           for (let j = i + 1; j < stems.length; j++) {
             const si = stems[i], sj = stems[j];
+            if (skip(si.id, sj.id)) continue;
             GAN_HAP.forEach((c) => {
               if (matchPair(si.gan, sj.gan, c.pair)) {
                 hap.push({ type: "\uCC9C\uAC04\uD569", ids: [si.id, sj.id], gans: [si.gan, sj.gan], elem: c.elem, adjacent: stemAdjacent(si.id, sj.id) });
@@ -2729,11 +2731,16 @@ var OhaengEngine = (() => {
       var NATAL_IDS = ["year", "month", "day", "hour"];
       function hapChungEffects(cols) {
         const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: JI[c.ji] })));
-        const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: GAN[c.gan] })));
+        const isLuckId = (id) => !NATAL_IDS.includes(id);
+        const st = REL.analyzeStemRelations(
+          cols.map((c) => ({ id: c.id, gan: GAN[c.gan] })),
+          { skip: (a, b) => a === "year" && isLuckId(b) || b === "year" && isLuckId(a) }
+        );
         const byId = Object.fromEntries(cols.map((c) => [c.id, c]));
         const stemOv = {}, stemMul = {}, jiDist = {}, jiMul = {}, applied = [];
         const stemBind = /* @__PURE__ */ new Set(), jiBind = /* @__PURE__ */ new Set();
-        const isLuck = (ids) => ids.some((id) => !NATAL_IDS.includes(id));
+        const isLuck = (ids) => ids.some(isLuckId);
+        const keOf = (e) => Object.keys(KE_).find((k) => KE_[k] === e);
         const surroundOk = (ids, hw, kind) => {
           const pos = /* @__PURE__ */ new Set();
           ids.forEach((id) => {
@@ -2754,23 +2761,25 @@ var OhaengEngine = (() => {
         const combos = [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos];
         const voidSet = /* @__PURE__ */ new Set(), farBlocked = /* @__PURE__ */ new Set(), clashOnly = /* @__PURE__ */ new Map();
         br.clashes.forEach((c) => {
-          const H = combos.filter((h) => h.ids.some((id) => c.ids.includes(id)));
+          const H = combos.filter((h) => h.ids.some((id) => c.ids.includes(id)) && (isLuck(c.ids) || !isLuck(h.ids)));
           if (!H.length) return;
-          if (c.dist == null || c.dist <= 1) {
+          const weak = H.filter((h) => !((h.type === "\uC0BC\uD569" || h.type === "\uBC29\uD569") && !c.ids.includes(h.ids[1])));
+          if (weak.length && (c.dist == null || c.dist <= 1)) {
             voidSet.add(c);
-            H.forEach((h) => voidSet.add(h));
-          } else {
-            H.forEach((h) => farBlocked.add(h));
-            clashOnly.set(c, c.ids.filter((id) => !H.some((h) => h.ids.includes(id))));
+            weak.forEach((h) => voidSet.add(h));
+            return;
           }
+          weak.forEach((h) => farBlocked.add(h));
+          clashOnly.set(c, c.ids.filter((id) => !H.some((h) => h.ids.includes(id))));
         });
         const label = (h, kind) => {
-          if (kind === "gan" && h.ids.includes("day")) return "\uC77C\uAC04";
+          if (kind === "gan" && h.ids.includes("day") && !isLuck(h.ids)) return "\uC77C\uAC04";
           if (farBlocked.has(h)) return "\uCDA9 \uBC29\uD574";
           if (kind === "gan" ? !h.adjacent : h.dist != null && h.dist > 1) return "\uB5A8\uC5B4\uC9D0";
           if (h.jaeng) return "\uC7C1\uD569";
           if (h.type === "\uBC29\uD569") return "\uBC29\uD569";
           if (!isLuck(h.ids) && !surroundOk(h.ids, h.elem, kind)) return "\uC8FC\uBCC0 \uBC29\uD574";
+          if (kind === "gan" && isLuck(h.ids) && cols.filter((c) => !h.ids.includes(c.id) && GAN_ELEM[c.gan] === keOf(h.elem)).length >= 3) return "\uADF9 3\uAC1C";
           return null;
         };
         combos.filter((h) => h.elem && !voidSet.has(h)).forEach((h) => {
@@ -2784,8 +2793,29 @@ var OhaengEngine = (() => {
             (jiDist[id] = jiDist[id] || []).push(h.elem);
           });
           applied.push({ text: `${h.jis.join("")} ${h.type}`, elem: h.elem });
+          if (h.type === "\uC0BC\uD569" || h.type === "\uBC18\uD569") cols.forEach((c) => {
+            if (isLuckId(c.id) && !h.ids.includes(c.id) && !jiDist[c.id] && h.jis.includes(JI[c.ji]) && !br.clashes.some((k) => k.ids.includes(c.id))) (jiDist[c.id] = []).push(h.elem);
+          });
         });
-        st.hap.filter((h) => !h.withChung).forEach((h) => {
+        const luckStems = cols.filter((c) => isLuckId(c.id)).map((c) => GAN[c.gan]);
+        REL.TRIO_COMBO.forEach((t) => {
+          const present = t.members.map((m) => cols.filter((c) => JI[c.ji] === m)), have = present.filter((p) => p.length).length;
+          if (have !== 2) return;
+          const miss = t.members[present.findIndex((p) => !p.length)], ids = present.filter((p) => p.length).map((p) => p[0].id);
+          if (!ids.some(isLuckId) || !luckStems.includes(JIJANGGAN[miss][0])) return;
+          if (br.clashes.some((k) => isLuck(k.ids) && k.ids.some((i) => ids.includes(i)))) return;
+          let added = false;
+          ids.forEach((id) => {
+            if (!jiDist[id]) {
+              jiDist[id] = [t.elem];
+              added = true;
+            }
+          });
+          if (added) applied.push({ text: `${ids.map((i) => JI[byId[i].ji]).join("")}+${JIJANGGAN[miss][0]} \uCC9C\uAC04\uC0BC\uD569`, elem: t.elem });
+        });
+        const stemHapVoid = (h) => st.chung.some((c) => c.ids.some((id) => h.ids.includes(id)) && (isLuck(c.ids) || !isLuck(h.ids)));
+        const stemChungVoid = (c) => st.hap.some((h) => h.ids.some((id) => c.ids.includes(id)) && (isLuck(c.ids) || !isLuck(h.ids)));
+        st.hap.filter((h) => !stemHapVoid(h)).forEach((h) => {
           const why = label(h, "gan");
           if (why) {
             h.ids.forEach((id) => stemBind.add(id));
@@ -2793,7 +2823,7 @@ var OhaengEngine = (() => {
             return;
           }
           h.ids.forEach((id) => {
-            if (stemOv[id] === void 0) stemOv[id] = h.elem;
+            if (stemOv[id] === void 0 && id !== "day") stemOv[id] = h.elem;
           });
           applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569`, elem: h.elem });
         });
@@ -2813,7 +2843,7 @@ var OhaengEngine = (() => {
           applied.push({ text: `${c[charsKey].join("")} ${name}${c.jaeng ? "(\uC7C1\uCDA9)" : ""}`, elem: null });
         });
         chungHits(br.clashes, jiMul, "jis", "\uCDA9", (c) => voidSet.has(c), (c) => clashOnly.get(c) || c.ids);
-        chungHits(st.chung, stemMul, "gans", "\uCC9C\uAC04\uCDA9", (c) => c.withHap, (c) => c.ids);
+        chungHits(st.chung, stemMul, "gans", "\uCC9C\uAC04\uCDA9", stemChungVoid, (c) => c.ids);
         const keyOf = (x) => {
           const [chars, ...rest] = x.text.split(" ");
           return [...chars].sort().join("") + " " + rest.join(" ");
@@ -9777,9 +9807,8 @@ var OhaengEngine = (() => {
   // src/saju/timeline.js
   var require_timeline = __commonJS({
     "src/saju/timeline.js"(exports, module) {
-      var { GAN, JI, GAN_ELEM, JI_ELEM, JIJANGGAN, SHENG, KE_ } = require_saju();
+      var { GAN, JI, GAN_ELEM, JI_ELEM, JIJANGGAN, SHENG, KE_, hapChungEffects } = require_saju();
       var { analyzeBranchRelations, analyzeStemRelations } = require_relations();
-      var HAP_RANK = { \uC0BC\uD569: 4, \uBC29\uD569: 3, \uC721\uD569: 2, \uBC18\uD569: 1 };
       function sibsinGroupOf(dayElem, e) {
         if (e === dayElem) return "\uBE44\uAC81";
         if (SHENG[dayElem] === e) return "\uC2DD\uC0C1";
@@ -9827,85 +9856,154 @@ var OhaengEngine = (() => {
         extraPillars = extraPillars || [];
         const dayElem = GAN_ELEM[natalPillars.day.gan];
         const favor = /* @__PURE__ */ new Set([...deep.yongsin || [], ...deep.heeshin || [], ...deep.yongheeshin || []]);
-        const branchInput = [];
+        const cols = [];
         ["year", "month", "day", "hour"].forEach((k) => {
-          if (natalPillars[k]) branchInput.push({ id: k, ji: JI[natalPillars[k].ji] });
+          if (natalPillars[k]) cols.push({ id: k, gan: natalPillars[k].gan, ji: natalPillars[k].ji });
         });
-        if (daewoonPillar) branchInput.push({ id: "\uB300\uC6B4", ji: JI[daewoonPillar.jiIdx] });
-        if (sewoonPillar) branchInput.push({ id: "\uC138\uC6B4", ji: JI[sewoonPillar.jiIdx] });
-        extraPillars.forEach((p) => branchInput.push({ id: p.label, ji: JI[p.jiIdx] }));
-        const br = analyzeBranchRelations(branchInput);
-        const override = {}, damp = {};
-        [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).sort((a, b) => HAP_RANK[b.type] - HAP_RANK[a.type]).forEach((h) => {
-          h.ids.forEach((id) => {
-            if (!override[id]) override[id] = { elem: h.elem, via: `${h.jis.join("")} ${h.type}` };
-          });
-        });
-        br.clashes.forEach((c) => {
-          c.ids.forEach((id) => {
-            if (!override[id]) damp[id] = 0.5;
-          });
-        });
+        const luck = [];
+        if (daewoonPillar) luck.push({ id: "\uB300\uC6B4", gan: daewoonPillar.ganIdx, ji: daewoonPillar.jiIdx, w: 1 });
+        if (sewoonPillar) luck.push({ id: "\uC138\uC6B4", gan: sewoonPillar.ganIdx, ji: sewoonPillar.jiIdx, w: 1 });
+        extraPillars.forEach((p) => luck.push({ id: p.label, gan: p.ganIdx, ji: p.jiIdx, w: p.weight == null ? 1 : p.weight }));
+        const allCols = cols.concat(luck.filter((p) => p.gan != null && p.ji != null).map((p) => ({ id: p.id, gan: p.gan, ji: p.ji })));
+        const H = hapChungEffects(allCols);
+        const br = analyzeBranchRelations(allCols.map((c) => ({ id: c.id, ji: JI[c.ji] })));
         const incoming = [];
-        const addBranch = (id, jiIdx, w = 1) => {
-          if (jiIdx == null) return;
-          const ov = override[id];
-          const elem = ov ? ov.elem : JI_ELEM[jiIdx];
-          const f = damp[id] || 1;
-          incoming.push({
-            src: id + "\uC9C0\uC9C0",
-            char: JI[jiIdx],
-            elem,
-            sibsin: sibsinGroupOf(dayElem, elem),
-            combo: ov ? ov.via : null,
-            damped: f < 1,
-            score: +(2 * f * w).toFixed(2),
-            favorable: favor.has(elem)
-          });
-        };
-        const addStem = (id, ganIdx, w = 1) => {
-          if (ganIdx == null) return;
-          const elem = GAN_ELEM[ganIdx];
-          incoming.push({
-            src: id + "\uCC9C\uAC04",
-            char: GAN[ganIdx],
-            elem,
-            sibsin: sibsinGroupOf(dayElem, elem),
-            combo: null,
-            damped: false,
-            score: +(1 * w).toFixed(2),
-            favorable: favor.has(elem)
-          });
-        };
-        if (daewoonPillar) {
-          addStem("\uB300\uC6B4", daewoonPillar.ganIdx);
-          addBranch("\uB300\uC6B4", daewoonPillar.jiIdx);
-        }
-        if (sewoonPillar) {
-          addStem("\uC138\uC6B4", sewoonPillar.ganIdx);
-          addBranch("\uC138\uC6B4", sewoonPillar.jiIdx);
-        }
-        extraPillars.forEach((p) => {
-          addStem(p.label, p.ganIdx, p.weight);
-          addBranch(p.label, p.jiIdx, p.weight);
+        luck.forEach((p) => {
+          if (p.gan != null) {
+            const elem = H.stemOv[p.id] || GAN_ELEM[p.gan], f = H.stemMul[p.id] || 1;
+            incoming.push({
+              src: p.id + "\uCC9C\uAC04",
+              char: GAN[p.gan],
+              elem,
+              sibsin: sibsinGroupOf(dayElem, elem),
+              combo: H.stemOv[p.id] ? "\uCC9C\uAC04\uD569" : null,
+              damped: f < 1,
+              score: +(1 * f * p.w).toFixed(2),
+              favorable: favor.has(elem),
+              orig: GAN_ELEM[p.gan]
+            });
+          }
+          if (p.ji != null) {
+            const dist = H.jiDist[p.id], f = H.jiMul[p.id] || 1;
+            if (dist && dist.length) {
+              const via = (elem) => {
+                const h = [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].find((x) => x.elem === elem && x.ids.includes(p.id));
+                return h ? `${h.jis.join("")} ${h.type}` : "\uD569\uD654";
+              };
+              dist.forEach((elem) => incoming.push({
+                src: p.id + "\uC9C0\uC9C0",
+                char: JI[p.ji],
+                elem,
+                sibsin: sibsinGroupOf(dayElem, elem),
+                combo: via(elem),
+                damped: false,
+                score: +(2 * p.w / dist.length).toFixed(2),
+                favorable: favor.has(elem),
+                orig: JI_ELEM[p.ji]
+              }));
+            } else {
+              const elem = JI_ELEM[p.ji];
+              incoming.push({
+                src: p.id + "\uC9C0\uC9C0",
+                char: JI[p.ji],
+                elem,
+                sibsin: sibsinGroupOf(dayElem, elem),
+                combo: null,
+                damped: f < 1,
+                score: +(2 * f * p.w).toFixed(2),
+                favorable: favor.has(elem),
+                orig: elem
+              });
+            }
+          }
         });
         const yongheeScore = +incoming.filter((x) => x.favorable).reduce((a, x) => a + x.score, 0).toFixed(2);
-        const transitIds = /* @__PURE__ */ new Set(["\uB300\uC6B4", "\uC138\uC6B4", ...extraPillars.map((p) => p.label)]);
+        const transitIds = new Set(luck.map((p) => p.id));
         const roots = rootBranchIds(natalPillars, dayElem);
+        const inCombo = (id) => [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].some((h) => h.elem && h.ids.includes(id));
         let rootClash = null;
         br.clashes.forEach((c) => {
           const rootId = c.ids.find((id) => roots.includes(id));
           const inId = c.ids.find((id) => transitIds.has(id));
-          if (rootId && inId) {
-            rootClash = {
-              detail: `${c.jis.join("")} \uCDA9`,
-              root: rootId,
-              by: inId,
-              mitigated: !!(override[rootId] || override[inId])
-            };
-          }
+          if (rootId && inId) rootClash = { detail: `${c.jis.join("")} \uCDA9`, root: rootId, by: inId, mitigated: inCombo(rootId) || inCombo(inId) };
         });
-        return { favorableElems: [...favor], incoming, yongheeScore, rootClash };
+        return Object.assign(
+          { favorableElems: [...favor], incoming, yongheeScore, rootClash },
+          luckRules(natalPillars, deep, daewoonPillar, sewoonPillar, allCols, H, br, incoming)
+        );
+      }
+      function luckRules(natalPillars, deep, dw, sw, allCols, H, br, incoming) {
+        const out = {};
+        const inList = (k, e) => (deep[k] || []).includes(e);
+        const role = (e) => inList("yongsin", e) || inList("heeshin", e) ? "G" : inList("gisin", e) || inList("gusin", e) ? "B" : "H";
+        const GIBAN = {
+          "B>G": [3, "\uAE30\uAD6C\uC2E0 \u2192 \uC6A9\uD76C\uC2E0: \uC6A9\uD76C\uC2E0\uBCF4\uB2E4 \uC88B\uC74C(\uCD5C\uACE0)"],
+          "H>G": [2, "\uD55C\uC2E0 \u2192 \uC6A9\uD76C\uC2E0: \uC6A9\uD76C\uC2E0\uBCF4\uB2E4 \uC88B\uC74C"],
+          "B>H": [2, "\uAE30\uAD6C\uC2E0 \u2192 \uD55C\uC2E0: \uC6A9\uD76C\uC2E0\uBCF4\uB2E4 \uC88B\uC74C"],
+          "G>B": [-3, "\uC6A9\uD76C\uC2E0 \u2192 \uAE30\uAD6C\uC2E0: \uAE30\uAD6C\uC2E0\uBCF4\uB2E4 \uB098\uC068(\uCD5C\uC545)"],
+          "G>H": [-2, "\uC6A9\uD76C\uC2E0 \u2192 \uD55C\uC2E0: \uAE30\uAD6C\uC2E0\uBCF4\uB2E4 \uB098\uC068"],
+          "H>B": [-2, "\uD55C\uC2E0 \u2192 \uAE30\uAD6C\uC2E0: \uAE30\uAD6C\uC2E0\uBCF4\uB2E4 \uB098\uC068"]
+        };
+        out.giban = incoming.filter((x) => x.elem !== x.orig).map((x) => {
+          const k = role(x.orig) + ">" + role(x.elem), g = GIBAN[k] || [0, "\uD070 \uCC28\uC774 \uC5C6\uC74C"];
+          return { src: x.src, char: x.char, from: x.orig, to: x.elem, type: k, score: g[0], label: g[1] };
+        });
+        const pairStem = (a, b) => analyzeStemRelations([{ id: "a", gan: GAN[a] }, { id: "b", gan: GAN[b] }]).chung.length > 0;
+        const pairJi = (a, b) => analyzeBranchRelations([{ id: "a", ji: JI[a] }, { id: "b", ji: JI[b] }]).clashes.length > 0;
+        out.pocket = null;
+        if (dw && sw) {
+          const natalOnly = allCols.filter((c) => ["year", "month", "day", "hour"].includes(c.id));
+          const H0 = hapChungEffects(natalOnly.concat([{ id: "\uB300\uC6B4", gan: dw.ganIdx, ji: dw.jiIdx }]));
+          const back = [];
+          if (H0.stemOv["\uB300\uC6B4"] && !H.stemOv["\uB300\uC6B4"] && pairStem(dw.ganIdx, sw.ganIdx)) back.push(`\uB300\uC6B4 ${GAN[dw.ganIdx]} ${H0.stemOv["\uB300\uC6B4"]}\u2192${GAN_ELEM[dw.ganIdx]}`);
+          if (H0.jiDist["\uB300\uC6B4"] && !H.jiDist["\uB300\uC6B4"] && pairJi(dw.jiIdx, sw.jiIdx)) back.push(`\uB300\uC6B4 ${JI[dw.jiIdx]} ${H0.jiDist["\uB300\uC6B4"][0]}\u2192${JI_ELEM[dw.jiIdx]}`);
+          if (back.length) out.pocket = { reverts: back, note: "\uAE30\uBC18\uB41C \uB300\uC6B4\uC774 \uC774 \uD574 \uC138\uC6B4\uC758 \uCDA9\uC73C\uB85C \uC6D0\uB798 \uC624\uD589\uC73C\uB85C \uB3CC\uC544\uAC00\uC694(\uD3EC\uCF13\uC138\uC6B4)" };
+        }
+        out.gaeduJeolgak = [];
+        [["\uB300\uC6B4", dw], ["\uC138\uC6B4", sw]].forEach(([id, p]) => {
+          if (!p) return;
+          const ge = GAN_ELEM[p.ganIdx], je = JI_ELEM[p.jiIdx];
+          if (KE_[ge] === je) out.gaeduJeolgak.push({ id, type: "\uAC1C\uB450", hit: "\uC9C0\uC9C0", hitRole: role(je) });
+          if (KE_[je] === ge) out.gaeduJeolgak.push({ id, type: "\uC808\uAC01", hit: "\uCC9C\uAC04", hitRole: role(ge) });
+        });
+        const pillarRole = (p) => {
+          const r = [GAN_ELEM[p.ganIdx], JI_ELEM[p.jiIdx]].map(role);
+          if (r.includes("G") && !r.includes("B")) return "G";
+          if (r.includes("B") && !r.includes("G")) return "B";
+          return "M";
+        };
+        out.combo4 = null;
+        out.jeongeuk = false;
+        if (dw && sw) {
+          const L = { GG: "\uC804\uC18D\uB825", GB: "\uC77C\uBCF4 \uD6C4\uD1F4(\uC624\uD788\uB824 \uC704\uD5D8\uD560 \uC218 \uC788\uC74C)", BG: "\uC190\uC808\xB7\uCE90\uC2DC\uC544\uC6C3 \uAE30\uD68C", BB: "\uC5CE\uB4DC\uB824 \uAE30\uB2E4\uB9BC" };
+          const a = pillarRole(dw), b = pillarRole(sw);
+          if (L[a + b]) out.combo4 = { daewoon: a === "G" ? "\uC6A9\uD76C" : "\uAE30\uAD6C", sewoon: b === "G" ? "\uC6A9\uD76C" : "\uAE30\uAD6C", label: L[a + b] };
+          out.jeongeuk = pairStem(dw.ganIdx, sw.ganIdx) && pairJi(dw.jiIdx, sw.jiIdx);
+        }
+        const stAll = analyzeStemRelations(allCols.map((c) => ({ id: c.id, gan: GAN[c.gan] })));
+        const n = stAll.hap.length + stAll.chung.length + br.combos3.length + br.bangHap.length + br.combos6.length + br.halfCombos.length + br.clashes.length;
+        out.hapChungCount = { count: n, warn: n >= 6 };
+        const W = { day: 4, month: 3, hour: 2, year: 1 }, POSN = { day: "\uC77C\uC8FC", month: "\uC6D4\uC8FC", hour: "\uC2DC\uC8FC", year: "\uC5F0\uC8FC" };
+        out.pillarClash = [];
+        [["\uB300\uC6B4", dw], ["\uC138\uC6B4", sw]].forEach(([id, p]) => {
+          if (!p) return;
+          Object.keys(W).forEach((k) => {
+            const q = natalPillars[k];
+            if (q && pairStem(p.ganIdx, q.gan) && pairJi(p.jiIdx, q.ji)) out.pillarClash.push({ by: id, pillar: POSN[k], weight: W[k] });
+          });
+        });
+        out.pillarClash.sort((x, y) => y.weight - x.weight);
+        out.woljiHap = br.combos6.filter((h) => h.ids.includes("month") && h.ids.some((i) => i === "\uB300\uC6B4" || i === "\uC138\uC6B4")).map((h) => ({ by: h.ids.find((i) => i !== "month"), chars: h.jis.join(""), note: "\uC6D4\uC9C0\uC640 \uD569 \u2014 \uC695\uB9DD \uC2E4\uD604 \uACC4\uAE30" }));
+        const luckIn = (ids) => ids.some((i) => i === "\uB300\uC6B4" || i === "\uC138\uC6B4");
+        const chars = allCols.map((c) => JI[c.ji]);
+        out.hyeong = [];
+        br.punishTrio.filter((p) => luckIn(p.ids)).forEach((p) => out.hyeong.push({ type: "\uC0BC\uD615", name: p.name, chars: p.jis.join("") }));
+        [["\uC778", "\uC2E0", "\uC0AC", "\uD574"], ["\uC9C4", "\uC220", "\uCD95", "\uBBF8"]].forEach((g) => {
+          if (g.every((x) => chars.includes(x))) out.hyeong.push({ type: "\uC0AC\uD615", chars: g.join(""), note: "\uBD88\uC548\uC815\uC131 \uADF9\uB300" });
+        });
+        const hapIds = new Set([...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].flatMap((h) => h.ids));
+        [...br.punishTrio, ...br.punishTrioPartial, ...br.punishPair, ...br.punishSelf].filter((p) => luckIn(p.ids) && p.ids.some((i) => hapIds.has(i))).forEach((p) => out.hyeong.push({ type: "\uD615\uD569", chars: p.jis.join(""), note: "\uD615\uACFC \uD569\uC774 \uB3D9\uC2DC \u2014 \uC704\uD5D8" }));
+        return out;
       }
       module.exports = { combinedTimeline, scoreTimeline };
     }
@@ -15957,6 +16055,125 @@ var OhaengEngine = (() => {
     }
   });
 
+  // src/content/content.js
+  var require_content = __commonJS({
+    "src/content/content.js"(exports, module) {
+      var { GAN_ELEM, SHENG, KE_ } = require_saju();
+      var { twelveStage } = require_twelve_stages();
+      var OHAENG_LIFE = {
+        \uBAA9: {
+          body: ["\uAC04\xB7\uB2F4", "\uADFC\uC721\xB7\uD798\uC904", "\uB208", "\uC2E0\uACBD"],
+          taste: "\uC2E0\uB9DB",
+          color: "\uCD08\uB85D\xB7\uCCAD\uC0C9",
+          foods: ["\uD478\uB978 \uC78E\uCC44\uC18C", "\uC0C8\uC2F9\xB7\uB098\uBB3C", "\uC2E0\uB9DB \uACFC\uC77C(\uB808\uBAAC\xB7\uB9E4\uC2E4)", "\uD604\uBBF8\xB7\uBCF4\uB9AC"],
+          habits: ["\uC544\uCE68 \uC77C\uCC0D \uC77C\uC5B4\uB098 \uD558\uB8E8 \uC2DC\uC791\uD558\uAE30", "\uC0B0\uCC45\xB7\uB4F1\uC0B0\uCC98\uB7FC \uC232\uC5D0\uC11C \uAC77\uAE30", "\uC2DD\uBB3C \uAE30\uB974\uAE30", "\uC0C8 \uACC4\uD68D \uC138\uC6B0\uACE0 \uCCAB\uBC1C \uB5BC\uAE30"]
+        },
+        \uD654: {
+          body: ["\uC2EC\uC7A5", "\uD608\uAD00\xB7\uD608\uC555", "\uD600", "\uB208\uC758 \uC5F4\uAC10"],
+          taste: "\uC4F4\uB9DB",
+          color: "\uBE68\uAC15",
+          foods: ["\uBD89\uC740 \uCC44\uC18C\xB7\uACFC\uC77C(\uD1A0\uB9C8\uD1A0\xB7\uB300\uCD94)", "\uC309\uC300\uD55C \uB098\uBB3C\xB7\uCC28", "\uC218\uC218", "\uC591\uACE0\uAE30"],
+          habits: ["\uD587\uBCD5 \uB4DC\uB294 \uB0AE \uC2DC\uAC04\uC5D0 \uD65C\uB3D9\uD558\uAE30", "\uB540 \uB098\uB294 \uC6B4\uB3D9", "\uACF5\uAC04\uC744 \uBC1D\uAC8C \uD558\uAE30", "\uC0AC\uB78C \uC55E\uC5D0\uC11C \uD45C\uD604\uD558\uACE0 \uBC1C\uD45C\uD558\uAE30"]
+        },
+        \uD1A0: {
+          body: ["\uC704\uC7A5\xB7\uBE44\uC7A5", "\uCDCC\uC7A5\xB7\uD608\uB2F9", "\uD53C\uBD80\xB7\uC0B4", "\uC785\uC220"],
+          taste: "\uB2E8\uB9DB",
+          color: "\uB178\uB791\xB7\uD669\uD1A0\uC0C9",
+          foods: ["\uD638\uBC15\xB7\uACE0\uAD6C\uB9C8\xB7\uAC10\uC790", "\uAE30\uC7A5\xB7\uC881\uC300", "\uAFC0\xB7\uB300\uCD94 \uAC19\uC740 \uB2E8\uB9DB \uC870\uAE08", "\uBFCC\uB9AC\uCC44\uC18C"],
+          habits: ["\uB9E8\uBC1C\uB85C \uD759\uAE38 \uAC77\uAE30", "\uC815\uD574\uC9C4 \uC2DC\uAC04\uC5D0 \uADDC\uCE59\uC801\uC73C\uB85C \uBA39\uAE30", "\uC11C\uB450\uB974\uC9C0 \uC54A\uACE0 \uD55C \uBC15\uC790 \uC26C\uAE30", "\uC0AC\uB78C \uC0AC\uC774\uB97C \uC787\uACE0 \uC911\uC7AC\uD558\uAE30"]
+        },
+        \uAE08: {
+          body: ["\uD3D0\xB7\uD638\uD761\uAE30", "\uB300\uC7A5", "\uBF08\xB7\uCE58\uC544", "\uCF54\xB7\uD53C\uBD80 \uAC74\uC870"],
+          taste: "\uB9E4\uC6B4\uB9DB",
+          color: "\uD770\uC0C9\xB7\uAE08\uC18D\uBE5B",
+          foods: ["\uBB34\xB7\uB3C4\uB77C\uC9C0\xB7\uB354\uB355", "\uD30C\xB7\uB9C8\uB298\xB7\uC0DD\uAC15", "\uBC30", "\uD770\uC0B4 \uC0DD\uC120"],
+          habits: ["\uAE4A\uC740 \uD638\uD761\xB7\uBA85\uC0C1", "\uADFC\uB825 \uC6B4\uB3D9\uACFC \uBC14\uB978 \uC790\uC138", "\uBB3C\uAC74\xB7\uC77C\uC815 \uC815\uB9AC\uD558\uACE0 \uB9C8\uBB34\uB9AC \uC9D3\uAE30", "\uC6D0\uCE59\uACFC \uAE30\uC900 \uC138\uC6B0\uAE30"]
+        },
+        \uC218: {
+          body: ["\uC2E0\uC7A5\xB7\uBC29\uAD11", "\uC0DD\uC2DD\uAE30\xB7\uD638\uB974\uBAAC", "\uADC0", "\uD5C8\uB9AC\xB7\uBC1C\uBAA9", "\uBAA8\uBC1C"],
+          taste: "\uC9E0\uB9DB",
+          color: "\uAC80\uC815\xB7\uB0A8\uC0C9",
+          foods: ["\uAC80\uC740\uCF69\xB7\uAC80\uC740\uAE68", "\uD574\uC870\uB958(\uBBF8\uC5ED\xB7\uB2E4\uC2DC\uB9C8)", "\uD574\uC0B0\uBB3C", "\uBB3C \uC790\uC8FC \uB9C8\uC2DC\uAE30"],
+          habits: ["\uC77C\uCC0D \uC790\uACE0 \uCDA9\uBD84\uD788 \uC26C\uAE30", "\uC218\uC601\xB7\uBC18\uC2E0\uC695", "\uC678\uAD6D\uC5B4\xB7\uCC45\uCC98\uB7FC \uAE4A\uC774 \uBC30\uC6B0\uAE30", "\uC7A0\uB4E4\uAE30 \uC804 \uD558\uB8E8\uB97C \uC870\uC6A9\uD788 \uB3CC\uC544\uBCF4\uAE30"]
+        }
+      };
+      var TWELVE_STAGE_TEXT = {
+        \uC7A5\uC0DD: { phase: "\uD0DC\uC5B4\uB0A8", keywords: ["\uC2DC\uC791", "\uBC30\uC6C0", "\uBCF4\uC0B4\uD54C"], trait: "\uC0C8 \uD658\uACBD\uC5D0 \uC798 \uC801\uC751\uD558\uACE0 \uBC30\uC6B0\uB294 \uD798\uC774 \uC88B\uC544\uC694." },
+        \uBAA9\uC695: { phase: "\uC53B\uACE0 \uAFB8\uBC08", keywords: ["\uD638\uAE30\uC2EC", "\uBA4B", "\uBCC0\uD654"], trait: "\uC0C8\uB85C\uC6B4 \uAC83\uACFC \uAFB8\uBBF8\uB294 \uC77C\uC5D0 \uB04C\uB9AC\uACE0 \uAC10\uAC01\uC774 \uBBFC\uAC10\uD574\uC694." },
+        \uAD00\uB300: { phase: "\uC131\uC778\uC774 \uB428", keywords: ["\uC790\uC2E0\uAC10", "\uB3C4\uC804", "\uCCB4\uBA74"], trait: "\uC758\uC695\uACFC \uC790\uC874\uC2EC\uC774 \uAC15\uD574 \uC55E\uC5D0 \uB098\uC11C\uB824 \uD574\uC694." },
+        \uAC74\uB85D: { phase: "\uC790\uB9BD", keywords: ["\uC2E4\uB825", "\uCC45\uC784", "\uC548\uC815"], trait: "\uC2A4\uC2A4\uB85C \uC77C\uC5B4\uC11C\uB294 \uD798\uC774 \uC788\uC5B4 \uC77C\uC744 \uB9E1\uAE30\uBA74 \uD574\uB0B4\uC694." },
+        \uC81C\uC655: { phase: "\uC815\uC810", keywords: ["\uC8FC\uB3C4", "\uAD8C\uC704", "\uACE0\uC9D1"], trait: "\uAE30\uC6B4\uC774 \uAC00\uC7A5 \uC655\uC131\uD574 \uC774\uB044\uB294 \uC790\uB9AC\uC5D0 \uC11C\uAE30 \uC26C\uC6CC\uC694." },
+        \uC1E0: { phase: "\uBB3C\uB7EC\uC12C", keywords: ["\uB178\uB828\uD568", "\uC2E0\uC911", "\uC870\uC5B8"], trait: "\uACBD\uD5D8\uC5D0\uC11C \uB098\uC628 \uC5EC\uC720\uC640 \uD310\uB2E8\uB825\uC774 \uC788\uC5B4\uC694." },
+        \uBCD1: { phase: "\uC57D\uD574\uC9D0", keywords: ["\uACF5\uAC10", "\uBC30\uB824", "\uAC10\uC218\uC131"], trait: "\uB0A8\uC758 \uCC98\uC9C0\uB97C \uC798 \uD5E4\uC544\uB9AC\uACE0 \uB9C8\uC74C\uC774 \uC5EC\uB824\uC694." },
+        \uC0AC: { phase: "\uBA48\uCDA4", keywords: ["\uBAB0\uC785", "\uC0AC\uC0C9", "\uC815\uC2E0\uC131"], trait: "\uAC89\uC73C\uB85C\uB294 \uC870\uC6A9\uD574\uB3C4 \uD55C \uAC00\uC9C0\uB97C \uAE4A\uC774 \uD30C\uACE0\uB4E4\uC5B4\uC694." },
+        \uBB18: { phase: "\uC800\uC7A5", keywords: ["\uC800\uCD95", "\uC218\uB834", "\uBCF4\uAD00"], trait: "\uBC16\uC73C\uB85C \uD3BC\uCE58\uAE30\uBCF4\uB2E4 \uC548\uC73C\uB85C \uBAA8\uC73C\uACE0 \uC9C0\uD0A4\uB294 \uD798\uC774 \uCEE4\uC694." },
+        \uC808: { phase: "\uB04A\uC5B4\uC9D0", keywords: ["\uC804\uD658", "\uACB0\uB2E8", "\uC0C8 \uCD9C\uBC1C"], trait: "\uD750\uB984\uC774 \uBC14\uB00C\uB294 \uC790\uB9AC\uB77C \uBCC0\uD654\uB97C \uBC1B\uC544\uB4E4\uC774\uB294 \uC21C\uBC1C\uB825\uC774 \uC788\uC5B4\uC694." },
+        \uD0DC: { phase: "\uC789\uD0DC", keywords: ["\uAD6C\uC0C1", "\uAC00\uB2A5\uC131", "\uC21C\uC218"], trait: "\uC544\uC9C1 \uD615\uD0DC\uAC00 \uC5C6\uB294 \uC0DD\uAC01\uACFC \uAFC8\uC744 \uD488\uACE0 \uD0A4\uC6CC\uC694." },
+        \uC591: { phase: "\uC790\uB78C", keywords: ["\uC131\uC7A5", "\uBCF4\uD638", "\uC900\uBE44"], trait: "\uBCF4\uD638\uBC1B\uC73C\uBA70 \uD798\uC744 \uAE30\uB974\uB294 \uC2DC\uAE30\uB77C \uC900\uBE44\uC131\uC774 \uC88B\uC544\uC694." }
+      };
+      var SIBSIN_GUIDE = {
+        \uBE44\uAC81: {
+          yong: ["\uB0B4 \uC774\uB984\uC744 \uAC78\uACE0 \uC9C1\uC811 \uC2DC\uC791\uD558\uAE30(\uCC3D\uC5C5\xB7\uB3C5\uB9BD\xB7\uC8FC\uB3C4 \uC5ED\uD560)", "\uB3D9\uB8CC\xB7\uCE5C\uAD6C\uC640 \uD568\uAED8\uD558\uB294 \uC6B4\uB3D9\xB7\uBAA8\uC784", "\uACB0\uC815\uC740 \uBBF8\uB8E8\uC9C0 \uB9D0\uACE0 \uC2A4\uC2A4\uB85C \uB0B4\uB9AC\uAE30"],
+          gi: ["\uBCF4\uC99D\xB7\uB3D9\uC5C5\xB7\uB3C8\uAC70\uB798\uB294 \uBB38\uC11C\uB85C \uC120 \uAE0B\uAE30", "\uACE0\uC9D1\uACFC \uACBD\uC7C1\uC2EC\uC774 \uAD00\uACC4\uB97C \uD574\uCE58\uC9C0 \uC54A\uAC8C \uD55C \uBC88 \uB354 \uB4E3\uAE30", "\uD63C\uC790 \uB2E4 \uD558\uB824 \uD558\uC9C0 \uB9D0\uACE0 \uB098\uB204\uAE30"]
+        },
+        \uC2DD\uC0C1: {
+          yong: ["\uB9D0\xB7\uAE00\xB7\uC791\uD488\uC73C\uB85C \uD45C\uD604\uD558\uACE0 \uAE30\uB85D \uB0A8\uAE30\uAE30", "\uBC30\uC6B4 \uAC83\uC744 \uAC00\uB974\uCE58\uAC70\uB098 \uCF58\uD150\uCE20\uB85C \uB9CC\uB4E4\uAE30", "\uC0C8 \uC544\uC774\uB514\uC5B4\uB97C \uC791\uAC8C\uB77C\uB3C4 \uC2E4\uD589\uD574 \uBCF4\uAE30"],
+          gi: ["\uAC10\uC815\uC774 \uC62C\uB77C\uC62C \uB54C \uBC14\uB85C \uB9D0\uD558\uC9C0 \uB9D0\uACE0 \uD558\uB8E8 \uB450\uAE30", "\uC717\uC0AC\uB78C\xB7\uC870\uC9C1\uACFC \uBD80\uB52A\uCE58\uB294 \uB9D0 \uC904\uC774\uAE30", "\uC5EC\uB7EC \uC77C\uC744 \uBC8C\uC774\uAE30\uBCF4\uB2E4 \uD558\uB098\uB97C \uB05D\uB0B4\uAE30"]
+        },
+        \uC7AC\uC131: {
+          yong: ["\uC218\uC785\xB7\uC9C0\uCD9C\uC744 \uC22B\uC790\uB85C \uAD00\uB9AC\uD558\uACE0 \uBAA9\uD45C \uAE08\uC561 \uC815\uD558\uAE30", "\uD604\uC2E4\uC801\uC778 \uACC4\uD68D\uD45C\uB97C \uB9CC\uB4E4\uC5B4 \uC2E4\uD589\uD558\uAE30", "\uC0AC\uB78C\uACFC \uC790\uC6D0\uC744 \uC5F0\uACB0\uD558\uB294 \uC77C \uB9E1\uAE30"],
+          gi: ["\uD070\uB3C8\uC774 \uAC78\uB9B0 \uACB0\uC815\uC740 \uC11C\uB450\uB974\uC9C0 \uB9D0\uACE0 \uB098\uB220\uC11C", "\uC695\uC2EC\uC73C\uB85C \uC77C\uC744 \uB298\uB9AC\uAE30 \uC804\uC5D0 \uCCB4\uB825\uBD80\uD130 \uD655\uC778", "\uAD00\uACC4\uB97C \uC190\uC775\uC73C\uB85C\uB9CC \uBCF4\uC9C0 \uC54A\uAE30"]
+        },
+        \uAD00\uC131: {
+          yong: ["\uC870\uC9C1\xB7\uC790\uACA9\xB7\uC9C1\uD568\uCC98\uB7FC \uACF5\uC778\uB41C \uD2C0 \uC548\uC5D0\uC11C \uC131\uC7A5\uD558\uAE30", "\uC57D\uC18D\uACFC \uB9C8\uAC10\uC744 \uC9C0\uCF1C \uC2E0\uB8B0 \uC313\uAE30", "\uADDC\uCE59\uC801\uC778 \uC0DD\uD65C\uB85C \uBAB8\uACFC \uC77C\uC815 \uAD00\uB9AC\uD558\uAE30"],
+          gi: ["\uCC45\uC784\uC744 \uD63C\uC790 \uB2E4 \uC9C0\uB824 \uD558\uC9C0 \uB9D0\uACE0 \uB3C4\uC6C0 \uC694\uCCAD\uD558\uAE30", "\uC555\uBC15\uC774 \uD074 \uB54C \uC26C\uB294 \uC2DC\uAC04\uC744 \uC77C\uC815\uC5D0 \uBA3C\uC800 \uB123\uAE30", "\uB0A8\uC758 \uD3C9\uAC00\uC5D0 \uB098\uB97C \uB9DE\uCD94\uB290\uB77C \uC9C0\uCE58\uC9C0 \uC54A\uAE30"]
+        },
+        \uC778\uC131: {
+          yong: ["\uACF5\uBD80\xB7\uC790\uACA9\uC99D\xB7\uB3C5\uC11C\uCC98\uB7FC \uAFB8\uC900\uD788 \uBC30\uC6B0\uAE30", "\uBBFF\uC744 \uB9CC\uD55C \uBA58\uD1A0\xB7\uC120\uBC30\uC5D0\uAC8C \uC870\uC5B8 \uAD6C\uD558\uAE30", "\uC0DD\uAC01\uC744 \uC815\uB9AC\uD558\uB294 \uD63C\uC790\uB9CC\uC758 \uC2DC\uAC04 \uAC16\uAE30"],
+          gi: ["\uC0DD\uAC01\uB9CC \uD558\uACE0 \uBBF8\uB8E8\uB294 \uC2B5\uAD00 \uB04A\uACE0 \uC791\uAC8C \uC2DC\uC791\uD558\uAE30", "\uB3C4\uC6C0\uC744 \uBC1B\uB294 \uB370 \uC775\uC219\uD574\uC9C0\uC9C0 \uC54A\uAC8C \uB0B4 \uBAAB \uCC59\uAE30\uAE30", "\uAC71\uC815\uC774 \uB9CE\uC744 \uB54C\uB294 \uBAB8\uC744 \uC6C0\uC9C1\uC774\uAE30"]
+        }
+      };
+      var COMBO4_TEXT = {
+        \uC804\uC18D\uB825: "\uD070 \uD750\uB984\uACFC \uC62C\uD574 \uD750\uB984\uC774 \uBAA8\uB450 \uB3D5\uB294 \uD574\uC608\uC694. \uBBF8\uB904 \uB454 \uC77C\uC744 \uC2E4\uD589\uC5D0 \uC62E\uAE30\uAE30 \uC88B\uC544\uC694.",
+        "\uC77C\uBCF4 \uD6C4\uD1F4(\uC624\uD788\uB824 \uC704\uD5D8\uD560 \uC218 \uC788\uC74C)": "\uD070 \uD750\uB984\uC740 \uC88B\uC740\uB370 \uC62C\uD574\uAC00 \uAC70\uC2AC\uB7EC\uC694. \uC798 \uB098\uAC00\uB358 \uAE30\uC138\uC5D0 \uBB34\uB9AC\uD558\uAE30 \uC26C\uC6B0\uB2C8 \uC18D\uB3C4\uB97C \uC904\uC774\uC138\uC694.",
+        "\uC190\uC808\xB7\uCE90\uC2DC\uC544\uC6C3 \uAE30\uD68C": "\uD070 \uD750\uB984\uC740 \uC5B4\uB835\uC9C0\uB9CC \uC62C\uD574\uB294 \uC228\uD1B5\uC774 \uD2B8\uC5EC\uC694. \uC815\uB9AC\uD560 \uAC83\uC744 \uC815\uB9AC\uD558\uACE0 \uCC59\uAE38 \uAC83\uC744 \uCC59\uAE30\uB294 \uD574\uC608\uC694.",
+        "\uC5CE\uB4DC\uB824 \uAE30\uB2E4\uB9BC": "\uD070 \uD750\uB984\uACFC \uC62C\uD574 \uD750\uB984\uC774 \uBAA8\uB450 \uAC70\uC2AC\uB7EC\uC694. \uC0C8 \uC77C\uC744 \uBC8C\uC774\uAE30\uBCF4\uB2E4 \uC9C0\uD0A4\uACE0 \uC900\uBE44\uD558\uB294 \uD574\uC608\uC694."
+      };
+      var GIBAN_TEXT = {
+        "B>G": "\uAEBC\uB9AC\uB358 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uBC14\uB00C\uC5B4 \uC624\uD788\uB824 \uAC00\uC7A5 \uBC18\uAC00\uC6B4 \uAE30\uC6B4\uC774 \uB3FC\uC694.",
+        "H>G": "\uBCF4\uD1B5\uC774\uB358 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uBC14\uB00C\uC5B4 \uBC18\uAC00\uC6B4 \uAE30\uC6B4\uC774 \uB3FC\uC694.",
+        "B>H": "\uAEBC\uB9AC\uB358 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uD480\uB824 \uBD80\uB2F4\uC774 \uD06C\uAC8C \uC904\uC5B4\uC694.",
+        "G>B": "\uBC18\uAC00\uC6B4 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uBC14\uB00C\uC5B4 \uC624\uD788\uB824 \uAEBC\uB9AC\uB294 \uAE30\uC6B4\uC774 \uB3FC\uC694. \uC88B\uC544 \uBCF4\uC774\uB294 \uAE30\uD68C\uB97C \uC870\uC2EC\uD558\uC138\uC694.",
+        "G>H": "\uBC18\uAC00\uC6B4 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uBB36\uC5EC \uD798\uC744 \uC4F0\uC9C0 \uBABB\uD574\uC694.",
+        "H>B": "\uBCF4\uD1B5\uC774\uB358 \uAE30\uC6B4\uC774 \uD569\uC73C\uB85C \uBC14\uB00C\uC5B4 \uAEBC\uB9AC\uB294 \uAE30\uC6B4\uC774 \uB3FC\uC694."
+      };
+      function sibsinOf(dayElem, e) {
+        if (e === dayElem) return "\uBE44\uAC81";
+        if (SHENG[dayElem] === e) return "\uC2DD\uC0C1";
+        if (KE_[dayElem] === e) return "\uC7AC\uC131";
+        if (KE_[e] === dayElem) return "\uAD00\uC131";
+        return "\uC778\uC131";
+      }
+      function iljuStage(dayGanIdx, dayJiIdx) {
+        const stage = twelveStage(dayGanIdx, dayJiIdx);
+        return { stage, ...TWELVE_STAGE_TEXT[stage] };
+      }
+      function adviceFor(pillars, deep) {
+        if (!pillars || !pillars.day || !deep) return null;
+        const dayElem = GAN_ELEM[pillars.day.gan];
+        const pick = (list) => [...new Set(list || [])];
+        const yong = pick(deep.yongsin), hee = pick(deep.heeshin), gi = pick(deep.gisin);
+        return {
+          yongsin: yong.map((e) => ({ elem: e, sibsin: sibsinOf(dayElem, e), life: OHAENG_LIFE[e], guide: SIBSIN_GUIDE[sibsinOf(dayElem, e)].yong })),
+          heeshin: hee.map((e) => ({ elem: e, sibsin: sibsinOf(dayElem, e), life: OHAENG_LIFE[e] })),
+          gisin: gi.map((e) => ({ elem: e, sibsin: sibsinOf(dayElem, e), body: OHAENG_LIFE[e].body, guide: SIBSIN_GUIDE[sibsinOf(dayElem, e)].gi })),
+          ilju: iljuStage(pillars.day.gan, pillars.day.ji)
+        };
+      }
+      module.exports = { OHAENG_LIFE, TWELVE_STAGE_TEXT, SIBSIN_GUIDE, COMBO4_TEXT, GIBAN_TEXT, iljuStage, adviceFor };
+    }
+  });
+
   // src/index.js
   var require_index = __commonJS({
     "src/index.js"(exports, module) {
@@ -15973,6 +16190,7 @@ var OhaengEngine = (() => {
       var transit = require_transit();
       var persona = require_persona();
       var ipc = require_ipc();
+      var content = require_content();
       module.exports = {
         saju,
         personality,
@@ -15986,7 +16204,8 @@ var OhaengEngine = (() => {
         timeline,
         transit,
         persona,
-        ipc
+        ipc,
+        content
       };
     }
   });
