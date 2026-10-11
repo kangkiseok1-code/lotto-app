@@ -2561,13 +2561,19 @@ var OhaengEngine = (() => {
           harms: findPairs(branches, HARM, "\uD574")
         };
       }
+      var NATAL_ORDER = ["year", "month", "day", "hour"];
+      function stemHapAllowed(a, b) {
+        const ia = NATAL_ORDER.indexOf(a), ib = NATAL_ORDER.indexOf(b);
+        if (ia < 0 || ib < 0) return true;
+        return Math.abs(ia - ib) === 1;
+      }
       function analyzeStemRelations(stems) {
         const hap = [], chung = [];
         for (let i = 0; i < stems.length; i++) {
           for (let j = i + 1; j < stems.length; j++) {
             const si = stems[i], sj = stems[j];
             GAN_HAP.forEach((c) => {
-              if (matchPair(si.gan, sj.gan, c.pair)) {
+              if (matchPair(si.gan, sj.gan, c.pair) && stemHapAllowed(si.id, sj.id)) {
                 hap.push({ type: "\uCC9C\uAC04\uD569", ids: [si.id, sj.id], gans: [si.gan, sj.gan], elem: c.elem });
               }
             });
@@ -2673,7 +2679,16 @@ var OhaengEngine = (() => {
           });
           applied.push({ text: `${h.jis.join("")} ${h.type}`, elem: h.elem });
         });
+        const stemBound = /* @__PURE__ */ new Set();
         st.hap.forEach((h) => {
+          h.ids.forEach((id) => stemBound.add(id));
+          if (h.ids.includes("day")) {
+            h.ids.forEach((id) => {
+              stemDamp[id] = (stemDamp[id] || 1) * 0.7;
+            });
+            applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569(\uC77C\uAC04\xB7\uBD88\uD654)`, elem: null });
+            return;
+          }
           let won = false;
           h.ids.forEach((id) => {
             if (!stemOverride[id]) {
@@ -2696,7 +2711,7 @@ var OhaengEngine = (() => {
         st.chung.forEach((c) => {
           let hit = false;
           c.ids.forEach((id) => {
-            if (!stemOverride[id]) {
+            if (!stemBound.has(id)) {
               stemDamp[id] = 0.5;
               hit = true;
             }
