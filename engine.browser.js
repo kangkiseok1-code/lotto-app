@@ -2723,67 +2723,122 @@ var OhaengEngine = (() => {
         if (KE_[tE] === dE) return same ? "\uD3B8\uAD00" : "\uC815\uAD00";
         return same ? "\uD3B8\uC778" : "\uC815\uC778";
       }
-      function hapChungOverrides(pillars) {
-        const cols = [];
-        ["year", "month", "day", "hour"].forEach((k) => {
-          if (pillars[k]) cols.push({ id: k, gan: pillars[k].gan, ji: pillars[k].ji });
-        });
+      var HC_BIND = 0.7;
+      var HC_CHUNG = 0.5;
+      var HC_JAENG_CHUNG = 0.25;
+      var NATAL_IDS = ["year", "month", "day", "hour"];
+      function hapChungEffects(cols) {
         const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: JI[c.ji] })));
         const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: GAN[c.gan] })));
-        const branchOverride = {}, branchDamp = {}, stemOverride = {}, stemDamp = {}, applied = [];
-        [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).forEach((h) => {
+        const byId = Object.fromEntries(cols.map((c) => [c.id, c]));
+        const stemOv = {}, stemMul = {}, jiDist = {}, jiMul = {}, applied = [];
+        const stemBind = /* @__PURE__ */ new Set(), jiBind = /* @__PURE__ */ new Set();
+        const isLuck = (ids) => ids.some((id) => !NATAL_IDS.includes(id));
+        const surroundOk = (ids, hw, kind) => {
+          const pos = /* @__PURE__ */ new Set();
+          ids.forEach((id) => {
+            const p = NATAL_IDS.indexOf(id);
+            [p - 1, p, p + 1].forEach((q) => {
+              if (q >= 0 && q < 4) pos.add(q);
+            });
+          });
+          const els = [];
+          pos.forEach((q) => {
+            const c = byId[NATAL_IDS[q]];
+            if (!c) return;
+            if (!(kind === "gan" && ids.includes(c.id))) els.push(GAN_ELEM[c.gan]);
+            if (!(kind === "ji" && ids.includes(c.id))) els.push(JI_ELEM[c.ji]);
+          });
+          return els.every((e) => e === hw || SHENG[e] === hw);
+        };
+        const combos = [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos];
+        const voidSet = /* @__PURE__ */ new Set(), farBlocked = /* @__PURE__ */ new Set(), clashOnly = /* @__PURE__ */ new Map();
+        br.clashes.forEach((c) => {
+          const H = combos.filter((h) => h.ids.some((id) => c.ids.includes(id)));
+          if (!H.length) return;
+          if (c.dist == null || c.dist <= 1) {
+            voidSet.add(c);
+            H.forEach((h) => voidSet.add(h));
+          } else {
+            H.forEach((h) => farBlocked.add(h));
+            clashOnly.set(c, c.ids.filter((id) => !H.some((h) => h.ids.includes(id))));
+          }
+        });
+        const label = (h, kind) => {
+          if (kind === "gan" && h.ids.includes("day")) return "\uC77C\uAC04";
+          if (farBlocked.has(h)) return "\uCDA9 \uBC29\uD574";
+          if (kind === "gan" ? !h.adjacent : h.dist != null && h.dist > 1) return "\uB5A8\uC5B4\uC9D0";
+          if (h.jaeng) return "\uC7C1\uD569";
+          if (h.type === "\uBC29\uD569") return "\uBC29\uD569";
+          if (!isLuck(h.ids) && !surroundOk(h.ids, h.elem, kind)) return "\uC8FC\uBCC0 \uBC29\uD574";
+          return null;
+        };
+        combos.filter((h) => h.elem && !voidSet.has(h)).forEach((h) => {
+          const why = label(h, "ji");
+          if (why) {
+            h.ids.forEach((id) => jiBind.add(id));
+            applied.push({ text: `${h.jis.join("")} ${h.type}(${why}\xB7\uBD88\uD654)`, elem: null });
+            return;
+          }
           h.ids.forEach((id) => {
-            (branchOverride[id] = branchOverride[id] || { elems: [] }).elems.push(h.elem);
+            (jiDist[id] = jiDist[id] || []).push(h.elem);
           });
           applied.push({ text: `${h.jis.join("")} ${h.type}`, elem: h.elem });
         });
-        const stemBound = /* @__PURE__ */ new Set();
-        st.hap.forEach((h) => {
-          h.ids.forEach((id) => stemBound.add(id));
-          if (h.ids.includes("day") || !h.adjacent) {
-            h.ids.forEach((id) => {
-              stemDamp[id] = (stemDamp[id] || 1) * 0.7;
-            });
-            applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569(${h.ids.includes("day") ? "\uC77C\uAC04" : "\uB5A8\uC5B4\uC9D0"}\xB7\uBD88\uD654)`, elem: null });
+        st.hap.filter((h) => !h.withChung).forEach((h) => {
+          const why = label(h, "gan");
+          if (why) {
+            h.ids.forEach((id) => stemBind.add(id));
+            applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569(${why}\xB7\uBD88\uD654)`, elem: null });
             return;
           }
-          let won = false;
           h.ids.forEach((id) => {
-            if (!stemOverride[id]) {
-              stemOverride[id] = { elem: h.elem };
-              won = true;
-            }
+            if (stemOv[id] === void 0) stemOv[id] = h.elem;
           });
-          if (won) applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569`, elem: h.elem });
+          applied.push({ text: `${h.gans.join("")} \uCC9C\uAC04\uD569`, elem: h.elem });
         });
-        br.clashes.forEach((c) => {
-          let hit = false;
-          c.ids.forEach((id) => {
-            if (!branchOverride[id]) {
-              branchDamp[id] = 0.5;
-              hit = true;
-            }
+        jiBind.forEach((id) => {
+          if (!jiDist[id]) jiMul[id] = HC_BIND;
+        });
+        stemBind.forEach((id) => {
+          if (stemOv[id] === void 0) stemMul[id] = HC_BIND;
+        });
+        const chungHits = (list, m, charsKey, name, skip, only) => list.filter((c) => !skip(c)).forEach((c) => {
+          const ids = only(c);
+          if (!ids.length) return;
+          ids.forEach((id) => {
+            const f = c.jaeng && c.target === id ? HC_JAENG_CHUNG : HC_CHUNG;
+            m[id] = Math.min(m[id] || 1, f);
           });
-          if (hit) applied.push({ text: `${c.jis.join("")} \uCDA9`, elem: null });
+          applied.push({ text: `${c[charsKey].join("")} ${name}${c.jaeng ? "(\uC7C1\uCDA9)" : ""}`, elem: null });
         });
-        st.chung.forEach((c) => {
-          let hit = false;
-          c.ids.forEach((id) => {
-            if (!stemBound.has(id)) {
-              stemDamp[id] = 0.5;
-              hit = true;
-            }
-          });
-          if (hit) applied.push({ text: `${c.gans.join("")} \uCC9C\uAC04\uCDA9`, elem: null });
-        });
+        chungHits(br.clashes, jiMul, "jis", "\uCDA9", (c) => voidSet.has(c), (c) => clashOnly.get(c) || c.ids);
+        chungHits(st.chung, stemMul, "gans", "\uCC9C\uAC04\uCDA9", (c) => c.withHap, (c) => c.ids);
+        const keyOf = (x) => {
+          const [chars, ...rest] = x.text.split(" ");
+          return [...chars].sort().join("") + " " + rest.join(" ");
+        };
         const seen = /* @__PURE__ */ new Set(), uniq = [];
         applied.forEach((a) => {
-          if (!seen.has(a.text)) {
-            seen.add(a.text);
+          const k = keyOf(a);
+          if (!seen.has(k)) {
+            seen.add(k);
             uniq.push(a);
           }
         });
-        return { branchOverride, branchDamp, stemOverride, stemDamp, applied: uniq };
+        return { stemOv, stemMul, jiDist, jiMul, applied: uniq };
+      }
+      var natalCols = (pillars) => ["year", "month", "day", "hour"].filter((k) => pillars[k]).map((k) => ({ id: k, gan: pillars[k].gan, ji: pillars[k].ji }));
+      function hapChungOverrides(pillars) {
+        const E = hapChungEffects(natalCols(pillars));
+        const branchOverride = {}, stemOverride = {};
+        Object.entries(E.jiDist).forEach(([id, els]) => {
+          branchOverride[id] = { elems: els };
+        });
+        Object.entries(E.stemOv).forEach(([id, el]) => {
+          stemOverride[id] = { elem: el };
+        });
+        return { branchOverride, branchDamp: E.jiMul, stemOverride, stemDamp: E.stemMul, applied: E.applied };
       }
       var HX_KEEP = { \uD569: 0.6, \uCDA9: 0.7, \uD615: 0.8 };
       function hapChungChange(pillars) {
@@ -2841,51 +2896,23 @@ var OhaengEngine = (() => {
       function bongiSeryeok(pillars, mode) {
         const keys = ["year", "month", "day", "hour"].filter((k) => pillars[k]);
         const POS = { year: "\uC5F0", month: "\uC6D4", day: "\uC77C", hour: "\uC2DC" };
-        const ov = {}, damp = {}, bound = /* @__PURE__ */ new Set(), jiDist = {};
-        if (mode === "natalHC") {
-          const cols = keys.map((k) => ({ id: k, ji: JI[pillars[k].ji], gan: GAN[pillars[k].gan] }));
-          const br = REL.analyzeBranchRelations(cols.map((c) => ({ id: c.id, ji: c.ji })));
-          const st = REL.analyzeStemRelations(cols.map((c) => ({ id: c.id, gan: c.gan })));
-          [...br.combos3, ...br.bangHap, ...br.combos6, ...br.halfCombos].filter((h) => h.elem).forEach((h) => h.ids.forEach((i) => {
-            (jiDist[i] = jiDist[i] || []).push(h.elem);
-          }));
-          st.hap.forEach((h) => {
-            h.ids.forEach((i) => bound.add(i));
-            const ilgan = h.ids.includes("day");
-            if (ilgan || !h.adjacent) {
-              h.ids.forEach((i) => {
-                damp["\uCC9C\uAC04_" + i] = (damp["\uCC9C\uAC04_" + i] || 1) * 0.7;
-              });
-            } else {
-              h.ids.forEach((i) => {
-                if (ov["\uCC9C\uAC04_" + i] === void 0) ov["\uCC9C\uAC04_" + i] = h.elem;
-              });
-            }
-          });
-          br.clashes.forEach((c) => c.ids.forEach((i) => {
-            if (!jiDist[i]) damp[i] = (damp[i] || 1) * 0.5;
-          }));
-          st.chung.forEach((c) => c.ids.forEach((i) => {
-            if (bound.has(i)) return;
-            if (ov["\uCC9C\uAC04_" + i] === void 0) damp["\uCC9C\uAC04_" + i] = (damp["\uCC9C\uAC04_" + i] || 1) * 0.5;
-          }));
-        }
+        const E = mode === "natalHC" ? hapChungEffects(natalCols(pillars)) : { stemOv: {}, stemMul: {}, jiDist: {}, jiMul: {} };
         const wp = { \uBAA9: 0, \uD654: 0, \uD1A0: 0, \uAE08: 0, \uC218: 0 };
         for (const k of keys) {
           const wg = YUPA.POSITION_WEIGHT.\uCC9C\uAC04[POS[k]], wj = YUPA.POSITION_WEIGHT.\uC9C0\uC9C0[POS[k]];
           {
-            const el = ov["\uCC9C\uAC04_" + k] || GAN_ELEM[pillars[k].gan];
-            wp[el] += wg * (damp["\uCC9C\uAC04_" + k] || 1);
+            const el = E.stemOv[k] || GAN_ELEM[pillars[k].gan];
+            wp[el] += wg * (E.stemMul[k] || 1);
           }
           {
-            const dist = jiDist[k];
+            const dist = E.jiDist[k];
             if (dist && dist.length) {
               const share = wj / dist.length;
               dist.forEach((el) => {
                 wp[el] += share;
               });
             } else {
-              wp[JI_ELEM[pillars[k].ji]] += wj * (damp[k] || 1);
+              wp[JI_ELEM[pillars[k].ji]] += wj * (E.jiMul[k] || 1);
             }
           }
         }
@@ -2915,6 +2942,44 @@ var OhaengEngine = (() => {
           manualYongsin: true,
           reason: "\uC0C1\uB2F4\uC0AC\uAC00 \uD655\uC815\uD55C \uC6A9\uC2E0\uC774\uC5D0\uC694."
         });
+      }
+      var JW_SHARE = 0.75;
+      var JW_KE_MAX = 0.1;
+      function jeonwangCandidate(pillars) {
+        const ids = ["year", "month", "day", "hour"].filter((k) => pillars[k]);
+        if (ids.length < 4) return null;
+        const POSN = { year: "\uC5F0", month: "\uC6D4", day: "\uC77C", hour: "\uC2DC" };
+        const de = GAN_ELEM[pillars.day.gan];
+        const keOf = (e) => Object.keys(KE_).find((k) => KE_[k] === e);
+        const br = REL.analyzeBranchRelations(ids.map((k) => ({ id: k, ji: JI[pillars[k].ji] })));
+        const jiEl = {}, conv = {};
+        ids.forEach((k) => {
+          jiEl[k] = JI_ELEM[pillars[k].ji];
+        });
+        [...br.combos3, ...br.bangHap, ...br.halfCombos].filter((h) => h.elem).filter((h) => !br.clashes.some((c) => (c.dist == null || c.dist <= 1) && c.ids.some((i) => h.ids.includes(i)))).forEach((h) => h.ids.forEach((i) => {
+          jiEl[i] = h.elem;
+          conv[i] = true;
+        }));
+        const w = { \uBAA9: 0, \uD654: 0, \uD1A0: 0, \uAE08: 0, \uC218: 0 };
+        ids.forEach((k) => {
+          if (k !== "day") w[GAN_ELEM[pillars[k].gan]] += YUPA.POSITION_WEIGHT.\uCC9C\uAC04[POSN[k]];
+          w[jiEl[k]] += YUPA.POSITION_WEIGHT.\uC9C0\uC9C0[POSN[k]];
+        });
+        const tot = Object.values(w).reduce((a, b) => a + b, 0) || 1;
+        const D = Object.entries(w).sort((a, b) => b[1] - a[1])[0][0], side = [D, GENERATED_BY_[D]];
+        if (w[D] / tot < JW_SHARE || w[keOf(D)] / tot > JW_KE_MAX) return null;
+        if (!ids.every((k) => side.includes(jiEl[k]))) return null;
+        const EL = (g) => GAN_ELEM[GAN.indexOf(g)];
+        const rootIn = (e) => ids.some((k) => conv[k] ? jiEl[k] === e : (YUPA.JIJANGGAN_RYUKRYANG[JI[pillars[k].ji]] || []).some(([g], i, arr) => EL(g) === e && !(arr.length === 3 && i === 0 && EL(arr[0][0]) !== EL(arr[2][0]))));
+        const stems = ids.filter((k) => k !== "day").map((k) => GAN[pillars[k].gan]);
+        const yang = pillars.day.gan % 2 === 0, yinPair = !yang && stems.includes(GAN[pillars.day.gan]);
+        const kind = D === de ? "\uBE44\uAC81" : D === SHENG[de] ? "\uC2DD\uC0C1" : D === KE_[de] ? "\uC7AC\uC131" : D === keOf(de) ? "\uAD00\uC131" : "\uC778\uC131";
+        if (kind === "\uBE44\uAC81") {
+          if (stems.some((g) => !side.includes(EL(g)) && rootIn(EL(g)))) return null;
+        } else if (kind === "\uC778\uC131") {
+          if (yang || yinPair) return null;
+        } else if (rootIn(de) || yinPair) return null;
+        return { elem: D, kind, share: +(w[D] / tot).toFixed(2) };
       }
       function deepAnalyze(pillars, opts) {
         if (!pillars || !pillars.day) return null;
@@ -2982,6 +3047,7 @@ var OhaengEngine = (() => {
         const helpRatio = +(bAku / bTotal).toFixed(2);
         const monthElem = pillars.month ? JI_ELEM[pillars.month.ji] : null;
         const monthHelps = [bigyeopE, inseongE].includes(monthElem);
+        const rootOk = (arr, i) => !(arr.length === 3 && i === 0 && GAN_ELEM[GAN.indexOf(arr[0][0])] !== GAN_ELEM[GAN.indexOf(arr[2][0])]);
         let tgScore = 0, jeonggiRoot = false, deukji = false, deukryeong = false;
         ["year", "month", "day", "hour"].forEach((k) => {
           if (!pillars[k]) return;
@@ -3001,14 +3067,14 @@ var OhaengEngine = (() => {
           }
           const arr = YUPA.JIJANGGAN_RYUKRYANG[JI[pillars[k].ji]] || [];
           arr.forEach(([g, ratio], idx) => {
-            if (GAN_ELEM[GAN.indexOf(g)] === dayElem) {
+            if (GAN_ELEM[GAN.indexOf(g)] === dayElem && rootOk(arr, idx)) {
               tgScore += wj * ratio * bF;
               if (idx === arr.length - 1 && (k === "day" || k === "month")) jeonggiRoot = true;
             }
           });
-          const hasBi = arr.some(([g]) => GAN_ELEM[GAN.indexOf(g)] === dayElem);
+          const hasBi = arr.some(([g], i) => GAN_ELEM[GAN.indexOf(g)] === dayElem && rootOk(arr, i));
           if (k === "day" && hasBi) deukji = true;
-          if (k === "month" && (hasBi || arr.some(([g]) => GAN_ELEM[GAN.indexOf(g)] === inseongE))) deukryeong = true;
+          if (k === "month" && (hasBi || arr.some(([g], i) => GAN_ELEM[GAN.indexOf(g)] === inseongE && rootOk(arr, i)))) deukryeong = true;
         });
         tgScore = +tgScore.toFixed(2);
         const TC = YUPA.TONGGEUN_CUT;
@@ -3016,13 +3082,26 @@ var OhaengEngine = (() => {
         const ganyeojidong = GAN_ELEM[dayGan] === JI_ELEM[pillars.day.ji];
         const strongRoot = ganyeojidong || tonggeunState === "\uC720\uADFC" && (deukji || deukryeong);
         const seryeokWeak = gangyakGrade === "\uC2E0\uC57D";
-        const deepWeakRoot = seryeokWeak && strongRoot && seryeokDiff < -0.2;
-        if (seryeokWeak && strongRoot && !deepWeakRoot) {
-          gangyakGrade = "\uC2E0\uAC15";
-          status = "\uC2E0\uAC15";
-        }
+        const deepWeakRoot = seryeokWeak && strongRoot;
         const dualState = seryeokWeak && strongRoot ? "\uC2E0\uC655\uC2E0\uC57D" : null;
         let gangyakLabel = deepWeakRoot ? "\uC2E0\uC57D \xB7 \uBFCC\uB9AC \uC2E0\uC655" : gangyakGrade;
+        const GYD_PAIR = { \uAC11: "\uC9C4", \uC815: "\uBBF8", \uACC4: "\uCD95" }, MONTH_JEONGGI = { \uC9C4: "\uBB34", \uBBF8: "\uAE30", \uCD95: "\uAE30" };
+        const mJi = pillars.month ? JI[pillars.month.ji] : null;
+        const stemsSeen = ["year", "month", "hour"].filter((k) => pillars[k]).map((k) => GAN[pillars[k].gan]);
+        const bonDeukryeong = !!(pillars.month && [bigyeopE, inseongE].includes(JI_ELEM[pillars.month.ji])) || !!mJi && GYD_PAIR[GAN[dayGan]] === mJi && !stemsSeen.includes(MONTH_JEONGGI[mJi]);
+        const bonDeukji = [bigyeopE, inseongE].includes(JI_ELEM[pillars.day.ji]) || ["\uAC11\uC9C4", "\uC815\uBBF8", "\uACC4\uCD95", "\uC2E0\uCD95"].includes(GAN[dayGan] + JI[pillars.day.ji]);
+        const toWeak = () => {
+          gangyakGrade = "\uC2E0\uC57D";
+          status = "\uC2E0\uC57D";
+          gangyakLabel = "\uC2E0\uC57D";
+        };
+        if (!bonDeukryeong && !bonDeukji && gangyakGrade !== "\uC2E0\uC57D") toWeak();
+        if (tonggeunState === "\uBB34\uADFC" && gangyakGrade !== "\uC2E0\uC57D") toWeak();
+        if (gangyakGrade === "\uC911\uD654" && tonggeunState === "\uC720\uADFC" && bonDeukryeong) {
+          gangyakGrade = "\uC2E0\uAC15";
+          status = "\uC2E0\uAC15";
+          gangyakLabel = "\uC2E0\uAC15";
+        }
         const yongheeshin = dualState ? [.../* @__PURE__ */ new Set([jaeE, gwanE])] : [];
         let maxElem = "\uBAA9", maxVal = -1;
         ELEMS.forEach((e) => {
@@ -3034,19 +3113,12 @@ var OhaengEngine = (() => {
         const pyeonjungRatio = +(maxVal / wTotal).toFixed(3);
         const inseongRatio = +(wPower[inseongE] / wTotal).toFixed(3);
         let gyeok = "\uC815\uACA9", gyeokDetail = null, indaState = null;
-        if (pyeonjungRatio >= YUPA.GEUKWANG_RATIO) {
-          if (maxElem === bigyeopE && tonggeunState !== "\uBB34\uADFC") {
-            gyeok = "\uC804\uC655\uACA9";
-            gyeokDetail = "\uC885\uC655";
-          } else if (maxElem === inseongE && tonggeunState !== "\uBB34\uADFC") {
-            gyeok = "\uC804\uC655\uACA9";
-            gyeokDetail = "\uC885\uAC15";
-          } else if (tonggeunState === "\uBB34\uADFC" && (maxElem === sikE || maxElem === jaeE || maxElem === gwanE)) {
-            gyeok = "\uC885\uACA9";
-            gyeokDetail = maxElem === sikE ? "\uC885\uC544" : maxElem === jaeE ? "\uC885\uC7AC" : "\uC885\uC0B4";
-          }
+        const JW = jeonwangCandidate(pillars);
+        if (JW) {
+          gyeok = "\uC804\uC655\uACA9";
+          gyeokDetail = `${JW.kind}\uC804\uC655 \uD6C4\uBCF4`;
         }
-        if (gyeok === "\uC815\uACA9" && (inseongRatio >= YUPA.INSEONG_TAEGWA_RATIO || maxElem === inseongE && pyeonjungRatio >= YUPA.GEUKWANG_RATIO)) {
+        if (gyeok === "\uC815\uACA9" && (inseongRatio >= YUPA.INSEONG_TAEGWA_RATIO || maxElem === inseongE && (pyeonjungRatio >= YUPA.GEUKWANG_RATIO || tonggeunState === "\uBB34\uADFC"))) {
           indaState = tonggeunState === "\uC720\uADFC" ? "\uC778\uB2E4\uC2E0\uAC15" : tonggeunState === "\uBBF8\uC57D\uADFC" ? "\uC778\uB2E4\uC2E0\uC57D" : "\uBAA8\uB2E4\uBA78\uC790";
         }
         const indaWeak = indaState === "\uC778\uB2E4\uC2E0\uC57D" || indaState === "\uBAA8\uB2E4\uBA78\uC790";
@@ -3058,56 +3130,111 @@ var OhaengEngine = (() => {
         let yongsin, reason;
         const S5 = { \uBE44\uAC81: bongi[bigyeopE], \uC2DD\uC0C1: bongi[sikE], \uC7AC\uC131: bongi[jaeE], \uAD00\uC131: bongi[gwanE], \uC778\uC131: bongi[inseongE] };
         const byeong = Object.entries(S5).sort((a, b) => b[1] - a[1])[0][0];
-        const deepDual = deepWeakRoot;
+        let shinCase = null;
         const gwanException = deepWeakRoot && sibsin.\uC2DD\uC0C1 >= 2 && sibsin.\uC7AC\uC131 >= 2 && sibsin.\uC778\uC131 <= 1 && sibsin.\uAD00\uC131 === 0;
-        if (gyeok === "\uC804\uC655\uACA9") {
-          yongsin = [.../* @__PURE__ */ new Set([maxElem, SHENG[maxElem]])];
-          reason = `\uC804\uC655\uACA9(${gyeokDetail}) \u2014 \uADF9\uC655\uD55C ${maxElem} \uC138\uB825\uC744 \uAC70\uC2A4\uB974\uC9C0 \uC54A\uACE0 \uB530\uB974\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC655\uC2E0\uC744 \uADF9\uD558\uB294 \uAE30\uC6B4\uC740 \uD53C\uD574\uC694).`;
-        } else if (gyeok === "\uC885\uACA9") {
-          yongsin = [maxElem];
-          reason = `\uC885\uACA9(${gyeokDetail}) \u2014 \uC77C\uAC04\uC774 \uBB34\uADFC\uC774\uB77C \uAC15\uD55C ${maxElem} \uC138\uB825\uC5D0 \uC885\uC18D\uB3FC\uC694(\uBE44\uAC81\xB7\uC778\uC131\uC740 \uC885\uC744 \uBC29\uD574\uD574 \uAEBC\uB824\uC694).`;
-        } else if (gwanException) {
+        if (gwanException) {
           yongsin = [gwanE];
           reason = "\uBFCC\uB9AC\uAC00 \uC2E0\uC655\uD558\uACE0 \uC2DD\uC0C1\xB7\uC7AC\uC131\uC774 \uBC1C\uB2EC\uD588\uB294\uB370 \uC778\uC131\uC740 \uC57D\uD558\uACE0 \uAD00\uC131\uC774 \uC6D0\uAD6D\uC5D0 \uC5C6\uC5B4\uC694. \uC7AC\uC131\uC774 \uC0DD\uD558\uB294 \uAD00\uC131\uC774 \uC6B4\uC5D0\uC11C \uB4E4\uC5B4\uC62C \uB54C \uC4F0\uC774\uB294 \uAD00\uC131 \uC6A9\uC2E0\uC774\uC5D0\uC694(\uAD00\uC131 \uC6A9\uC2E0 \uC608\uC678).";
-        } else if (deepDual) {
-          yongsin = [.../* @__PURE__ */ new Set([inseongE, bigyeopE])];
-          reason = "\uC2E0\uC655\uC2E0\uC57D(\uC774\uC911) \u2014 \uC138\uB825\uC740 \uC57D\uD558\uB098 \uBFCC\uB9AC\uB85C \uC2E0\uC655\uC774\uC5D0\uC694. \uC6D0\uAD6D\uC740 \uC778\uC131\xB7\uBE44\uAC81\uC73C\uB85C \uBC1B\uCE58\uACE0, \uC6B4\uC758 \uC7AC\uC131\xB7\uAD00\uC131 \uBC1C\uBCF5\uC744 \uBCD1\uD589\uD574 \uBD10\uC694(\uC0C1\uB2F4\uC0AC \uD310\uB2E8).";
-        } else if (gangyakGrade === "\uC2E0\uAC15") {
-          yongsin = [jaeE];
-          reason = "\uC2E0\uAC15\uD558\uB2C8 \uB118\uCE58\uB294 \uAE30\uC6B4\uC744 \uC7AC\uC131\uC73C\uB85C \uADF9\uCD9C\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC5B5\uBD80\uC758 \uC5B5).";
-        } else if (indaWeak && byeong === "\uC778\uC131") {
-          yongsin = [jaeE];
-          reason = "\uC778\uC131\uC740 \uB9CE\uC740\uB370 \uC77C\uAC04 \uBFCC\uB9AC\uAC00 \uC57D\uD55C \uC778\uB2E4\uC2E0\uC57D\uC774\uC5D0\uC694. \uB118\uCE58\uB294 \uC778\uC131\uC744 \uC7AC\uC131\uC73C\uB85C \uB20C\uB7EC \uC8FC\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
-        } else if (byeong === "\uC778\uC131") {
-          yongsin = [sikE];
-          reason = "\uC778\uC131\uC774 \uB9CE\uC544(\uC778\uB2E4) \uC2DD\uC0C1\uC73C\uB85C \uD750\uB984\uC744 \uBE7C\uC8FC\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
-        } else if (byeong === "\uBE44\uAC81") {
-          yongsin = [jaeE];
-          reason = "\uBE44\uAC81\uC774 \uB9CE\uC544 \uC7AC\uC131\uC73C\uB85C \uADF9\uCD9C\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
-        } else if (byeong === "\uC2DD\uC0C1") {
-          yongsin = [inseongE];
-          reason = "\uC2DD\uC0C1\uC774 \uB9CE\uC544 \uC778\uC131\uC73C\uB85C \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
-        } else if (byeong === "\uC7AC\uC131") {
-          if (wPower[inseongE] < 1) {
-            if (tonggeunState === "\uBB34\uADFC") {
-              yongsin = [bigyeopE];
-              reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC5D0 \uC778\uC131\uB3C4 \uBFCC\uB9AC\uB3C4 \uC5C6\uC5B4, \uBE44\uAC81\uC73C\uB85C \uC7AC\uC131\uC5D0 \uC9C1\uC811 \uB300\uC801\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uBC29\uC2E0).";
+        } else {
+          const rootNone = tonggeunState === "\uBB34\uADFC";
+          const inSeats = ["month", "day"].filter((k) => JI_ELEM[pillars[k].ji] === inseongE);
+          const brN = REL.analyzeBranchRelations(["year", "month", "day", "hour"].filter((k) => pillars[k]).map((k) => ({ id: k, ji: JI[pillars[k].ji] })));
+          const inGuarded = inSeats.length > 0 && [...brN.combos3, ...brN.halfCombos, ...brN.bangHap, ...brN.combos6].some((h) => h.elem === inseongE && h.ids.some((i) => inSeats.includes(i)));
+          if (gangyakGrade === "\uC2E0\uAC15") {
+            if (byeong === "\uAD00\uC131") {
+              yongsin = [sikE];
+              shinCase = "\uC2E0\uC655\uAD00\uC655";
+              reason = "\uC77C\uAC04\uC774 \uD2BC\uD2BC\uD55C\uB370 \uAD00\uC131\uC774 \uAC00\uC7A5 \uAC15\uD574\uC694(\uC2E0\uC655\uAD00\uC655). \uC2DD\uC0C1\uC73C\uB85C \uAD00\uC131\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else if (byeong === "\uC2DD\uC0C1") {
+              yongsin = [gwanE];
+              reason = "\uC77C\uAC04\uB3C4 \uD2BC\uD2BC\uD558\uACE0 \uC2DD\uC0C1\uB3C4 \uAC15\uD574\uC694(\uC2E0\uC655\uC2DD\uC655). \uAD00\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uB2E4\uB4EC\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else {
+              yongsin = [jaeE];
+              reason = "\uC2E0\uAC15\uD558\uB2C8 \uB118\uCE58\uB294 \uAE30\uC6B4\uC744 \uC7AC\uC131\uC73C\uB85C \uB35C\uC5B4 \uB0B4\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            }
+          } else if (indaWeak && byeong === "\uC778\uC131") {
+            yongsin = [jaeE];
+            shinCase = "\uC778\uB2E4\uC2E0\uC57D";
+            reason = "\uC778\uC131\uC740 \uB9CE\uC740\uB370 \uC77C\uAC04 \uBFCC\uB9AC\uAC00 \uC57D\uD55C \uC778\uB2E4\uC2E0\uC57D\uC774\uC5D0\uC694. \uB118\uCE58\uB294 \uC778\uC131\uC744 \uC7AC\uC131\uC73C\uB85C \uB20C\uB7EC \uC8FC\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+          } else if (gangyakGrade === "\uC911\uD654") {
+            if (byeong === "\uC778\uC131") {
+              yongsin = [sikE];
+              reason = "\uC911\uD654\uC778\uB370 \uC778\uC131\uC774 \uAC00\uC7A5 \uB9CE\uC544 \uC2DD\uC0C1\uC73C\uB85C \uD750\uB984\uC744 \uBE7C\uC8FC\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else if (byeong === "\uBE44\uAC81") {
+              yongsin = [jaeE];
+              reason = "\uC911\uD654\uC778\uB370 \uBE44\uAC81\uC774 \uAC00\uC7A5 \uB9CE\uC544 \uC7AC\uC131\uC73C\uB85C \uB35C\uC5B4 \uB0B4\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else if (byeong === "\uAD00\uC131") {
+              yongsin = [.../* @__PURE__ */ new Set([sikE, bigyeopE])];
+              reason = "\uC911\uD654\uC778\uB370 \uAD00\uC131\uC774 \uAC00\uC7A5 \uB9CE\uC544 \uC2DD\uC0C1(\uC81C\uC0B4) \uB610\uB294 \uBE44\uAC81(\uBC29\uC2E0)\uC774 \uC6A9\uC2E0\uC774\uC5D0\uC694 \u2014 \uC5B4\uB290 \uCABD\uC778\uC9C0\uB294 \uC0C1\uB2F4\uC0AC\uAC00 \uD310\uB2E8\uD558\uC138\uC694.";
             } else {
               yongsin = [inseongE];
-              reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC774\uB77C, \uC6D0\uAD6D\uC5D0 \uC5C6\uC5B4\uB3C4 \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uC0DD\uC870\uBC1B\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC6B4\uC5D0\uC11C \uC778\uC131\uC744 \uAE30\uB2E4\uB824\uC694).";
+              reason = "\uC911\uD654\uC778\uB370 \uC2DD\uC0C1\xB7\uC7AC\uC131\uC774 \uB9CE\uC544 \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uBC1B\uCE58\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
             }
-          } else if (sibsin.\uC2DD\uC0C1 === 0 && wPower[bigyeopE] > wPower[inseongE]) {
-            yongsin = [bigyeopE];
-            reason = "\uC7AC\uC131\uB9CC \uD0DC\uACFC\uD558\uACE0 \uC2DD\uC0C1\uC774 \uC5C6\uB294\uB370 \uBE44\uAC81\uC774 \uC778\uC131\uBCF4\uB2E4 \uC138, \uBE44\uAC81\uC73C\uB85C \uC7AC\uC131\uC744 \uB098\uB220 \uB300\uC801\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uBC29\uC2E0).";
-          } else {
+          } else if (strongRoot) {
+            if (byeong === "\uC2DD\uC0C1") {
+              yongsin = [inseongE];
+              reason = "\uBFCC\uB9AC\uB294 \uD2BC\uD2BC\uD558\uC9C0\uB9CC \uC2DD\uC0C1\uC774 \uB354 \uAC15\uD574\uC694(\uC2E0\uC655\uC2DD\uC655). \uC778\uC131\uC73C\uB85C \uC2DD\uC0C1\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else if (byeong === "\uC7AC\uC131") {
+              if (S5.\uAD00\uC131 >= S5.\uC7AC\uC131 * 0.6) {
+                yongsin = [bigyeopE];
+                reason = "\uBFCC\uB9AC\uB294 \uD2BC\uD2BC\uD558\uC9C0\uB9CC \uC7AC\uC131\uACFC \uAD00\uC131\uC774 \uBAA8\uB450 \uAC15\uD574\uC694. \uBE44\uAC81\uC73C\uB85C \uC77C\uAC04\uC744 \uC9C0\uD0A4\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+              } else {
+                yongsin = [inseongE];
+                reason = "\uBFCC\uB9AC\uB294 \uD2BC\uD2BC\uD558\uC9C0\uB9CC \uC7AC\uC131\uC774 \uB354 \uAC15\uD574\uC694(\uC2E0\uC655\uC7AC\uC655). \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uBC1B\uCE58\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uAD00\uC131\uC774 \uD76C\uC2E0).";
+              }
+            } else if (byeong === "\uAD00\uC131") {
+              yongsin = [sikE];
+              shinCase = "\uC2E0\uC655\uAD00\uC655";
+              reason = "\uBFCC\uB9AC\uB294 \uD2BC\uD2BC\uD558\uC9C0\uB9CC \uAD00\uC131\uC774 \uAC00\uC7A5 \uAC15\uD574\uC694(\uC2E0\uC655\uAD00\uC655). \uC2DD\uC0C1\uC73C\uB85C \uAD00\uC131\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            } else {
+              yongsin = [.../* @__PURE__ */ new Set([inseongE, bigyeopE])];
+              reason = "\uC138\uB825\uC740 \uC57D\uD558\uB098 \uBFCC\uB9AC\uB85C \uC2E0\uC655\uC774\uC5D0\uC694. \uC778\uC131\xB7\uBE44\uAC81\uC73C\uB85C \uBC1B\uCE58\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uC0C1\uB2F4\uC0AC \uD310\uB2E8).";
+            }
+          } else if (byeong === "\uAD00\uC131" && S5.\uC778\uC131 > 0) {
+            yongsin = [sikE];
+            reason = "\uC77C\uAC04 \uBFCC\uB9AC\uAC00 \uC57D\uD558\uACE0 \uAD00\uC131\uC774 \uAC15\uD55C\uB370 \uC778\uC131\uC5D0 \uAE30\uB300\uACE0 \uC788\uC5B4\uC694. \uC2DD\uC0C1\uC73C\uB85C \uAD00\uC131\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+          } else if (inGuarded) {
             yongsin = [inseongE];
-            reason = "\uC7AC\uB2E4\uC2E0\uC57D\uC774\uB77C \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uC0DD\uC870\uD558\uACE0 \uC2DD\uC0C1\uC744 \uC81C\uC5B4\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
+            reason = "\uC2E0\uC57D\uD558\uC9C0\uB9CC \uC6D4\uC9C0\xB7\uC77C\uC9C0\uC758 \uC778\uC131\uC774 \uD569\uC73C\uB85C \uB2E8\uB2E8\uD788 \uC9C0\uCF1C\uC838 \uC788\uC5B4, \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uC0DD\uC870\uD558\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694(\uCC45 \uAE30\uBCF8\uC740 \uBE44\uAC81, \uC790\uB9BC \uC608\uC678\uB85C \uC778\uC131).";
+          } else if (!rootNone && (byeong === "\uC2DD\uC0C1" || byeong === "\uC7AC\uC131")) {
+            yongsin = [inseongE];
+            reason = `\uC77C\uAC04 \uBFCC\uB9AC\uAC00 \uC57D\uD55C \uC2E0\uC57D\uC5D0 ${byeong}\uC774 \uAC15\uD574\uC694. \uC778\uC131\uC73C\uB85C \uC77C\uAC04\uC744 \uBC1B\uCE58\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.`;
+          } else {
+            yongsin = [bigyeopE];
+            reason = "\uC2E0\uC57D\uD558\uACE0 \uC77C\uAC04 \uBFCC\uB9AC\uAC00 \uC5C6\uC5B4\uC694. \uBE44\uAC81\uC73C\uB85C \uC77C\uAC04\uC744 \uC9C1\uC811 \uC9C0\uD0A4\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694.";
           }
-        } else {
-          yongsin = [.../* @__PURE__ */ new Set([sikE, bigyeopE])];
-          reason = "\uAD00\uC131\uC774 \uB9CE\uC544 \uC2DD\uC0C1(\uC81C\uC0B4) \uB610\uB294 \uBE44\uAC81(\uBC29\uC2E0)\uC774 \uC6A9\uC2E0\uC774\uC5D0\uC694 \u2014 \uC5B4\uB290 \uCABD\uC778\uC9C0\uB294 \uC0C1\uB2F4\uC0AC\uAC00 \uD310\uB2E8\uD558\uC138\uC694.";
         }
-        const { heeshin, hansin, gisin, gusin } = fiveShin(yongsin);
+        let eokbuYongsin = null;
+        if (JW) {
+          eokbuYongsin = yongsin;
+          shinCase = null;
+          yongsin = [JW.elem];
+          reason = `${JW.kind}\uC804\uC655 \uD6C4\uBCF4 \u2014 ${JW.elem} \uAE30\uC6B4\uC774 \uC0AC\uC8FC\uC758 ${Math.round(JW.share * 100)}%\uB97C \uCC28\uC9C0\uD558\uACE0 \uC774\uB97C \uADF9\uD558\uB294 \uAE30\uC6B4\uC774 \uAC70\uC758 \uC5C6\uC5B4, ${JW.elem}${["\uBAA9", "\uAE08"].includes(JW.elem) ? "\uC744" : "\uB97C"} \uB530\uB974\uB294 \uAC8C \uC6A9\uC2E0\uC774\uC5D0\uC694. \uC804\uC655\uC740 \uC0B4\uC544\uC628 \uC774\uB825\uC73C\uB85C \uAF2D \uD655\uC778\uD558\uC138\uC694(\uC5B5\uBD80\uB85C \uBCF4\uBA74 ${eokbuYongsin.join("\xB7")}).`;
+        }
+        let { heeshin, hansin, gisin, gusin } = fiveShin(yongsin);
+        if (JW && JW.kind === "\uC2DD\uC0C1") {
+          heeshin = [SHENG[JW.elem]];
+          hansin = [GENERATED_BY_[JW.elem]];
+        }
+        if (JW && JW.kind === "\uC778\uC131") {
+          heeshin = [SHENG[JW.elem]];
+          gusin = [GENERATED_BY_[JW.elem]];
+          hansin = [SHENG[SHENG[JW.elem]]];
+        }
+        if (JW && JW.kind === "\uAD00\uC131") {
+          gusin = [GENERATED_BY_[GENERATED_BY_[JW.elem]]];
+          hansin = [SHENG[SHENG[SHENG[JW.elem]]]];
+        }
+        if (shinCase === "\uC2E0\uC655\uAD00\uC655") {
+          gisin = [gwanE];
+          gusin = [jaeE];
+          hansin = [inseongE];
+        }
+        if (shinCase === "\uC778\uB2E4\uC2E0\uC57D") {
+          gisin = [inseongE];
+          gusin = [gwanE];
+          hansin = [bigyeopE];
+        }
         return {
           sibsin,
           topSibsin,
@@ -3136,6 +3263,7 @@ var OhaengEngine = (() => {
           gyeok,
           gyeokDetail,
           indaState,
+          eokbuYongsin,
           pyeonjung: { elem: maxElem, ratio: pyeonjungRatio },
           mode,
           hapchung: HX ? HX.applied : HC.applied
@@ -3231,6 +3359,7 @@ var OhaengEngine = (() => {
         withYongsin,
         pillarToIdx,
         computeSaju,
+        hapChungEffects,
         // 음력↔양력 변환 (만세력 라이브러리 그대로). 스크립트·앱에서 음력 생일을 양력으로 바꿀 때 사용
         lunarToSolar: manseLunarToSolar,
         solarToLunar: manse.solarToLunar
