@@ -2951,7 +2951,7 @@ var OhaengEngine = (() => {
       function fiveShin(yongsin) {
         const keInv = (t) => Object.keys(KE_).find((k) => KE_[k] === t);
         const derive5 = (fn) => [...new Set(yongsin.map(fn).filter((e) => e && !yongsin.includes(e)))];
-        return {
+        const raw = {
           heeshin: derive5((e) => GENERATED_BY_[e]),
           hansin: derive5((e) => SHENG[e]),
           gisin: derive5((e) => keInv(e)),
@@ -2960,6 +2960,12 @@ var OhaengEngine = (() => {
             return g ? GENERATED_BY_[g] : null;
           })
         };
+        const used = new Set(yongsin), out = {};
+        ["heeshin", "gisin", "gusin", "hansin"].forEach((k) => {
+          out[k] = raw[k].filter((e) => !used.has(e));
+          out[k].forEach((e) => used.add(e));
+        });
+        return out;
       }
       function withYongsin(deep, yongsin) {
         const ok = Array.isArray(yongsin) ? [...new Set(yongsin.filter((e) => ELEMS.includes(e)))] : [];
@@ -3252,8 +3258,8 @@ var OhaengEngine = (() => {
           hansin = [SHENG[SHENG[JW.elem]]];
         }
         if (JW && JW.kind === "\uAD00\uC131") {
-          gusin = [GENERATED_BY_[GENERATED_BY_[JW.elem]]];
-          hansin = [SHENG[SHENG[SHENG[JW.elem]]]];
+          gusin = [SHENG[JW.elem]];
+          hansin = [KE_[JW.elem]];
         }
         if (shinCase === "\uC2E0\uC655\uAD00\uC655") {
           gisin = [gwanE];
