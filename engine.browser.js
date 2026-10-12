@@ -3311,6 +3311,53 @@ var OhaengEngine = (() => {
         const nd = new Date(y, mo - 1, d + 1);
         return { y: nd.getFullYear(), mo: nd.getMonth() + 1, d: nd.getDate() };
       }
+      var KR_CLOCK_SHIFTS = [
+        ["1948-06-01T00:00", 60],
+        ["1948-09-12T23:00", 0],
+        ["1949-04-03T00:00", 60],
+        ["1949-09-10T23:00", 0],
+        ["1950-04-01T00:00", 60],
+        ["1950-09-09T23:00", 0],
+        ["1951-05-06T00:00", 60],
+        ["1951-09-08T23:00", 0],
+        ["1954-03-21T00:00", -30],
+        ["1955-05-05T00:30", 30],
+        ["1955-09-08T23:30", -30],
+        ["1956-05-20T00:30", 30],
+        ["1956-09-29T23:30", -30],
+        ["1957-05-05T00:30", 30],
+        ["1957-09-21T23:30", -30],
+        ["1958-05-04T00:30", 30],
+        ["1958-09-20T23:30", -30],
+        ["1959-05-03T00:30", 30],
+        ["1959-09-19T23:30", -30],
+        ["1960-05-01T00:30", 30],
+        ["1960-09-17T23:30", -30],
+        ["1961-08-10T00:30", 0],
+        ["1987-05-10T02:00", 60],
+        ["1987-10-11T02:00", 0],
+        ["1988-05-08T02:00", 60],
+        ["1988-10-09T02:00", 0]
+      ];
+      var KR_SHIFT_T = KR_CLOCK_SHIFTS.map(([t, v]) => {
+        const [Y, M, D, H, Mi] = t.match(/\d+/g).map(Number);
+        return [Date.UTC(Y, M - 1, D, H, Mi), v];
+      });
+      function krClockShift(y, mo, d, h, mi) {
+        const t = Date.UTC(y, mo - 1, d, h, mi || 0);
+        for (let i = 0; i < KR_SHIFT_T.length; i++) {
+          const [from, v] = KR_SHIFT_T[i], to = i + 1 < KR_SHIFT_T.length ? KR_SHIFT_T[i + 1][0] : Infinity, u = t - v * 6e4;
+          if (u >= from && u < to) return v;
+        }
+        return 0;
+      }
+      function toKstClock(y, mo, d, h, mi) {
+        const shift = krClockShift(y, mo, d, h, mi);
+        if (!shift) return { y, mo, d, h, mi, shift: 0, reason: null };
+        const dt = new Date(Date.UTC(y, mo - 1, d, h, mi) - shift * 6e4);
+        const reason = shift === 60 ? "\uC11C\uBA38\uD0C0\uC784(+1\uC2DC\uAC04)" : shift === 30 ? "\uC11C\uBA38\uD0C0\uC784(\uD45C\uC900\uC2DC UTC+8:30 \uC2DC\uC808, +30\uBD84)" : "\uD45C\uC900\uC2DC UTC+8:30(\u221230\uBD84)";
+        return { y: dt.getUTCFullYear(), mo: dt.getUTCMonth() + 1, d: dt.getUTCDate(), h: dt.getUTCHours(), mi: dt.getUTCMinutes(), shift, reason };
+      }
       function computeSaju(year, month, day, hour, opts) {
         opts = opts || {};
         const minute = opts.minute !== void 0 && opts.minute !== "" ? parseInt(opts.minute, 10) : 0;
@@ -3331,7 +3378,19 @@ var OhaengEngine = (() => {
         }
         const lngOpt = city && CITY_LNG[city] != null ? { longitude: CITY_LNG[city] } : void 0;
         const hasHour = hour !== "" && hour != null;
-        const rawHour = hasHour ? parseInt(hour, 10) : null;
+        let rawHour = hasHour ? parseInt(hour, 10) : null, mi = minute, clockShift = null;
+        const solarIn = { y, m: mo, d };
+        if (hasHour) {
+          const K = toKstClock(y, mo, d, rawHour, mi);
+          if (K.shift) {
+            clockShift = { minutes: K.shift, reason: K.reason, from: { h: rawHour, mi }, to: { y: K.y, m: K.mo, d: K.d, h: K.h, mi: K.mi } };
+            y = K.y;
+            mo = K.mo;
+            d = K.d;
+            rawHour = K.h;
+            mi = K.mi;
+          }
+        }
         let dayShiftedByYajasi = false, calcY = y, calcMo = mo, calcD = d;
         if (hasHour && yajasi && rawHour === 23) {
           const nd = nextCalendarDate(y, mo, d);
@@ -3343,7 +3402,7 @@ var OhaengEngine = (() => {
         let res;
         try {
           if (hasHour) {
-            res = lngOpt ? manseSaju(calcY, calcMo, calcD, rawHour, minute, lngOpt) : manseSaju(calcY, calcMo, calcD, rawHour, minute);
+            res = lngOpt ? manseSaju(calcY, calcMo, calcD, rawHour, mi, lngOpt) : manseSaju(calcY, calcMo, calcD, rawHour, mi);
           } else {
             res = manseSaju(y, mo, d);
           }
@@ -3365,11 +3424,13 @@ var OhaengEngine = (() => {
           }
         });
         const dGan = pillars.day ? pillars.day.gan : 0;
-        return { pillars, dist, dayMaster: dGan, dayMasterElem: GAN_ELEM[dGan], solar: { y, m: mo, d }, corrected: res.correctedTime || null, deep: deepAnalyze(pillars), dayShiftedByYajasi };
+        return { pillars, dist, dayMaster: dGan, dayMasterElem: GAN_ELEM[dGan], solar: solarIn, corrected: res.correctedTime || null, deep: deepAnalyze(pillars), dayShiftedByYajasi, clockShift };
       }
       module.exports = {
         CITY_LNG,
         CITY_GROUPS,
+        krClockShift,
+        toKstClock,
         GAN,
         GAN_HANJA,
         JI_HANJA,
@@ -9592,7 +9653,7 @@ var OhaengEngine = (() => {
   // src/saju/daewoon.js
   var require_daewoon = __commonJS({
     "src/saju/daewoon.js"(exports, module) {
-      var { GAN, JI, GAN_YIN_YANG } = require_saju();
+      var { GAN, JI, GAN_YIN_YANG, krClockShift } = require_saju();
       var SOLAR_TERMS = require_solar_terms_data();
       var JEOL_KEYS = [
         "minor_cold",
@@ -9624,7 +9685,7 @@ var OhaengEngine = (() => {
         return { prev, next };
       }
       function birthToUTCms(year, month, day, hour, minute) {
-        return Date.UTC(year, month - 1, day, hour, minute) - 9 * 3600 * 1e3;
+        return Date.UTC(year, month - 1, day, hour, minute) - 9 * 3600 * 1e3 - krClockShift(year, month, day, hour, minute) * 6e4;
       }
       function direction(yearGanIdx, gender) {
         const yy = GAN_YIN_YANG[yearGanIdx];
