@@ -3364,6 +3364,11 @@ var OhaengEngine = (() => {
         const reason = shift === 60 ? "\uC11C\uBA38\uD0C0\uC784(+1\uC2DC\uAC04)" : shift === 30 ? "\uC11C\uBA38\uD0C0\uC784(\uD45C\uC900\uC2DC UTC+8:30 \uC2DC\uC808, +30\uBD84)" : "\uD45C\uC900\uC2DC UTC+8:30(\u221230\uBD84)";
         return { y: dt.getUTCFullYear(), mo: dt.getUTCMonth() + 1, d: dt.getUTCDate(), h: dt.getUTCHours(), mi: dt.getUTCMinutes(), shift, reason };
       }
+      function equationOfTime(y, mo, d, h, mi) {
+        const n = (Date.UTC(y, mo - 1, d) - Date.UTC(y, 0, 1)) / 864e5;
+        const g = 2 * Math.PI / 365 * (n + ((h || 0) - 9 + (mi || 0) / 60 - 12) / 24);
+        return 229.18 * (75e-6 + 1868e-6 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+      }
       function computeSaju(year, month, day, hour, opts) {
         opts = opts || {};
         const minute = opts.minute !== void 0 && opts.minute !== "" ? parseInt(opts.minute, 10) : 0;
@@ -3405,10 +3410,12 @@ var OhaengEngine = (() => {
           calcD = nd.d;
           dayShiftedByYajasi = true;
         }
-        let res;
+        let res, eotMinutes = null;
         try {
           if (hasHour) {
-            res = lngOpt ? manseSaju(calcY, calcMo, calcD, rawHour, mi, lngOpt) : manseSaju(calcY, calcMo, calcD, rawHour, mi);
+            eotMinutes = Math.round(equationOfTime(y, mo, d, rawHour, mi));
+            const t = ((rawHour * 60 + mi + eotMinutes) % 1440 + 1440) % 1440, eh = Math.floor(t / 60), em = t % 60;
+            res = lngOpt ? manseSaju(calcY, calcMo, calcD, eh, em, lngOpt) : manseSaju(calcY, calcMo, calcD, eh, em);
           } else {
             res = manseSaju(y, mo, d);
           }
@@ -3430,13 +3437,14 @@ var OhaengEngine = (() => {
           }
         });
         const dGan = pillars.day ? pillars.day.gan : 0;
-        return { pillars, dist, dayMaster: dGan, dayMasterElem: GAN_ELEM[dGan], solar: solarIn, corrected: res.correctedTime || null, deep: deepAnalyze(pillars), dayShiftedByYajasi, clockShift };
+        return { pillars, dist, dayMaster: dGan, dayMasterElem: GAN_ELEM[dGan], solar: solarIn, corrected: res.correctedTime || null, eotMinutes, deep: deepAnalyze(pillars), dayShiftedByYajasi, clockShift };
       }
       module.exports = {
         CITY_LNG,
         CITY_GROUPS,
         krClockShift,
         toKstClock,
+        equationOfTime,
         GAN,
         GAN_HANJA,
         JI_HANJA,
