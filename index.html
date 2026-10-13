@@ -36,7 +36,7 @@
   header.app .sp{flex:1}
   .btn{border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:10px;
     padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.12s}
-  .btn:active{transform:scale(.98)}
+  .btn:active:not(:disabled){transform:scale(.98)}
   .btn.ghost{background:var(--card);color:var(--green);border-color:var(--green)}
   .btn.sm{padding:7px 11px;font-size:12.5px;border-radius:8px}
   .btn.wide{width:100%}
@@ -171,6 +171,14 @@
   .lp-quote span+span{margin-top:1.1em}
   .lp-quote b{color:var(--green-deep)}
   .lp-sign{display:block;margin-top:16px!important;color:var(--sub);font-size:21px;font-family:"Nanum Pen Script",cursive}
+  /* ===== 누르는 순간 반응 보강 (탭바·숫자판·달력 칸) ===== */
+  .btn,.tgl,nav.tabs button,.numgrid button,.cal-cell,.chip button{touch-action:manipulation}
+  .numgrid button:active:not(:disabled),.cal-cell:not(.empty):active{transform:scale(.95);transition:transform .1s ease-out}
+  nav.tabs button:active,.chip button:active,a.link:active{opacity:.6}
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important}
+    .btn:active:not(:disabled),.tgl:active,.numgrid button:active:not(:disabled),.cal-cell:not(.empty):active{transform:none;opacity:.7}
+  }
 </style>
 
 <div id="root"><div class="wrap" style="text-align:center;padding-top:80px">불러오는 중…</div></div>
@@ -1774,6 +1782,19 @@ async function reloadFeedback(){ feedbackInbox=await dbLoadFeedback(); renderTab
 async function logout(){ try{ if(sb) await sb.auth.signOut(); }catch(e){} user=null; DEMO=true; toast('로그아웃 — 이 기기 저장으로 전환'); afterAuth(); }
 
 init();
+
+// 서버에 쓰는 버튼: 처리 중 같은 인자로 다시 누르면 무시 + 누른 버튼 잠금 (두 번 탭 → 중복 저장 방지)
+function guardTap(fn){
+  const busy=new Set();
+  return async function(...a){
+    const key=JSON.stringify(a); if(busy.has(key)) return;
+    const ev=window.event, b=ev&&ev.currentTarget&&ev.currentTarget.tagName==='BUTTON'?ev.currentTarget:null;
+    busy.add(key); if(b) b.disabled=true;
+    try{ return await fn.apply(this,a); } finally{ busy.delete(key); if(b&&b.isConnected) b.disabled=false; }
+  };
+}
+saveScanned=guardTap(saveScanned); applyMurphy=guardTap(applyMurphy); addManual=guardTap(addManual);
+sendFeedback=guardTap(sendFeedback); toggleNum=guardTap(toggleNum); dbToggleLucky=guardTap(dbToggleLucky);
 
 // PWA 서비스워커 등록 (홈 아이콘·오프라인)
 if('serviceWorker' in navigator){
