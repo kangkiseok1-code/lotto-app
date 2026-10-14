@@ -2386,6 +2386,11 @@ var OhaengEngine = (() => {
         return i < 0 ? null : JI_ORDER[(i - 1 + 12) % 12];
       }
       var CHEONRA_JIMANG = { \uB0A8: ["\uC220", "\uD574"], \uC5EC: ["\uC9C4", "\uC0AC"] };
+      var GOEGANG = ["\uBB34\uC220", "\uACBD\uC9C4", "\uACBD\uC220", "\uC784\uC9C4"];
+      var BAEKHO = ["\uAC11\uC9C4", "\uC744\uBBF8", "\uBCD1\uC220", "\uC815\uCD95", "\uBB34\uC9C4", "\uC784\uC220", "\uACC4\uCD95"];
+      var HONGYEOM = { \uAC11: "\uC624", \uBCD1: "\uC778", \uC815: "\uBBF8", \uBB34: "\uC9C4", \uACBD: "\uC220", \uC2E0: "\uC720", \uC784: "\uC790" };
+      var AMROK = { \uAC11: "\uD574", \uC744: "\uC220", \uBCD1: "\uC2E0", \uC815: "\uBBF8", \uBB34: "\uC2E0", \uAE30: "\uBBF8", \uACBD: "\uC0AC", \uC2E0: "\uC9C4", \uC784: "\uC778", \uACC4: "\uCD95" };
+      var MUNCHANG = { \uAC11: "\uC0AC", \uC744: "\uC624", \uBCD1: "\uC2E0", \uC815: "\uC720", \uBB34: "\uC2E0", \uAE30: "\uC720", \uACBD: "\uD574", \uC2E0: "\uC790", \uC784: "\uC778", \uACC4: "\uBB18" };
       var JOHU_MODE = "reference_only";
       var JOHU_TABLE_SCOPE = "hybrid";
       var JOHU_HANNAN_BASIS = ["\uC6D4\uC9C0", "\uD654\uC138\uB825", "\uC218\uC138\uB825"];
@@ -2408,6 +2413,11 @@ var OhaengEngine = (() => {
         BOKRYEOK_YEOKMA,
         cheonuiseongOf,
         CHEONRA_JIMANG,
+        GOEGANG,
+        BAEKHO,
+        HONGYEOM,
+        AMROK,
+        MUNCHANG,
         JOHU_MODE,
         JOHU_TABLE_SCOPE,
         JOHU_HANNAN_BASIS,
@@ -9786,6 +9796,7 @@ var OhaengEngine = (() => {
   var require_sinsal = __commonJS({
     "src/saju/sinsal.js"(exports, module) {
       var { TRIO_COMBO } = require_relations();
+      var Y = require_yupa_constants();
       var CHEONEUL = {
         \uAC11: ["\uCD95", "\uBBF8"],
         \uBB34: ["\uCD95", "\uBBF8"],
@@ -9801,13 +9812,25 @@ var OhaengEngine = (() => {
       var TRIO_TO_DOHWA = { \uC778\uC624\uC220: "\uBB18", \uC0AC\uC720\uCD95: "\uC624", \uC2E0\uC790\uC9C4: "\uC720", \uD574\uBB18\uBBF8: "\uC790" };
       var TRIO_TO_YEOKMA = { \uC778\uC624\uC220: "\uC2E0", \uC0AC\uC720\uCD95: "\uD574", \uC2E0\uC790\uC9C4: "\uC778", \uD574\uBB18\uBBF8: "\uC0AC" };
       var TRIO_TO_HWAGAE = { \uC778\uC624\uC220: "\uC220", \uC0AC\uC720\uCD95: "\uCD95", \uC2E0\uC790\uC9C4: "\uC9C4", \uD574\uBB18\uBBF8: "\uBBF8" };
-      var YANGIN = { \uAC11: "\uBB18", \uBCD1: "\uC624", \uBB34: "\uC624", \uACBD: "\uC720", \uC784: "\uC790" };
+      var YANGIN = Y.YANGIN;
       function trioKeyOf(ji) {
         const t = TRIO_COMBO.find((t2) => t2.members.includes(ji));
         return t ? t.members.join("") : null;
       }
       function findSinsal(branches, dayGan) {
-        const result = { cheoneul: [], dohwa: [], yeokma: [], hwagae: [], yangin: [] };
+        const result = {
+          cheoneul: [],
+          dohwa: [],
+          yeokma: [],
+          hwagae: [],
+          yangin: [],
+          goegang: [],
+          baekho: [],
+          hongyeom: [],
+          amrok: [],
+          munchang: [],
+          bokryeok: []
+        };
         const cheoneulJi = CHEONEUL[dayGan] || [];
         branches.forEach((b) => {
           if (cheoneulJi.includes(b.ji)) result.cheoneul.push(b);
@@ -9830,9 +9853,109 @@ var OhaengEngine = (() => {
         if (yanginJi) branches.forEach((b) => {
           if (b.ji === yanginJi) result.yangin.push(b);
         });
+        const byDayGan = [["hongyeom", Y.HONGYEOM], ["amrok", Y.AMROK], ["munchang", Y.MUNCHANG]];
+        byDayGan.forEach(([key, table]) => {
+          const ji = table[dayGan];
+          if (ji) branches.forEach((b) => {
+            if (b.ji === ji) result[key].push(b);
+          });
+        });
+        branches.forEach((b) => {
+          if (!b.gan) return;
+          const gj = b.gan + b.ji;
+          if (b.id === "day" && Y.GOEGANG.includes(gj)) result.goegang.push(b);
+          if (Y.BAEKHO.includes(gj)) result.baekho.push(b);
+        });
+        if (dayBranch && Y.BOKRYEOK_YEOKMA.\uC77C\uAC04.includes(dayGan) && dayBranch.ji === Y.BOKRYEOK_YEOKMA.\uC77C\uC9C0) {
+          result.bokryeok.push(dayBranch);
+        }
         return result;
       }
-      module.exports = { CHEONEUL, TRIO_TO_DOHWA, TRIO_TO_YEOKMA, TRIO_TO_HWAGAE, YANGIN, findSinsal };
+      var GAN_KO = ["\uAC11", "\uC744", "\uBCD1", "\uC815", "\uBB34", "\uAE30", "\uACBD", "\uC2E0", "\uC784", "\uACC4"];
+      function gongmang(gan, ji) {
+        const gi = GAN_KO.indexOf(gan), ji_ = JI_CYCLE.indexOf(ji);
+        if (gi < 0 || ji_ < 0) return null;
+        let idx = -1;
+        for (let i = 0; i < 60; i++) if (i % 10 === gi && i % 12 === ji_) {
+          idx = i;
+          break;
+        }
+        if (idx < 0) return null;
+        const j0 = (idx - idx % 10) % 12;
+        return [JI_CYCLE[(j0 + 10) % 12], JI_CYCLE[(j0 + 11) % 12]];
+      }
+      function findGongmang(branches, basis = "day") {
+        const base = branches.find((b) => b.id === basis);
+        if (!base || !base.gan) return { base: null, kong: null, hits: [] };
+        const kong = gongmang(base.gan, base.ji);
+        if (!kong) return { base: base.gan + base.ji, kong: null, hits: [] };
+        return { base: base.gan + base.ji, kong, hits: branches.filter((b) => b.id !== basis && kong.includes(b.ji)) };
+      }
+      var ILJI_KIND = { \uC778: "\uC5ED\uB9C8", \uC2E0: "\uC5ED\uB9C8", \uC0AC: "\uC5ED\uB9C8", \uD574: "\uC5ED\uB9C8", \uC790: "\uB3C4\uD654", \uC624: "\uB3C4\uD654", \uBB18: "\uB3C4\uD654", \uC720: "\uB3C4\uD654", \uC9C4: "\uD654\uAC1C", \uC220: "\uD654\uAC1C", \uCD95: "\uD654\uAC1C", \uBBF8: "\uD654\uAC1C" };
+      function iljuSinsal(gan, ji) {
+        const gj = gan + ji;
+        const gm = gongmang(gan, ji);
+        if (!gm) return null;
+        const sinsal = [];
+        if (Y.GOEGANG.includes(gj)) sinsal.push("\uAD34\uAC15");
+        if (Y.BAEKHO.includes(gj)) sinsal.push("\uBC31\uD638");
+        if (YANGIN[gan] === ji) sinsal.push("\uC591\uC778");
+        if (Y.HONGYEOM[gan] === ji) sinsal.push("\uD64D\uC5FC");
+        if (Y.AMROK[gan] === ji) sinsal.push("\uC554\uB85D");
+        if (Y.MUNCHANG[gan] === ji) sinsal.push("\uBB38\uCC3D\uADC0\uC778");
+        if ((CHEONEUL[gan] || []).includes(ji)) sinsal.push("\uCC9C\uC744\uADC0\uC778");
+        if (Y.BOKRYEOK_YEOKMA.\uC77C\uAC04.includes(gan) && ji === Y.BOKRYEOK_YEOKMA.\uC77C\uC9C0) sinsal.push("\uBCF5\uB825\uC5ED\uB9C8");
+        return { \uC77C\uC8FC: gj, sinsal, ilji: ILJI_KIND[ji], gongmang: gm, yanginKind: YANGIN[gan] === ji ? ["\uAC11", "\uBCD1", "\uBB34", "\uACBD", "\uC784"].includes(gan) ? "\uC591\uAC04" : "\uC74C\uAC04\uD655\uC7A5" : null };
+      }
+      function iljuTable() {
+        const out = [];
+        for (let i = 0; i < 60; i++) out.push(iljuSinsal(GAN_KO[i % 10], JI_CYCLE[i % 12]));
+        return out;
+      }
+      var JI_CYCLE = ["\uC790", "\uCD95", "\uC778", "\uBB18", "\uC9C4", "\uC0AC", "\uC624", "\uBBF8", "\uC2E0", "\uC720", "\uC220", "\uD574"];
+      var TWELVE_SINSAL = ["\uC9C0\uC0B4", "\uB144\uC0B4", "\uC6D4\uC0B4", "\uB9DD\uC2E0\uC0B4", "\uC7A5\uC131\uC0B4", "\uBC18\uC548\uC0B4", "\uC5ED\uB9C8\uC0B4", "\uC721\uD574\uC0B4", "\uD654\uAC1C\uC0B4", "\uAC81\uC0B4", "\uC7AC\uC0B4", "\uCC9C\uC0B4"];
+      var TRIO_TO_JISAL = { \uC778\uC624\uC220: "\uC778", \uC0AC\uC720\uCD95: "\uC0AC", \uC2E0\uC790\uC9C4: "\uC2E0", \uD574\uBB18\uBBF8: "\uD574" };
+      var NEW_NINE = ["\uC9C0\uC0B4", "\uC6D4\uC0B4", "\uB9DD\uC2E0\uC0B4", "\uC7A5\uC131\uC0B4", "\uBC18\uC548\uC0B4", "\uC721\uD574\uC0B4", "\uAC81\uC0B4", "\uC7AC\uC0B4", "\uCC9C\uC0B4"];
+      function twelveSinsalMap(dayJi) {
+        const trioKey = trioKeyOf(dayJi);
+        if (!trioKey) return null;
+        const start = JI_CYCLE.indexOf(TRIO_TO_JISAL[trioKey]);
+        const map = {};
+        TWELVE_SINSAL.forEach((name, i) => {
+          map[name] = JI_CYCLE[(start + i) % 12];
+        });
+        return map;
+      }
+      function find12Sinsal(branches) {
+        const result = {};
+        NEW_NINE.forEach((n) => {
+          result[n] = [];
+        });
+        const dayBranch = branches.find((b) => b.id === "day");
+        const map = dayBranch && twelveSinsalMap(dayBranch.ji);
+        if (!map) return result;
+        NEW_NINE.forEach((n) => {
+          branches.forEach((b) => {
+            if (b.ji === map[n]) result[n].push(b);
+          });
+        });
+        return result;
+      }
+      module.exports = {
+        CHEONEUL,
+        TRIO_TO_DOHWA,
+        TRIO_TO_YEOKMA,
+        TRIO_TO_HWAGAE,
+        YANGIN,
+        findSinsal,
+        TWELVE_SINSAL,
+        twelveSinsalMap,
+        find12Sinsal,
+        gongmang,
+        findGongmang,
+        iljuSinsal,
+        iljuTable
+      };
     }
   });
 
