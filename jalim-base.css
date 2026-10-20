@@ -1,0 +1,52 @@
+/* 자림 공통 디자인 기반 — 만남 앱(mating-app/index.html 17~50행)에서 뽑음 (2026-10-21)
+   색 토큰 · 글꼴 · 기본 타이포 · 카드 · 버튼 · 입력창 · 선 아이콘 · 푸터.
+   앱 고유 화면(오로라, 탭바, 결과 화면 등)은 넣지 않는다.
+   쓰기: <link rel="stylesheet" href="jalim-base.css"> 를 앱 자체 <style>보다 먼저. 글꼴 링크는 앱 <head>에 둔다:
+     https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css
+     https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap */
+
+/* ── 토큰 ── 주 버튼·선택 = 먹(--ink), 강조 글자 = 호박(--gold), 오행 5보석 */
+:root{
+  --gold:#a8670a; --gold-soft:#fbf0dc; --gold-deco:#e0951b;
+  --ink:#121212; --sub:#66615a; --muted:#8e887f;
+  --line:#ebe8e2; --line-strong:#d9d5cd; --bg:#f7f6f3; --card:#ffffff;
+  --danger:#c8264f; --warn:#e0951b; --ok:#0e8a5f;
+  --wood:#0e8a5f; --fire:#c8264f; --earth:#e0951b; --metal:#9aa4ae; --water:#2a49c8;
+  --m:#0e8a5f; --h:#c8264f; --t:#e0951b; --g:#9aa4ae; --s:#2a49c8;
+  --serif:'Gowun Batang',serif;
+}
+
+/* ── 기본 ── */
+*{box-sizing:border-box}
+body{margin:0;font-family:'Pretendard','IBM Plex Sans KR',system-ui,-apple-system,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+h1{font-size:1.6rem;margin:.2em 0;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin:0 0 12px}
+.sub{color:var(--sub);font-size:.9rem}
+.foot{text-align:center;color:var(--sub);font-size:.8rem;margin-top:30px}
+
+/* ── 카드 ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0}
+
+/* ── 입력 ── */
+label{display:block;font-size:.85rem;font-weight:600;margin:12px 0 5px}
+.opt{font-weight:400;color:var(--sub)}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:.95rem;background:var(--card);font-family:inherit;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px var(--gold-soft)}
+.row{display:flex;gap:10px}.row>div{flex:1}
+
+/* ── 버튼 ── */
+.btn{background:var(--ink);color:#fff;border:none;padding:12px 22px;border-radius:999px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;touch-action:manipulation}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line-strong)}
+.btn.danger{background:var(--card);color:var(--danger);border:1px solid #e6c9c4}
+.btn.sm{padding:7px 14px;font-size:.85rem}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:active:not(:disabled){transform:scale(.97);transition:transform .1s ease-out}
+@media(hover:hover){.btn:hover{background:#2c2c2c}.btn.ghost:hover{background:#f0eeea}}
+
+/* ── 탭(토글) ── */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.tabs button{flex:1 1 auto;min-width:66px;padding:9px 6px;border:1px solid var(--line);background:var(--card);border-radius:10px;cursor:pointer;font-weight:600;font-size:.9rem;color:var(--ink);font-family:inherit;touch-action:manipulation}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* ── 선 아이콘 ── 사용: <svg class="ic" viewBox="0 0 24 24">…path…</svg> */
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}

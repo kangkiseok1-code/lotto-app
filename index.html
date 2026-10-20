@@ -5,27 +5,25 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="jalim-base.css">
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#9a761c">
+<meta name="theme-color" content="#f7f6f3">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="오행로또">
 <style>
+  /* 색·글꼴 기본은 jalim-base.css. 여기엔 이 앱 고유 토큰만 둔다 */
   :root{
-    --gold:#9a761c; --gold-soft:#f2e9d2; --ink:#1b1a16; --sub:#726c60; --faint:#9b9487;
-    --green:#2E9A57; --green-soft:#e7f4ec; --green-deep:#1f7a46;
-    --line:#e7e2d8; --line2:#eeeae1; --bg:#f4f3ef; --card:#ffffff; --panel:#edebe4;
-    --mok:#2e7d5b; --hwa:#c0392b; --to:#b08324; --geum:#6e7a82; --su:#33465a;
-    --shadow:0 1px 2px rgba(30,25,10,.05),0 8px 22px rgba(30,25,10,.05);
+    --faint:#9b9487; --line2:#eeeae1; --panel:#edebe4;
+    --green:var(--ink); --green-soft:var(--gold-soft); --green-deep:var(--ink);
+    --mok:var(--wood); --hwa:var(--fire); --to:var(--earth); --geum:var(--metal); --su:var(--water);
+    --shadow:none;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);
-    font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-    line-height:1.5;padding-bottom:76px;font-variant-numeric:tabular-nums}
-  h1,h2,h3{font-family:inherit;font-weight:600;letter-spacing:-.01em}
+  body{padding-bottom:76px;font-variant-numeric:tabular-nums}
   .wrap{max-width:520px;margin:0 auto;padding:16px}
   header.app{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
   header.app .seal{width:34px;height:34px;border-radius:8px;box-shadow:var(--shadow)}
@@ -34,19 +32,12 @@
   header.app .t{font-size:15px;font-weight:700}
   header.app .s{font-size:11px;color:var(--sub)}
   header.app .sp{flex:1}
-  .btn{border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:10px;
-    padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.12s}
-  .btn:active:not(:disabled){transform:scale(.98)}
-  .btn.ghost{background:var(--card);color:var(--green);border-color:var(--green)}
-  .btn.sm{padding:7px 11px;font-size:12.5px;border-radius:8px}
+  .btn{transition:.12s}
   .btn.wide{width:100%}
-  .btn:disabled{opacity:.5;cursor:default}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;
-    box-shadow:var(--shadow);margin-bottom:14px}
+  .card{padding:16px;margin:0 0 14px}
   .muted{color:var(--sub)}
   .row{display:flex;gap:8px;align-items:center}
-  input,select{font:inherit;padding:10px 11px;border:1px solid var(--line);border-radius:10px;
-    background:#fff;color:var(--ink);width:100%;max-width:100%;min-width:0}
+  input,select{max-width:100%;min-width:0}
   input[type=datetime-local]{-webkit-appearance:none;appearance:none}
   label.f{display:block;font-size:12px;color:var(--sub);margin:0 0 4px 2px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -61,7 +52,7 @@
   .ball{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;
     font-weight:700;font-size:18px;box-shadow:0 1px 2px rgba(30,25,10,.12)}
   .balls{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin:6px 0}
-  .ball .sub{font-size:9px;font-weight:600;opacity:.85;margin-top:-3px}
+  .ball .sub{font-size:9px;font-weight:600;opacity:.85;margin-top:-3px;color:inherit}
 
   /* 달력 */
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -83,7 +74,7 @@
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
   .chip{display:inline-flex;align-items:center;gap:4px;background:var(--gold-soft);color:var(--gold);border-radius:16px;padding:3px 9px;font-size:12px;margin:0 4px 4px 0}
   .chip button{border:none;background:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0;line-height:1}
-  textarea{font:inherit;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);width:100%;resize:vertical;min-height:64px}
+  textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);width:100%;resize:vertical;min-height:64px}
   .prof-sub{font-size:12.5px;font-weight:700;margin:2px 0 5px;color:var(--ink)}
   .statrow{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}
   .statrow .lab{width:52px;color:var(--sub);flex-shrink:0}
@@ -91,7 +82,7 @@
   .statrow .fill{height:100%;background:var(--gold);border-radius:5px}
   .statrow .val{width:82px;text-align:right;color:var(--sub);flex-shrink:0}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-  .tile{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:10px 12px}
+  .tile{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:10px 12px}
   .tile .k{font-size:11px;color:var(--sub)}
   .tile .v{font-size:18px;font-weight:800;margin-top:3px;color:var(--ink)}
   .tile .v.pos{color:#2e7d5b} .tile .v.neg{color:var(--hwa)}
@@ -108,11 +99,12 @@
   .ad-gate{position:fixed;inset:0;background:rgba(20,18,10,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
   .ad-gate-box{background:var(--card);border-radius:16px;padding:16px;max-width:340px;width:100%;box-shadow:var(--shadow)}
   .ad-gate-h{font-size:14.5px;font-weight:700;text-align:center;margin:0 0 12px}
-  nav.tabs{background:var(--card);border-top:1px solid var(--line);display:flex}
-  nav.tabs button{flex:1;border:none;background:none;padding:9px 0 11px;color:var(--sub);
+  /* 하단 탭바 — jalim-base.css의 .tabs(토글 버튼) 스타일과 겹치지 않게 되돌림 */
+  nav.tabs{background:var(--card);border-top:1px solid var(--line);display:flex;flex-wrap:nowrap;gap:0;margin:0}
+  nav.tabs button{flex:1;min-width:0;border:none;border-radius:0;background:none;padding:9px 0 11px;color:var(--sub);
     font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
-  nav.tabs button.on{color:var(--green);font-weight:600}
-  nav.tabs .ic{display:inline-flex;line-height:0}
+  nav.tabs button.on{background:none;color:var(--green);font-weight:600}
+  nav.tabs .ic{display:inline-flex;line-height:0;width:auto;height:auto}
   nav.tabs .ic svg{width:23px;height:23px}
 
   .section{display:none}.section.on{display:block}
@@ -122,7 +114,7 @@
   .tgl{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;
     padding:6px 12px;font-size:12.5px;font-weight:500;cursor:pointer;transition:.12s;font-family:inherit}
   .tgl:active{transform:scale(.97)}
-  .tgl.on{background:var(--green-soft);color:var(--green-deep);border-color:var(--green)}
+  .tgl.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   /* 스위치(사주 반영) */
   .switch{position:relative;width:42px;height:24px;border-radius:999px;border:none;cursor:pointer;
     background:var(--line);transition:.15s;flex:none;padding:0}
