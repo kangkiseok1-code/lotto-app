@@ -1,5 +1,5 @@
 /* 자림 공통 디자인 기반 — 만남 앱 디자인이 기준
-   버전: v2 (2026-10-21) · v1 = 토큰·카드·입력·버튼·탭토글·아이콘 / v2 추가 = 의미색·간격·글자·모서리 토큰, 모션 토큰(--dur-*, --ease-*), .jm-* 모션 유틸, .jn-* 공통 부품, 움직임 줄이기
+   버전: v3 (2026-10-22) · v1 = 토큰·카드·입력·버튼·탭토글·아이콘 / v3 추가 = 페이지 이동 부드럽게(View Transitions, 맨 아래) / v2 추가 = 의미색·간격·글자·모서리 토큰, 모션 토큰(--dur-*, --ease-*), .jm-* 모션 유틸, .jn-* 공통 부품, 움직임 줄이기
    원본은 jalim-hub/jalim-base.css. 앱 폴더의 복사본은 직접 고치지 말고 `node jalim-hub/check-sync.js --fix` 로 맞출 것 */
 /* ── 토큰 ── 주 버튼·선택 = 먹(--ink), 강조 글자 = 호박(--gold), 오행 5보석 */
 :root{
@@ -188,4 +188,14 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
 /* ── 움직임 줄이기: 기기 설정이 켜져 있으면 모든 움직임을 즉시 끝낸다 ─────────── */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+/* ── v3: 허브↔앱 페이지 이동을 부드럽게(같은 도메인 페이지 사이 교차 전환, View Transitions) ──────
+   지원하지 않는 브라우저는 규칙을 무시하고 지금처럼 즉시 이동. 움직임 줄이기면 적용하지 않음 */
+@keyframes jm-vt-out{to{opacity:0}}
+@keyframes jm-vt-in{from{opacity:0;transform:translateY(8px)}}
+@media (prefers-reduced-motion:no-preference){
+  @view-transition{navigation:auto}
+  ::view-transition-old(root){animation:jm-vt-out var(--dur-fast) var(--ease-in) both}
+  ::view-transition-new(root){animation:jm-vt-in var(--dur-base) var(--ease-out) both}
 }
