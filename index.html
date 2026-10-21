@@ -129,8 +129,8 @@
   .winbadge{display:inline-flex;align-items:center;gap:4px;background:var(--gold);color:#fff;font-weight:800;font-size:12.5px;border-radius:8px;padding:4px 11px;margin-top:4px;box-shadow:0 1px 4px rgba(184,145,46,.4)}
   .winrow{background:linear-gradient(90deg,var(--gold-soft),var(--card));border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin:8px 0}
   .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
-    padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;z-index:40;pointer-events:none;white-space:nowrap}
-  .toast.show{opacity:.95}
+    padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity var(--dur-base) var(--ease-in);z-index:40;pointer-events:none;white-space:nowrap}
+  .toast.show{opacity:.95;animation:jm-toast-in var(--dur-base) var(--ease-out)}
   .day-detail{font-size:13px}
   .sijin{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
   .sijin .s{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;font-size:11px}
@@ -169,7 +169,7 @@
   }
 </style>
 
-<div id="root"><div class="wrap" style="text-align:center;padding-top:80px">불러오는 중…</div></div>
+<div id="root"><div class="wrap" style="padding-top:60px" role="status" aria-label="불러오는 중"><div class="jn-skel line" style="width:45%"></div><div class="jn-skel line"></div><div class="jn-skel block"></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="engine.browser.js"></script>
@@ -242,6 +242,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const p2=n=>String(n).padStart(2,'0');
 const dkey=(y,m,d)=>`${y}-${p2(m)}-${p2(d)}`;
 const dkeyOf=iso=>{const t=new Date(iso);return dkey(t.getFullYear(),t.getMonth()+1,t.getDate());};
+/* 로딩 뼈대(공통 .jn-skel) — '불러오는 중…' 글자 대신 */
+const SKEL='<div role="status" aria-label="불러오는 중"><div class="jn-skel line" style="width:55%"></div><div class="jn-skel line"></div><div class="jn-skel block"></div></div>';
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function seedFrom(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
@@ -914,7 +916,9 @@ function renderTab(){
   else if(tab==='num')h=viewNum();
   else if(tab==='ins')h=viewInsights();
   else if(tab==='me')h=viewMe();
+  const fresh=tab!==renderTab._last; renderTab._last=tab;   // 탭을 바꿨을 때만 등장 모션(달력 월 이동·다시 뽑기 등 같은 탭 갱신은 제외)
   b.innerHTML=subTabsHtml()+h;
+  if(fresh){ b.classList.remove('jm-rise'); void b.offsetWidth; b.classList.add('jm-rise'); }
   document.querySelectorAll('.jn-tab').forEach(x=>{const on=x.dataset.k===navOf(tab); x.classList.toggle('on',on); if(on) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current');});
 }
 
@@ -1165,7 +1169,7 @@ function mdBearing(a,b,c,d){ const t=x=>x*Math.PI/180; const y=Math.sin(t(d-b))*
 const MD_DIRS=['북','북동','동','남동','남','남서','서','북서'], MD_DIR_EL={북:'수',동:'목',남:'화',서:'금'};
 function viewMyeongdang(){
   if(mdState!=='done'){ if(mdState==='idle') loadMyeongdang();
-    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 1등 배출점</h3><p class="muted" style="font-size:12px;margin:8px 0 0">${mdState==='error'?'배출점 정보를 불러오지 못했어요.':'배출점 정보 불러오는 중…'}</p></div>`; }
+    return `<div class="section on card"><h3 style="margin:0 0 2px;font-size:18px">📍 내 주변 1등 배출점</h3>${mdState==='error'?'<p class="muted" style="font-size:12px;margin:8px 0 0">배출점 정보를 불러오지 못했어요.</p>':SKEL}</div>`; }
   const favDirSet=['북','동','남','서'].filter(c=>favorSet.has(MD_DIR_EL[c]));
   const annotate=s=>{ const o={...s};
     if(myLoc){ o.dist=mdHaversine(myLoc.lat,myLoc.lng,s.lat,s.lng); o.dir=MD_DIRS[Math.round(mdBearing(myLoc.lat,myLoc.lng,s.lat,s.lng)/45)%8]; o.match=[...o.dir].some(c=>favDirSet.includes(c)); }
@@ -1287,7 +1291,7 @@ function viewLotto(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${chip('all','전체',cnt.all)}${chip('win','당첨',cnt.win)}${chip('wait','대기',cnt.wait)}${chip('nodate','미입력',cnt.nodate)}</div>`:'';
   const list=tickets.length?(summary+(rows||'<p class="muted" style="font-size:12.5px;text-align:center;padding:8px 0">이 조건에 해당하는 티켓이 없어요.</p>'))
     :'<p class="muted" style="font-size:13px;text-align:center">아직 기록이 없어요. 용지를 스캔해 첫 장을 담아보세요.</p>';
-  const latestHtml=latestDraw?drawCard(latestDraw)+(drawSrcError?'<p class="muted" style="font-size:11px;margin:8px 0 0">⚠ 소스 연결 실패 — 저장된 값입니다. 동행복권에서 확인하세요.</p>':''):(drawSrcError?'<p class="muted" style="font-size:13px">소스 연결 실패. 새로고침하거나 동행복권에서 확인하세요.</p>':'<p class="muted" style="font-size:13px">불러오는 중…</p>');
+  const latestHtml=latestDraw?drawCard(latestDraw)+(drawSrcError?'<p class="muted" style="font-size:11px;margin:8px 0 0">⚠ 소스 연결 실패 — 저장된 값입니다. 동행복권에서 확인하세요.</p>':''):(drawSrcError?'<p class="muted" style="font-size:13px">소스 연결 실패. 새로고침하거나 동행복권에서 확인하세요.</p>':SKEL);
   return `<div class="section on card" style="text-align:center">
     <h2 style="margin:0 0 4px">내 로또</h2>
     <p class="muted" style="font-size:12px;margin:0 0 12px">사진만 찍으면 한 장으로 저장 · 당첨은 자동 확인돼요. 날짜는 나중에 입력해도 됩니다.</p>
@@ -1695,7 +1699,7 @@ function drawCard(d){
 async function refreshDraw(){ await loadLatestDraw(); await autoCheckWins(); toast('갱신했어요'); renderTab(); }
 async function lookupRound(){
   const n=+document.getElementById('roundInput').value; if(!n){toast('회차 번호를 입력해주세요');return;}
-  document.getElementById('lookupBox').innerHTML='<p class="muted" style="font-size:13px">불러오는 중…</p>';
+  document.getElementById('lookupBox').innerHTML=SKEL;
   const d=await getDraw(n);
   document.getElementById('lookupBox').innerHTML=d?drawCard(d):'<p class="muted" style="font-size:13px">해당 회차를 찾지 못했어요.</p>';
 }
