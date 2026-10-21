@@ -91,7 +91,7 @@
   .legend .bar{height:9px;width:90px;border-radius:5px;
     background:linear-gradient(90deg,#fff, #f0e2b6, var(--gold))}
 
-  /* 하단 도크(앵커 광고 + 탭바) */
+  /* 하단 도크(앵커 광고) — 탭바는 공통 .jn-tabbar(떠 있는 캡슐 / PC 사이드바) */
   .dock{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;z-index:20;
     background:var(--card);padding-bottom:env(safe-area-inset-bottom,0px)}
   .ad-anchor{border-top:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:3px 0 2px;background:var(--card)}
@@ -100,13 +100,8 @@
   .ad-gate{position:fixed;inset:0;background:rgba(20,18,10,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
   .ad-gate-box{background:var(--card);border-radius:16px;padding:16px;max-width:340px;width:100%;box-shadow:var(--shadow)}
   .ad-gate-h{font-size:14.5px;font-weight:700;text-align:center;margin:0 0 12px}
-  /* 하단 탭바 — jalim-base.css의 .tabs(토글 버튼) 스타일과 겹치지 않게 되돌림 */
-  nav.tabs{background:var(--card);border-top:1px solid var(--line);display:flex;flex-wrap:nowrap;gap:0;margin:0}
-  nav.tabs button{flex:1;min-width:0;border:none;border-radius:0;background:none;padding:9px 0 11px;color:var(--sub);
-    font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
-  nav.tabs button.on{background:none;color:var(--green);font-weight:600}
-  nav.tabs .ic{display:inline-flex;line-height:0;width:auto;height:auto}
-  nav.tabs .ic svg{width:23px;height:23px}
+  @media(min-width:1024px){ body.jn-on .dock{left:var(--jn-nav-w)} body.jn-on header.app .hubchip{display:none} }
+  .tabs.sub{margin:0 0 12px}
 
   .section{display:none}.section.on{display:block}
   .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;
@@ -165,9 +160,9 @@
   .lp-quote b{color:var(--green-deep)}
   .lp-sign{display:block;margin-top:16px!important;color:var(--sub);font-size:21px;font-family:"Nanum Pen Script",cursive}
   /* ===== 누르는 순간 반응 보강 (탭바·숫자판·달력 칸) ===== */
-  .btn,.tgl,nav.tabs button,.numgrid button,.cal-cell,.chip button{touch-action:manipulation}
+  .btn,.tgl,.numgrid button,.cal-cell,.chip button{touch-action:manipulation}
   .numgrid button:active:not(:disabled),.cal-cell:not(.empty):active{transform:scale(.95);transition:transform .1s ease-out}
-  nav.tabs button:active,.chip button:active,a.link:active{opacity:.6}
+  .chip button:active,a.link:active{opacity:.6}
   @media(prefers-reduced-motion:reduce){
     *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important}
     .btn:active:not(:disabled),.tgl:active,.numgrid button:active:not(:disabled),.cal-cell:not(.empty):active{transform:none;opacity:.7}
@@ -641,6 +636,7 @@ async function afterAuth(){
 
 /* ============ 화면: 로그인 ============ */
 function renderLogin(){
+  document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
   $('#root').innerHTML=`<div class="wrap">
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">오행 로또</div><div class="s">클라우드 로그인 (선택)</div></div></header>
     <div class="card" style="margin-top:16px">
@@ -671,6 +667,7 @@ const LANDING_QUOTES=[
    '당첨을 약속하진 못해도,<br>행운을 기다리는 시간이<br>작은 즐거움이 되기를 바랍니다.']
 ];
 function renderLanding(){
+  document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
   const q=LANDING_QUOTES[Math.floor(Math.random()*LANDING_QUOTES.length)];
   $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px;max-width:440px">
     <div style="text-align:center">
@@ -697,6 +694,7 @@ function isMinorBirth(y,m,d,cal){
   return age<19;
 }
 function renderMinorBlock(){
+  document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
   $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px;max-width:440px;text-align:center">
     <div>${RESP_BADGE}</div>
     <h2 style="margin:16px 0 8px">만 19세 이상만 이용할 수 있어요</h2>
@@ -707,6 +705,7 @@ function renderMinorBlock(){
 
 /* ============ 화면: 사주 입력 ============ */
 function renderProfileForm(){
+  document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
   const p=profile||{};
   if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarkers=null; _selCity=null; }   // 재렌더 시 지도 재초기화
   $('#root').innerHTML=`<div class="wrap">
@@ -821,11 +820,9 @@ async function saveProfile(){
 const NAVSVG=(()=>{const w=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;return{
   cal:w('<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/>'),
   rec:w('<path d="M12 3.5l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.2l5.4-.8z"/>'),
-  lotto:w('<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M12 6.5v11" stroke-dasharray="1.5 2.2"/>'),
+  mine:w('<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M12 6.5v11" stroke-dasharray="1.5 2.2"/>'),
   ins:w('<path d="M4 20h16"/><path d="M7.5 20v-6M12 20v-10M16.5 20v-4.5"/>'),
-  num:w('<path d="M9.6 4L7.6 20M16.4 4l-2 16M4.5 9.5h15M3.5 14.5h15"/>'),
-  me:w('<circle cx="12" cy="8" r="3.6"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>'),
-  md:w('<path d="M12 21s-6-5.4-6-10a6 6 0 1 1 12 0c0 4.6-6 10-6 10z"/><circle cx="12" cy="11" r="2.3"/>')
+  me:w('<circle cx="12" cy="8" r="3.6"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>')
 };})();
 function renderApp(){
   if(profile && isMinorBirth(profile.birth_year,profile.birth_month,profile.birth_day,profile.calendar)){ renderMinorBlock(); return; }
@@ -835,15 +832,32 @@ function renderApp(){
   </div>
   <div class="dock">
     ${ADS_ENABLED?`<div class="ad-anchor">${AD_BANNER_HTML}</div>`:''}
-    <nav class="tabs">
-      ${[['cal','달력'],['rec','추천'],['md','명당'],['lotto','내로또'],['ins','분석'],['num','내숫자'],['me','나']]
-        .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')"><span class="ic">${NAVSVG[k]}</span>${l}</button>`).join('')}
-    </nav>
-  </div>`;
+  </div>
+  <nav class="jn-tabbar" aria-label="주 메뉴">
+    <a class="jn-brand" href="${HUB}"><i>林</i>자림</a>
+    ${NAV.map(([k,l])=>`<button type="button" class="jn-tab" data-k="${k}" onclick="goNav('${k}')"><span class="ic">${NAVSVG[k]}</span><span>${l}</span></button>`).join('')}
+    <div class="jn-side-foot">오행 로또</div>
+  </nav>`;
+  document.body.classList.add('jn-on');
   renderTab();
-  requestAnimationFrame(()=>{const d=document.querySelector('.dock'); if(d) document.body.style.paddingBottom=(d.offsetHeight+6)+'px';});
+  requestAnimationFrame(()=>{
+    const d=document.querySelector('.dock'), n=document.querySelector('.jn-tabbar'), dh=d?d.offsetHeight:0;
+    if(n&&window.innerWidth<1024) n.style.bottom='calc('+(dh+10)+'px + env(safe-area-inset-bottom))';
+    document.body.style.paddingBottom=(dh+(window.innerWidth<1024?82:6))+'px';
+  });
 }
-function go(t){tab=t;document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('on',['cal','rec','md','lotto','ins','num','me'][i]===t));renderTab();}
+// 아래 탭 5칸: 달력 · 추천(추천+명당) · 내 번호(내로또+내숫자) · 분석 · 나
+const NAV=[['cal','달력'],['rec','추천'],['mine','내 번호'],['ins','분석'],['me','나']];
+const SUBS={rec:[['rec','추천'],['md','명당']], mine:[['lotto','내로또'],['num','내숫자']]};
+const lastSub={rec:'rec', mine:'lotto'};
+const navOf=t=>t==='md'?'rec':(t==='lotto'||t==='num')?'mine':t;
+function goNav(k){ go(SUBS[k]?lastSub[k]:k); }
+function go(t){tab=t;renderTab();}
+function subTabsHtml(){
+  const g=navOf(tab); if(!SUBS[g]) return '';
+  lastSub[g]=tab;
+  return `<div class="tabs sub">${SUBS[g].map(([k,l])=>`<button type="button" class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('')}</div>`;
+}
 function reroll(){ recNonce++; redrawCount++; renderTab();
   if(ADS_ENABLED && redrawCount%5===0) showAdGate(); }
 function showAdGate(){
@@ -892,13 +906,16 @@ function dayChip(iso){
 }
 function renderTab(){
   const b=$('#body');
-  if(tab==='cal')b.innerHTML=viewCalendar();
-  else if(tab==='rec')b.innerHTML=viewRec();
-  else if(tab==='md')b.innerHTML=viewMyeongdang();
-  else if(tab==='lotto')b.innerHTML=viewLotto();
-  else if(tab==='num')b.innerHTML=viewNum();
-  else if(tab==='ins')b.innerHTML=viewInsights();
-  else if(tab==='me')b.innerHTML=viewMe();
+  let h='';
+  if(tab==='cal')h=viewCalendar();
+  else if(tab==='rec')h=viewRec();
+  else if(tab==='md')h=viewMyeongdang();
+  else if(tab==='lotto')h=viewLotto();
+  else if(tab==='num')h=viewNum();
+  else if(tab==='ins')h=viewInsights();
+  else if(tab==='me')h=viewMe();
+  b.innerHTML=subTabsHtml()+h;
+  document.querySelectorAll('.jn-tab').forEach(x=>{const on=x.dataset.k===navOf(tab); x.classList.toggle('on',on); if(on) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current');});
 }
 
 /* ---- 달력 ---- */
