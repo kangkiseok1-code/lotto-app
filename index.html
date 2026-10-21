@@ -60,13 +60,13 @@
   .cal-head h2{margin:0;font-size:22px}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
   .cal-dow{text-align:center;font-size:11px;color:var(--sub);padding:2px 0}
-  .cal-cell{aspect-ratio:1/1.08;border-radius:10px;border:1px solid var(--line);background:#fff;
+  .cal-cell{aspect-ratio:1/1.08;border-radius:10px;border:1px solid var(--line);background:var(--card);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;overflow:hidden;padding-bottom:7px}
   .cal-cell.empty{border:none;background:transparent;cursor:default}
   .cal-cell .d{font-size:13px;font-weight:700;color:var(--ink)}
   .cal-cell .heat{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);height:4px;
     background:var(--gold);border-radius:2px;max-width:80%}
-  .cal-cell.today{outline:2px solid #2c3e50;outline-offset:-2px}
+  .cal-cell.today{outline:2px solid var(--ink);outline-offset:-2px}
   .cal-cell.money{border-color:var(--gold)}
   .cal-cell.money::after{content:"錢";position:absolute;top:2px;right:2px;background:var(--ink);color:#fff;
     border-radius:4px;padding:0 3px;font-size:8px;font-family:serif;line-height:1.6}
@@ -75,7 +75,7 @@
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
   .chip{display:inline-flex;align-items:center;gap:4px;background:var(--gold-soft);color:var(--gold);border-radius:16px;padding:3px 9px;font-size:12px;margin:0 4px 4px 0}
   .chip button{border:none;background:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0;line-height:1}
-  textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);width:100%;resize:vertical;min-height:64px}
+  textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:100%;resize:vertical;min-height:64px}
   .prof-sub{font-size:12.5px;font-weight:700;margin:2px 0 5px;color:var(--ink)}
   .statrow{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}
   .statrow .lab{width:52px;color:var(--sub);flex-shrink:0}
@@ -86,16 +86,16 @@
   .tile{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:10px 12px}
   .tile .k{font-size:11px;color:var(--sub)}
   .tile .v{font-size:18px;font-weight:800;margin-top:3px;color:var(--ink)}
-  .tile .v.pos{color:#2e7d5b} .tile .v.neg{color:var(--hwa)}
+  .tile .v.pos{color:var(--ok)} .tile .v.neg{color:var(--hwa)}
   .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);margin-top:10px;flex-wrap:wrap}
   .legend .bar{height:9px;width:90px;border-radius:5px;
-    background:linear-gradient(90deg,#fff, #f0e2b6, var(--gold))}
+    background:linear-gradient(90deg,var(--card), var(--gold-soft), var(--gold))}
 
   /* 하단 도크(앵커 광고) — 탭바는 공통 .jn-tabbar(떠 있는 캡슐 / PC 사이드바) */
   .dock{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;z-index:20;
     background:var(--card);padding-bottom:env(safe-area-inset-bottom,0px)}
   .ad-anchor{border-top:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:3px 0 2px;background:var(--card)}
-  .ad-disc{font-size:9px;color:#b09a5e;text-align:center;margin:6px 0 0;line-height:1.3}
+  .ad-disc{font-size:9px;color:var(--muted);text-align:center;margin:6px 0 0;line-height:1.3}
   /* 인터스티셜(다시 뽑기 5회) */
   .ad-gate{position:fixed;inset:0;background:rgba(20,18,10,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
   .ad-gate-box{background:var(--card);border-radius:16px;padding:16px;max-width:340px;width:100%;box-shadow:var(--shadow)}
@@ -115,29 +115,29 @@
   .switch{position:relative;width:42px;height:24px;border-radius:999px;border:none;cursor:pointer;
     background:var(--line);transition:.15s;flex:none;padding:0}
   .switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
-    background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+    background:var(--card);transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
   .switch.on{background:var(--green)}
   .switch.on::after{transform:translateX(18px)}
   .numgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
-  .numgrid button{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:#fff;
+  .numgrid button{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--card);
     font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
   .numgrid button.fate{background:var(--gold);color:#fff;border-color:var(--gold)}
   .numgrid button.fav{background:var(--gold-soft);border-color:var(--gold)}
   .plist .it{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
   .plist .it:last-child{border:none}
-  .plist .it.won{background:linear-gradient(90deg,#fff6dd,#fffdf6);border-left:4px solid var(--gold);border-bottom:none;border-radius:8px;padding:10px 10px 10px 9px;margin:4px 0}
+  .plist .it.won{background:linear-gradient(90deg,var(--gold-soft),var(--card));border-left:4px solid var(--gold);border-bottom:none;border-radius:8px;padding:10px 10px 10px 9px;margin:4px 0}
   .winbadge{display:inline-flex;align-items:center;gap:4px;background:var(--gold);color:#fff;font-weight:800;font-size:12.5px;border-radius:8px;padding:4px 11px;margin-top:4px;box-shadow:0 1px 4px rgba(184,145,46,.4)}
-  .winrow{background:linear-gradient(90deg,#fff6dd,#fffdf6);border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin:8px 0}
+  .winrow{background:linear-gradient(90deg,var(--gold-soft),var(--card));border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin:8px 0}
   .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
     padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;z-index:40;pointer-events:none;white-space:nowrap}
   .toast.show{opacity:.95}
   .day-detail{font-size:13px}
   .sijin{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
   .sijin .s{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;font-size:11px}
-  .sijin .s.good{background:#f3f8f4;border-color:var(--mok);color:var(--mok);font-weight:700}
+  .sijin .s.good{background:var(--ok-soft);border-color:var(--mok);color:var(--mok);font-weight:700}
   /* 만세력 */
   .manse{display:flex;gap:6px;text-align:center}
-  .manse .col{flex:1;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .manse .col{flex:1;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
   .manse .cap{background:var(--panel);font-size:11px;color:var(--sub);padding:4px 0}
   .manse .ss{font-size:10.5px;color:var(--sub);padding:5px 0 3px;min-height:22px}
   .manse .gz{color:#fff;padding:7px 2px}
@@ -235,7 +235,7 @@ const SEAL=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-h
   +`<circle cx="50" cy="49.2" r="3.5" fill="#C6A03A"/>`    /* 토(중심) */
   +`</svg>`;
 // 공개용 사행성·연령 고지 (시안 C: 상단 배지 + 한 줄)
-const RESP_BADGE='<span style="display:inline-flex;align-items:center;gap:5px;background:#b23a26;color:#fff;font-size:11.5px;font-weight:600;padding:3px 11px;border-radius:20px">🔞 19세 미만 이용 불가</span>';
+const RESP_BADGE='<span style="display:inline-flex;align-items:center;gap:5px;background:var(--danger);color:#fff;font-size:11.5px;font-weight:600;padding:3px 11px;border-radius:20px">🔞 19세 미만 이용 불가</span>';
 const RESP_LINE='로또는 사행산업입니다. 과몰입 주의 · 도박문제 무료상담 <b>1336</b>. 추천은 참고용이며 당첨을 보장하지 않습니다.';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -766,8 +766,8 @@ function loadLeaflet(){
   return _leafletP;
 }
 let _birthMap=null,_birthMarkers=null,_selCity=null;
-const _DOT={radius:7,color:'#8a6d22',weight:1.5,fillColor:'#e9d9a3',fillOpacity:.9,interactive:false};
-const _DOT_ON={radius:9,color:'#fff',weight:2,fillColor:'#b08d34',fillOpacity:1};
+const _DOT={radius:7,color:'#a8670a',weight:1.5,fillColor:'#fbf0dc',fillOpacity:.9,interactive:false};
+const _DOT_ON={radius:9,color:'#fff',weight:2,fillColor:'#a8670a',fillOpacity:1};
 function _styleBirthMarkers(){
   if(!_birthMarkers) return;
   for(const c in _birthMarkers){ const {mk,hit}=_birthMarkers[c], on=(c===_selCity);
@@ -879,7 +879,7 @@ function sajuLine(){
 // 만세력 한 기둥 카드 (십성·간지 오행색·지장간 본기밑줄·12운성)
 function manseCol(pos,pil,dayGan,isDay){
   if(!pil) return `<div class="col"><div class="cap">${pos}</div><div class="ss">—</div>
-    <div class="gz" style="background:#d8d2c4"><span class="h">·</span><span class="k">시간 미상</span></div>
+    <div class="gz" style="background:var(--line-strong)"><span class="h">·</span><span class="k">시간 미상</span></div>
     <div class="jjg"></div><div class="stage"></div></div>`;
   const ganElem=S.GAN_ELEM[pil.gan], jiElem=S.JI_ELEM[pil.ji];
   const top=isDay?'일간(我)':S.sibsinOf(dayGan,pil.gan);
@@ -948,7 +948,7 @@ function viewCalendar(){
     const diff=Math.round((new Date(y,m-1,x.d)-today0)/86400000);
     const dd=diff===0?'오늘':diff>0?`D-${diff}`:'지난';
     const best=bestSat&&bestSat.d===x.d;
-    const c=x.money?{bg:'#fbf3dd',bd:'var(--gold)',fg:'#8a6d16',tag:'錢 목돈'}:x.caution?{bg:'#fdf3f2',bd:'var(--hwa)',fg:'#c0392b',tag:'⚠ 주의'}:{bg:'#fff',bd:'var(--line)',fg:'var(--sub)',tag:'일반'};
+    const c=x.money?{bg:'var(--gold-soft)',bd:'var(--gold)',fg:'var(--gold)',tag:'錢 목돈'}:x.caution?{bg:'var(--danger-soft)',bd:'var(--hwa)',fg:'var(--danger)',tag:'⚠ 주의'}:{bg:'#fff',bd:'var(--line)',fg:'var(--sub)',tag:'일반'};
     return `<div style="flex:1 1 60px;text-align:center;border:1px solid ${c.bd};border-radius:10px;padding:7px 3px;background:${c.bg}${best?';box-shadow:0 0 0 2px var(--gold)':''}"><div style="font-size:13px;font-weight:800;color:var(--ink)">${best?'⭐':''}${x.d}일</div><div style="font-size:10px;font-weight:700;color:${c.fg};margin-top:2px">${c.tag}</div><div class="muted" style="font-size:9.5px;margin-top:1px">${dd}</div></div>`;
   }).join('');
   const bestTxt=bestSat?(bestSat.money?`${bestSat.d}일이 가장 유리해요 (목돈 기운)`:bestSat.caution?`이번 달 추첨일은 기운이 약한 편 — 그나마 ${bestSat.d}일`:`${bestSat.d}일이 무난해요`):'';
@@ -989,7 +989,7 @@ function dayDetail(y,m,d){
   const DIRW=[{d:'북',e:'수'},{d:'서',e:'금'},{d:'중앙',e:'토'},{d:'동',e:'목'},{d:'남',e:'화'}];
   const favDirs=DIRW.filter(x=>favorSet.has(x.e)).map(x=>x.d);
   const dcell=(dir)=>{ const it=DIRW.find(x=>x.d===dir), good=favorSet.has(it.e);
-    return `<div style="text-align:center;padding:9px 0;border-radius:8px;border:1px solid ${good?'var(--gold)':'var(--line)'};background:${good?'#fbf3dd':'#fff'}"><div style="font-size:12.5px;font-weight:${good?'800':'600'};color:${good?'#8a6d16':'#3a352c'}">${dir}${good?' ★':''}</div><div class="muted" style="font-size:10.5px">${it.e}</div></div>`; };
+    return `<div style="text-align:center;padding:9px 0;border-radius:8px;border:1px solid ${good?'var(--gold)':'var(--line)'};background:${good?'var(--gold-soft)':'var(--card)'}"><div style="font-size:12.5px;font-weight:${good?'800':'600'};color:${good?'var(--gold)':'var(--ink)'}">${dir}${good?' ★':''}</div><div class="muted" style="font-size:10.5px">${it.e}</div></div>`; };
   const sp='<span></span>';
   const compass=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:220px;margin:10px auto 0">${sp}${dcell('북')}${sp}${dcell('서')}${dcell('중앙')}${dcell('동')}${sp}${dcell('남')}${sp}</div>`;
   const html=`<div class="section on">
@@ -1059,7 +1059,7 @@ function viewRec(){
   const statuses=lines.map(l=>recStatus(l));
   const labels=statuses[0]?statuses[0].map(x=>x.label):[];
   const agg=labels.map((label,idx)=>({label,ok:statuses.filter(st=>st[idx]&&st[idx].ok).length,total:lines.length}));
-  const statusHtml=agg.length?`<div style="margin-top:8px">${agg.map(x=>{const all=x.ok===x.total;return `<span class="chip" style="background:${all?'#eef6ee':x.ok?'#fbf6e6':'#fdf3f2'};color:${all?'#2e7d5b':x.ok?'#8a6d16':'#c0392b'}">${all?'✓':x.ok?'△':'✗'} ${x.label} ${x.ok}/${x.total}</span>`;}).join('')}</div>${agg.some(x=>x.ok<x.total)?'<p class="muted" style="font-size:11.5px;margin:4px 0 0">△·✗ = 일부 줄은 선택 패턴이 충돌해 다 못 담았어요. 패턴을 줄이거나 다시 뽑아보세요.</p>':''}`:'';
+  const statusHtml=agg.length?`<div style="margin-top:8px">${agg.map(x=>{const all=x.ok===x.total;return `<span class="chip" style="background:${all?'var(--ok-soft)':x.ok?'var(--gold-soft)':'var(--danger-soft)'};color:${all?'var(--ok)':x.ok?'var(--gold)':'var(--danger)'}">${all?'✓':x.ok?'△':'✗'} ${x.label} ${x.ok}/${x.total}</span>`;}).join('')}</div>${agg.some(x=>x.ok<x.total)?'<p class="muted" style="font-size:11.5px;margin:4px 0 0">△·✗ = 일부 줄은 선택 패턴이 충돌해 다 못 담았어요. 패턴을 줄이거나 다시 뽑아보세요.</p>':''}`:'';
   const tog=(key,label)=>`<button class="tgl ${recOpts[key]?'on':''}" onclick="toggleRecOpt('${key}')">${label}</button>`;
   const cnt=(v,label)=>`<button class="tgl ${recOpts.recentN===v?'on':''}" onclick="setRecentN(${v})">${label}</button>`;
   const oe=(v,label)=>`<button class="tgl ${recOpts.oddEven===v?'on':''}" onclick="setOddEven('${v}')">${label}</button>`;
@@ -1102,7 +1102,7 @@ function viewRec(){
       <button class="tgl ${recOpts.pastWin?'on':''}" onclick="togglePastWin()">${recOpts.pastWin?'회피 켜짐':'회피 꺼짐'}</button>
       <span class="muted" style="font-size:12px;flex:1">${recOpts.pastWin?(winSubset5?`1~${winCombosUpto}회 · ${winCombos.length}개 조합 회피 중`:'당첨 데이터 불러오는 중…'):'끄면 반영 안 함'}</span>
     </div>
-    ${recOpts.pastWin&&!winCombos.length&&drawSrcError?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:#c0392b">⚠ 당첨 데이터 소스 연결 실패 — 온라인일 때 다시 시도돼요.</p>`:''}
+    ${recOpts.pastWin&&!winCombos.length&&drawSrcError?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:var(--danger)">⚠ 당첨 데이터 소스 연결 실패 — 온라인일 때 다시 시도돼요.</p>`:''}
   </div>
   ${(()=>{ const mc=latestUnconfirmedTicket(); return `
   <div class="section on card">
@@ -1114,10 +1114,10 @@ function viewRec(){
       <span class="muted" style="font-size:12px;flex:1">${murphyExclude.length}개 제외 중 · 남은 ${45-murphyExclude.length}개에서 추천</span>
       <button class="btn ${murphyEditMode?'':'ghost'} sm" onclick="toggleMurphyEdit()">${murphyEditMode?'완료':'지우기'}</button>
     </div>
-    ${murphyEditMode?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:#c0392b">숫자를 누르면 하나씩 제거돼요.</p>`:''}
+    ${murphyEditMode?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:var(--danger)">숫자를 누르면 하나씩 제거돼요.</p>`:''}
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${murphyExclude.map(n=>murphyEditMode
-      ?`<button class="chip" onclick="removeMurphyNum(${n})" style="background:#fdf3f2;color:#c0392b;border:1px solid #e6b9ae;cursor:pointer">${n} ✕</button>`
-      :`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('')}</div>
+      ?`<button class="chip" onclick="removeMurphyNum(${n})" style="background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-soft);cursor:pointer">${n} ✕</button>`
+      :`<span class="chip" style="background:var(--danger-soft);color:var(--danger)">${n}</span>`).join('')}</div>
     ${murphyEditMode?`<button class="btn ghost sm" style="margin-top:10px" onclick="clearMurphy()">모두 지우기</button>`:''}
     <div class="row" style="gap:8px;margin-top:10px">
       ${mc?`<button class="btn ghost sm" style="flex:1" onclick="importMurphyFromLatest()">📥 최신 티켓 다시 불러오기</button>`:''}
@@ -1198,7 +1198,7 @@ function viewMyeongdang(){
         ${mdRegions.map(r=>`<optgroup label="${r}">${[...new Set(myeongdang.filter(s=>s.region===r).map(s=>s.gu))].map(g=>`<option value="${g}"${mdGu===g?' selected':''}>${g}</option>`).join('')}</optgroup>`).join('')}
       </select>
     </div>
-    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'#c0392b'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${myLoc?'내 용희신 방위 일치 ★ 가까운 순':'구·시를 선택하면 그 지역 상위 5곳 · <b>내 위치로 찾기</b>로 가까운 순'} · 유리 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b> <span style="white-space:nowrap">(사주 참고용)</span></p>`:'')}
+    ${myLocErr?`<p class="muted" style="font-size:11.5px;margin:8px 0 0;color:${myLocErr==='…'?'var(--sub)':'var(--danger)'}">${myLocErr==='…'?'위치 확인 중…':myLocErr}</p>`:(favDirSet.length?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${myLoc?'내 용희신 방위 일치 ★ 가까운 순':'구·시를 선택하면 그 지역 상위 5곳 · <b>내 위치로 찾기</b>로 가까운 순'} · 유리 방위 <b style="color:var(--gold)">${favDirSet.join('·')}쪽</b> <span style="white-space:nowrap">(사주 참고용)</span></p>`:'')}
     ${body}
     <p class="muted" style="font-size:10.5px;margin:12px 0 0">${mdNote} · 출처: 동행복권 공개 1등 배출점</p>
   </div>`;
@@ -1252,38 +1252,38 @@ function viewLotto(){
              wait:tickets.filter(t=>t.st.state==='wait').length, nodate:tickets.filter(t=>t.noDate).length};
   const match=t=>lottoFilter==='all'||(lottoFilter==='win'&&t.st.state==='win')||(lottoFilter==='wait'&&t.st.state==='wait')||(lottoFilter==='nodate'&&t.noDate);
   // 상태별 색: 당첨=적, 대기=청, 낙첨/번호없음=회
-  const COL={win:'#b23a26',wait:'#378add',lose:'#cdc3ab',nonum:'#cdc3ab'};
-  const LABC={win:'#b23a26',wait:'#185fa5',lose:'#3a352c',nonum:'#b4b2a9'};
+  const COL={win:'var(--danger)',wait:'var(--water)',lose:'var(--line-strong)',nonum:'var(--line-strong)'};
+  const LABC={win:'var(--danger)',wait:'var(--water)',lose:'var(--ink)',nonum:'var(--muted)'};
   const LAB={win:'',wait:'추첨대기',lose:'낙첨',nonum:'번호없음'};
   const rows=tickets.filter(match).map(t=>{
     const {key,g,head,multi,st,noDate}=t, open=expandedTickets.has(key);
     const label=st.state==='win'?`${st.bestRank}등<br><span style="font-weight:600">당첨</span>`:LAB[st.state];
     const meta=`${head.round?`${head.round}회`:'회차 미상'} · ${g.length}게임`;
-    const dateHtml=noDate?`<span style="color:var(--gold);font-weight:600">날짜 미입력</span><span style="color:#b4b2a9"> · ${meta}</span>`
-                         :`${fmtDate(head.purchased_at)}<span style="color:#b4b2a9"> · ${meta}</span>`;
-    const right=st.state==='win'?`<span style="font-size:12px;font-weight:800;color:#8a6d16">${shortMoney(st.prize)}</span>`:'';
+    const dateHtml=noDate?`<span style="color:var(--gold);font-weight:600">날짜 미입력</span><span style="color:var(--muted)"> · ${meta}</span>`
+                         :`${fmtDate(head.purchased_at)}<span style="color:var(--muted)"> · ${meta}</span>`;
+    const right=st.state==='win'?`<span style="font-size:12px;font-weight:800;color:var(--gold)">${shortMoney(st.prize)}</span>`:'';
     const lines=g.map((p,i)=>{
       const ll=multi?String.fromCharCode(65+i):'•';
-      if(!p.numbers||!p.numbers.length) return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;${i?'border-top:1px solid #f7f2e6':''}"><span style="color:var(--sub);width:14px">${ll}</span><span class="muted">번호 없음</span></div>`;
+      if(!p.numbers||!p.numbers.length) return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;${i?'border-top:1px solid var(--line)':''}"><span style="color:var(--sub);width:14px">${ll}</span><span class="muted">번호 없음</span></div>`;
       const round=p.round||inferRound(p.purchased_at); const d=round?draws[round]:null; const rk=d?rankOf(p.numbers,d):0;
       const nums=p.numbers.map(n=>{ const hit=d&&d.numbers.includes(n), bo=d&&n===d.bonus_no;
-        return `<span style="${hit?'color:var(--gold);font-weight:700':bo?'color:var(--su);font-weight:700':'color:#3a352c'}">${n}</span>`; }).join(' · ');
-      return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;align-items:center;${i?'border-top:1px solid #f7f2e6':''}"><span style="color:var(--sub);width:14px">${ll}</span><span style="flex:1;letter-spacing:.3px">${nums}</span>${rk>0?`<span class="winbadge" style="font-size:10.5px;padding:1px 7px">${rk}등</span>`:''}</div>`;
+        return `<span style="${hit?'color:var(--gold);font-weight:700':bo?'color:var(--su);font-weight:700':'color:var(--ink)'}">${n}</span>`; }).join(' · ');
+      return `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;align-items:center;${i?'border-top:1px solid var(--line)':''}"><span style="color:var(--sub);width:14px">${ll}</span><span style="flex:1;letter-spacing:.3px">${nums}</span>${rk>0?`<span class="winbadge" style="font-size:10.5px;padding:1px 7px">${rk}등</span>`:''}</div>`;
     }).join('');
-    return `<div style="background:#fff;border:1px solid #e7ddc7;border-left:4px solid ${COL[st.state]};border-radius:10px;margin-bottom:7px;overflow:hidden">
+    return `<div style="background:var(--card);border:1px solid var(--line);border-left:4px solid ${COL[st.state]};border-radius:10px;margin-bottom:7px;overflow:hidden">
       <div onclick="toggleTicket('${key}')" style="display:flex;align-items:center;gap:10px;padding:12px;cursor:pointer">
         <span style="width:52px;flex-shrink:0;font-size:11px;font-weight:700;color:${LABC[st.state]};line-height:1.15">${label}</span>
-        <span style="flex:1;font-size:13px;color:#3a352c;min-width:0">${dateHtml}</span>
+        <span style="flex:1;font-size:13px;color:var(--ink);min-width:0">${dateHtml}</span>
         ${right}
-        <span style="color:#c9bfa6;font-size:15px;flex-shrink:0;transition:transform .15s;${open?'transform:rotate(90deg)':''}">›</span>
+        <span style="color:var(--muted);font-size:15px;flex-shrink:0;transition:transform .15s;${open?'transform:rotate(90deg)':''}">›</span>
       </div>
-      ${open?`<div style="border-top:1px solid #f0e9d8;padding:4px 12px 10px">${lines}
+      ${open?`<div style="border-top:1px solid var(--line);padding:4px 12px 10px">${lines}
         <div style="text-align:right;margin-top:8px"><button class="btn ghost" onclick="${multi?`editTicket('${key}')`:`editPurchase('${head.id}')`}" style="padding:6px 14px;font-size:12.5px;color:var(--sub);border-color:var(--line)">✎ 수정</button></div>
       </div>`:''}
     </div>`;
   }).join('');
-  const chip=(f,label,n)=>`<span onclick="setLottoFilter('${f}')" style="cursor:pointer;font-size:11.5px;font-weight:${lottoFilter===f?'700':'400'};background:${lottoFilter===f?'#3a352c':'#fff'};color:${lottoFilter===f?'#fff':'#5f5e5a'};border:1px solid ${lottoFilter===f?'#3a352c':'#e7ddc7'};border-radius:20px;padding:4px 12px">${label} ${n}</span>`;
-  const summary=tickets.length?`<div style="display:flex;align-items:center;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:#3a352c">전체 ${cnt.all}장</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--sub)">당첨 ${cnt.win} · 대기 ${cnt.wait}</span></div>
+  const chip=(f,label,n)=>`<span onclick="setLottoFilter('${f}')" style="cursor:pointer;font-size:11.5px;font-weight:${lottoFilter===f?'700':'400'};background:${lottoFilter===f?'var(--ink)':'var(--card)'};color:${lottoFilter===f?'#fff':'var(--sub)'};border:1px solid ${lottoFilter===f?'var(--ink)':'var(--line)'};border-radius:20px;padding:4px 12px">${label} ${n}</span>`;
+  const summary=tickets.length?`<div style="display:flex;align-items:center;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--ink)">전체 ${cnt.all}장</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--sub)">당첨 ${cnt.win} · 대기 ${cnt.wait}</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${chip('all','전체',cnt.all)}${chip('win','당첨',cnt.win)}${chip('wait','대기',cnt.wait)}${chip('nodate','미입력',cnt.nodate)}</div>`:'';
   const list=tickets.length?(summary+(rows||'<p class="muted" style="font-size:12.5px;text-align:center;padding:8px 0">이 조건에 해당하는 티켓이 없어요.</p>'))
     :'<p class="muted" style="font-size:13px;text-align:center">아직 기록이 없어요. 용지를 스캔해 첫 장을 담아보세요.</p>';
@@ -1321,7 +1321,7 @@ function editTicket(key){
     <div class="card" style="margin-top:12px">
       <h2 style="margin:0 0 4px">티켓 수정</h2>
       <p class="muted" style="font-size:12px;margin:0 0 10px">${head.round?head.round+'회 · ':''}${g.length}게임 (한 장)</p>
-      <div style="font-size:11.5px;color:var(--sub);background:#faf6ec;border-radius:8px;padding:8px 10px;line-height:1.7;margin-bottom:12px">${preview}</div>
+      <div style="font-size:11.5px;color:var(--sub);background:var(--gold-soft);border-radius:8px;padding:8px 10px;line-height:1.7;margin-bottom:12px">${preview}</div>
       <label class="f">구매 일시 <span class="muted">(선택 — 비우면 '날짜 미입력')</span></label>
       <input id="t_dt" type="datetime-local" value="${dtl}">
       <label class="f" style="margin-top:12px">회차 <span class="muted">(선택)</span></label>
@@ -1407,7 +1407,7 @@ function handleQRFile(input){
 function scanGamesHtml(r,draw){
   return r.games.map((g,i)=>{
     const balls=g.map(n=>{ const hit=draw&&draw.numbers.includes(n), bonus=draw&&n===draw.bonus_no;
-      return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${LOTTO_BALL(n)};color:#333;text-shadow:none${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
+      return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${LOTTO_BALL(n)};color:var(--ink);text-shadow:none${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
     let res='', rank=0;
     if(draw){ rank=rankOf(g,draw); const matched=g.filter(n=>draw.numbers.includes(n)).length, bonus=g.includes(draw.bonus_no);
       res=`<div style="margin-top:5px">${rank>0?`<span class="winbadge">🎉 ${rank}등 · ${Number(prizeFor(rank,draw)).toLocaleString()}원</span>`:`<span class="muted" style="font-size:12.5px">낙첨 · ${matched}개 일치${bonus?' +보너스':''}</span>`}</div>`; }
@@ -1434,7 +1434,7 @@ function renderScanConfirm(){
   if(!r.games||!r.games.length){ $('#body').innerHTML=scanShell(`<p style="color:var(--hwa);font-size:13px">번호를 해석하지 못했어요. 아래 QR 원문을 참고해 파서를 조정할게요.</p>`); return; }
   if(scanPurpose==='murphy'){
     const uniq=[...new Set(r.games.flat())].sort((a,b)=>a-b);
-    const chips=uniq.map(n=>`<span class="chip" style="background:#fdf3f2;color:#c0392b">${n}</span>`).join('');
+    const chips=uniq.map(n=>`<span class="chip" style="background:var(--danger-soft);color:var(--danger)">${n}</span>`).join('');
     const body=`<p style="font-size:13px;margin:0 0 8px">🙃 <b>머피의 법칙</b> — 이 <b>${uniq.length}개</b> 번호를 추천에서 제외할게요.</p>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 4px">${chips}</div>
       <p class="muted" style="font-size:11.5px;margin:6px 0 0">남는 ${45-uniq.length}개 중에서 추천합니다.${45-uniq.length<6?' <span style="color:var(--hwa)">제외가 너무 많아 6개를 다 못 뽑을 수 있어요.</span>':''}</p>
@@ -1445,7 +1445,7 @@ function renderScanConfirm(){
   }
   const draw=r.round?draws[r.round]:null;
   const anyWin=draw&&r.games.some(g=>rankOf(g,draw)>0);
-  const head=`<p style="font-size:13px;margin:0 0 8px">${r.round?`<b>${r.round}회</b> · `:''}${r.games.length}게임 인식${draw?(anyWin?' · <span style="color:#b23a26;font-weight:700">🎉 당첨 포함!</span>':' · 낙첨'):(r.round?' · 추첨 대기':'')}</p>`;
+  const head=`<p style="font-size:13px;margin:0 0 8px">${r.round?`<b>${r.round}회</b> · `:''}${r.games.length}게임 인식${draw?(anyWin?' · <span style="color:var(--danger);font-weight:700">🎉 당첨 포함!</span>':' · 낙첨'):(r.round?' · 추첨 대기':'')}</p>`;
   const body=head+scanGamesHtml(r,draw)
     +`<label class="f" style="margin-top:12px">구매일 <span class="muted" style="font-weight:400;font-size:11px">· 비우면 미기입으로 저장</span></label>
       <input id="scanDate" type="date" style="width:100%">`
@@ -1678,8 +1678,8 @@ async function toggleNum(n){
 
 /* ---- 결과 ---- */
 function drawBalls(d){
-  const b=d.numbers.map(n=>`<div class="ball" style="background:${LOTTO_BALL(n)};color:#333;text-shadow:none">${n}</div>`).join('');
-  return `<div class="balls">${b}<div style="display:grid;place-items:center;font-size:22px;color:var(--sub)">+</div><div class="ball" style="background:${LOTTO_BALL(d.bonus_no)};color:#333;text-shadow:none">${d.bonus_no}</div></div>`;
+  const b=d.numbers.map(n=>`<div class="ball" style="background:${LOTTO_BALL(n)};color:var(--ink);text-shadow:none">${n}</div>`).join('');
+  return `<div class="balls">${b}<div style="display:grid;place-items:center;font-size:22px;color:var(--sub)">+</div><div class="ball" style="background:${LOTTO_BALL(d.bonus_no)};color:var(--ink);text-shadow:none">${d.bonus_no}</div></div>`;
 }
 function drawCard(d){
   if(!d) return '<p class="muted" style="font-size:13px">불러오지 못했어요.</p>';
@@ -1712,7 +1712,7 @@ function daewoonSewoonHtml(){
   const age=(Date.now()-new Date(profile.birth_year,(profile.birth_month||1)-1,profile.birth_day||1).getTime())/(365.2425*864e5);
   let curIdx=-1; dw.pillars.forEach((pp,i)=>{ if(pp.startAge.years<=age) curIdx=i; });
   const cell=(pp,i)=>{ const el=S.GAN_ELEM[pp.ganIdx], jel=S.JI_ELEM[pp.jiIdx], fav=favorSet.has(el)||favorSet.has(jel), cur=i===curIdx;
-    return `<div style="flex:0 0 auto;text-align:center;padding:6px 8px;border-radius:10px;border:${cur?'2px solid var(--gold)':'1px solid var(--line)'};background:${cur?'#faf6ec':'#fff'};min-width:50px">
+    return `<div style="flex:0 0 auto;text-align:center;padding:6px 8px;border-radius:10px;border:${cur?'2px solid var(--gold)':'1px solid var(--line)'};background:${cur?'var(--gold-soft)':'var(--card)'};min-width:50px">
       <div style="font-size:10px;color:var(--sub)">${pp.startAge.years}세</div>
       <div style="font-weight:700;font-size:15px;color:${EL_COL[el]}">${pp.gan}${pp.ji}</div>
       <div style="font-size:9.5px;color:var(--sub)">${el}·${jel}${fav?' <span style="color:var(--gold)">★</span>':''}</div>
