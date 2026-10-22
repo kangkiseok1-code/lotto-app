@@ -604,7 +604,6 @@ async function autoCheckWins(){
   }
   return changed;
 }
-const LOTTO_BALL=n=>n<=10?'#fbc400':n<=20?'#69c8f2':n<=30?'#ff7272':n<=40?'#aaa':'#b0d840';
 
 /* ============ 초기화 / 인증 ============ */
 async function init(){
@@ -1411,7 +1410,7 @@ function handleQRFile(input){
 function scanGamesHtml(r,draw){
   return r.games.map((g,i)=>{
     const balls=g.map(n=>{ const hit=draw&&draw.numbers.includes(n), bonus=draw&&n===draw.bonus_no;
-      return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${LOTTO_BALL(n)};color:var(--ink);text-shadow:none${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
+      return `<div class="ball" style="width:34px;height:34px;font-size:14px;background:${EL_COL[hadoElem(n)]}${hit?';outline:3px solid var(--gold);outline-offset:1px':bonus?';outline:3px solid var(--su);outline-offset:1px':''}">${n}</div>`; }).join('');
     let res='', rank=0;
     if(draw){ rank=rankOf(g,draw); const matched=g.filter(n=>draw.numbers.includes(n)).length, bonus=g.includes(draw.bonus_no);
       res=`<div style="margin-top:5px">${rank>0?`<span class="winbadge">🎉 ${rank}등 · ${Number(prizeFor(rank,draw)).toLocaleString()}원</span>`:`<span class="muted" style="font-size:12.5px">낙첨 · ${matched}개 일치${bonus?' +보너스':''}</span>`}</div>`; }
@@ -1682,8 +1681,8 @@ async function toggleNum(n){
 
 /* ---- 결과 ---- */
 function drawBalls(d){
-  const b=d.numbers.map(n=>`<div class="ball" style="background:${LOTTO_BALL(n)};color:var(--ink);text-shadow:none">${n}</div>`).join('');
-  return `<div class="balls">${b}<div style="display:grid;place-items:center;font-size:22px;color:var(--sub)">+</div><div class="ball" style="background:${LOTTO_BALL(d.bonus_no)};color:var(--ink);text-shadow:none">${d.bonus_no}</div></div>`;
+  const b=d.numbers.map(n=>`<div class="ball" style="background:${EL_COL[hadoElem(n)]}">${n}</div>`).join('');
+  return `<div class="balls">${b}<div style="display:grid;place-items:center;font-size:22px;color:var(--sub)">+</div><div class="ball" style="background:${EL_COL[hadoElem(d.bonus_no)]}">${d.bonus_no}</div></div>`;
 }
 function drawCard(d){
   if(!d) return '<p class="muted" style="font-size:13px">불러오지 못했어요.</p>';
