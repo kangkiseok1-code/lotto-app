@@ -499,6 +499,18 @@ async function saveCore(){
     if(r.error) throw r.error; coreRow=r.data||row; toast('자림에 저장했어요'); renderTab(); }
   catch(e){ toast('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요'); if(btn) btn.disabled=false; }
 }
+// 이 앱에서 확정한 정보로 자림 공용 정보를 바꾼다(이미 동의한 사람이 버튼을 눌렀을 때만). 동의 시각·버전은 건드리지 않는다
+async function overwriteCore(){
+  if(!user||!sb||!profile||!coreRow) return;
+  const btn=$('#coreOverBtn'); if(btn) btn.disabled=true;
+  const unk=profile.birth_hour==null;
+  const row={ user_id:user.id, gender:profile.gender==='M'?'male':(profile.gender==='F'?'female':coreRow.gender), calendar:profile.calendar==='lunar'?'lunar':'solar', leap:false,
+    birth_y:profile.birth_year, birth_mo:profile.birth_month, birth_d:profile.birth_day, birth_h:unk?null:profile.birth_hour, birth_min:unk?null:(profile.birth_minute||0),
+    time_unknown:unk, birth_city:profile.city||coreRow.birth_city||null };
+  try{ const r=await sb.from('core_profiles').upsert(row,{onConflict:'user_id'}).select().maybeSingle();
+    if(r.error) throw r.error; coreRow=r.data||Object.assign({},coreRow,row); toast('자림 정보도 바꿨어요'); renderTab(); }
+  catch(e){ toast('바꾸지 못했어요. 잠시 뒤 다시 눌러 주세요'); if(btn) btn.disabled=false; }
+}
 function dismissCoreSave(){ lsSet('lotto_core_later','1'); renderTab(); }
 // 자림에 저장된 정보로 이 앱 프로필을 맞춘다(만 19세 미만이면 막는다)
 async function syncFromCore(){
@@ -525,7 +537,7 @@ function coreCardHtml(){
     return `<div class="section on card" style="border-color:var(--gold)"><h3 style="${st}">자림에 저장된 정보와 달라요</h3>
       <div style="font-size:13px;line-height:1.8"><div>자림 · <b>${coreLine(coreRow)}</b></div><div>이 앱 · <b>${profLine(profile)}</b></div></div>
       <p class="muted" style="font-size:11.5px;margin:6px 0 10px">다른 곳: ${diff.join(', ')}</p>
-      <div class="row" style="flex-wrap:wrap"><button class="btn" onclick="syncFromCore()">자림 정보로 맞추기</button><button class="btn ghost" onclick="keepOwn()">이 앱은 그대로</button></div>${leap}</div>`;
+      <div class="row" style="flex-wrap:wrap"><button class="btn" onclick="syncFromCore()">자림 정보로 맞추기</button>${coreRow.leap?'':'<button class="btn" id="coreOverBtn" onclick="overwriteCore()">자림도 이 값으로</button>'}<button class="btn ghost" onclick="keepOwn()">이 앱에서만</button></div>${leap}</div>`;
   }
   return leap?`<div class="section on card"><p class="muted" style="font-size:12px;margin:0">${LEAP_NOTE}</p></div>`:'';
 }
@@ -898,7 +910,9 @@ async function saveProfile(){
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
   purchases=await dbLoadPurchases();
   await loadLatestDraw(); await autoCheckWins();
-  toast('저장했어요'); renderApp();
+  toast('저장했어요');
+  if(coreRow&&coreDiff(p,coreRow).length&&lsGet('lotto_core_keep')!==coreSig(coreRow)) tab='me';   // 공용 정보와 다르면 비교 카드가 있는 나 탭으로
+  renderApp();
 }
 
 /* ============ 화면: 메인 ============ */
