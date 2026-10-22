@@ -452,6 +452,83 @@ async function dbSaveProfile(p){
   p.user_id=user.id; p.updated_at=new Date().toISOString();
   await sb.from('lotto_profile').upsert(p);
 }
+/* ---- 자림에 저장된 내 정보(공용 출생정보, core_profiles) ----
+   읽기는 로그인했을 때만, 실패하면 없는 것처럼. 값은 입력칸을 채우는 데만 쓰고 확인(저장 버튼) 없이 이 앱 프로필에 쓰지 않는다. */
+const CORE_VER='v1';
+let coreRow=null, corePrefill=null;
+async function dbLoadCore(){
+  if(DEMO||!sb||!user) return null;
+  try{ const {data,error}=await sb.from('core_profiles').select('*').eq('user_id',user.id).maybeSingle(); return error?null:(data||null); }
+  catch(e){ return null; }
+}
+// 공용 정보 → 이 앱 프로필 모양. 재물운은 윤달을 저장하지 않고(leap:false), 성별은 M/F, 시간 모름은 시·분 비움
+function coreToLotto(c){
+  const unk=!!c.time_unknown||c.birth_h==null;
+  return { birth_year:c.birth_y, birth_month:c.birth_mo, birth_day:c.birth_d,
+    birth_hour:unk?null:c.birth_h, birth_minute:unk?null:(c.birth_min==null?0:c.birth_min),
+    calendar:c.calendar==='lunar'?'lunar':'solar', leap:false,
+    gender:c.gender==='male'?'M':(c.gender==='female'?'F':null),
+    city:(c.birth_city&&CITY_LNG[c.birth_city]!=null)?c.birth_city:null };
+}
+// 두 정보가 다른 곳(없는 값끼리는 비교하지 않는다)
+function coreDiff(p,c){
+  const a=coreToLotto(c), out=[];
+  if(p.birth_year!==a.birth_year||p.birth_month!==a.birth_month||p.birth_day!==a.birth_day) out.push('생년월일');
+  if((p.calendar||'solar')!==a.calendar) out.push('양력/음력');
+  if((p.birth_hour==null?null:p.birth_hour)!==a.birth_hour||(p.birth_hour!=null&&(p.birth_minute||0)!==(a.birth_minute||0))) out.push('태어난 시각');
+  if(p.gender&&a.gender&&p.gender!==a.gender) out.push('성별');
+  if(p.city&&a.city&&p.city!==a.city) out.push('태어난 곳');
+  return out;
+}
+const coreSig=c=>[c.birth_y,c.birth_mo,c.birth_d,c.birth_h,c.birth_min,c.calendar,c.leap,c.gender,c.birth_city,c.time_unknown].join('|');
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+const LEAP_NOTE='자림에 저장된 정보는 윤달 출생이에요. 이 앱은 윤달을 따로 계산하지 않으니 날짜를 한 번 확인해 주세요.';
+const birthLine=(cal,y,m,d,h,mi)=>`${cal==='lunar'?'음력 ':''}${y}.${m}.${d}${h==null?' · 시간 모름':' · '+h+'시'+(mi?' '+mi+'분':'')}`;
+function coreLine(c){ const a=coreToLotto(c); return birthLine(a.calendar,a.birth_year,a.birth_month,a.birth_day,a.birth_hour,a.birth_minute); }
+function profLine(p){ return birthLine(p.calendar,p.birth_year,p.birth_month,p.birth_day,p.birth_hour,p.birth_minute); }
+// 이 앱에 따로 입력해 둔 정보를 자림에 저장(동의한 사람만)
+async function saveCore(){
+  const ok=$('#coreOk'); if(!ok||!ok.checked||!user||!sb||!profile) return;
+  const btn=$('#coreSaveBtn'); if(btn) btn.disabled=true;
+  const unk=profile.birth_hour==null;
+  const row={ user_id:user.id, gender:profile.gender==='M'?'male':(profile.gender==='F'?'female':null), calendar:profile.calendar==='lunar'?'lunar':'solar', leap:false,
+    birth_y:profile.birth_year, birth_mo:profile.birth_month, birth_d:profile.birth_day, birth_h:unk?null:profile.birth_hour, birth_min:unk?null:(profile.birth_minute||0),
+    time_unknown:unk, birth_city:profile.city||null, consent_version:CORE_VER, consent_at:new Date().toISOString() };
+  try{ const r=await sb.from('core_profiles').upsert(row,{onConflict:'user_id'}).select().maybeSingle();
+    if(r.error) throw r.error; coreRow=r.data||row; toast('자림에 저장했어요'); renderTab(); }
+  catch(e){ toast('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요'); if(btn) btn.disabled=false; }
+}
+function dismissCoreSave(){ lsSet('lotto_core_later','1'); renderTab(); }
+// 자림에 저장된 정보로 이 앱 프로필을 맞춘다(만 19세 미만이면 막는다)
+async function syncFromCore(){
+  if(!coreRow) return; const a=coreToLotto(coreRow);
+  if(isMinorBirth(a.birth_year,a.birth_month,a.birth_day,a.calendar)){ toast('만 19세 이상만 이용할 수 있어요'); return; }
+  const p=Object.assign({}, profile, a, { gender:a.gender||profile.gender||null, city:a.city||profile.city||null });
+  await dbSaveProfile(p); profile=p; buildSaju(); toast('자림에 저장된 정보로 맞췄어요'); renderTab();
+}
+function keepOwn(){ if(coreRow) lsSet('lotto_core_keep',coreSig(coreRow)); renderTab(); }
+// 나 탭 맨 위 카드: 자림에 저장 안내 / 값이 다를 때 알림 / 윤달 안내
+function coreCardHtml(){
+  if(!user||DEMO||!profile) return '';
+  const st='margin:0 0 10px;font-size:16px';
+  if(!coreRow){
+    if(lsGet('lotto_core_later')==='1') return '';
+    return `<div class="section on card"><h3 style="${st}">이 정보를 자림에 저장할까요?</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">자림에 저장하면 오늘의 기운·만남·인생 다시 걷기에서 생년월일을 다시 입력하지 않아요.</p>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;margin:8px 0;min-height:44px"><input type="checkbox" id="coreOk" onchange="$('#coreSaveBtn').disabled=!this.checked" style="width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--gold)"> 다른 자림 앱에서도 내 출생정보를 쓰는 데 동의해요</label>
+      <div class="row" style="flex-wrap:wrap"><button class="btn" id="coreSaveBtn" disabled onclick="saveCore()">자림에 저장</button><button class="btn ghost" onclick="dismissCoreSave()">나중에</button></div>
+      <p class="muted" style="font-size:11px;margin:8px 0 0">동의는 언제든 자림 허브의 내 계정에서 거둘 수 있어요.</p></div>`;
+  }
+  const diff=coreDiff(profile,coreRow), leap=coreRow.leap?`<p class="muted" style="font-size:11.5px;margin:8px 0 0">${LEAP_NOTE}</p>`:'';
+  if(diff.length&&lsGet('lotto_core_keep')!==coreSig(coreRow)){
+    return `<div class="section on card" style="border-color:var(--gold)"><h3 style="${st}">자림에 저장된 정보와 달라요</h3>
+      <div style="font-size:13px;line-height:1.8"><div>자림 · <b>${coreLine(coreRow)}</b></div><div>이 앱 · <b>${profLine(profile)}</b></div></div>
+      <p class="muted" style="font-size:11.5px;margin:6px 0 10px">다른 곳: ${diff.join(', ')}</p>
+      <div class="row" style="flex-wrap:wrap"><button class="btn" onclick="syncFromCore()">자림 정보로 맞추기</button><button class="btn ghost" onclick="keepOwn()">이 앱은 그대로</button></div>${leap}</div>`;
+  }
+  return leap?`<div class="section on card"><p class="muted" style="font-size:12px;margin:0">${LEAP_NOTE}</p></div>`:'';
+}
 async function dbLoadNumbers(){
   if(DEMO){const j=localStorage.getItem(LS+'nums');return j?JSON.parse(j):[];}
   const {data}=await sb.from('lotto_numbers').select('*').eq('user_id',user.id);
@@ -620,6 +697,12 @@ async function init(){
 async function afterAuth(){
   DEMO=!user;
   profile=await dbLoadProfile();
+  coreRow=await dbLoadCore(); corePrefill=null;
+  if(!profile&&coreRow){   // 이 앱은 처음 + 자림에 저장된 정보 있음 → 입력칸을 채워 확인만 받는다
+    const a=coreToLotto(coreRow);
+    if(isMinorBirth(a.birth_year,a.birth_month,a.birth_day,a.calendar)){ renderMinorBlock(); return; }   // 복권은 만 19세 미만 불가 — 공용 정보라도 같은 규칙
+    corePrefill=a;
+  }
   if(!profile){ renderProfileForm(); return; }   // 신규=사주 입력, 기존=메인
   buildSaju();
   const nums=await dbLoadNumbers();
@@ -707,10 +790,11 @@ function renderMinorBlock(){
 /* ============ 화면: 사주 입력 ============ */
 function renderProfileForm(){
   document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
-  const p=profile||{};
+  const p=profile||corePrefill||{};
   if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarkers=null; _selCity=null; }   // 재렌더 시 지도 재초기화
   $('#root').innerHTML=`<div class="wrap">
     <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
+    ${(!profile&&corePrefill)?`<div class="card" style="border-color:var(--gold)"><b>자림에 저장된 내 정보로 채웠어요</b><p class="muted" style="font-size:12.5px;margin:6px 0 0">맞는지 확인하고 아래 버튼을 누르면 바로 시작해요.${coreRow&&coreRow.leap?'<br>'+LEAP_NOTE:''}</p></div>`:''}
     <div class="card">
       <div class="grid3">
         <div><label class="f">년</label><input id="by" type="number" value="${p.birth_year||''}" placeholder="0000"></div>
@@ -809,7 +893,7 @@ async function saveProfile(){
   const p={birth_year:by,birth_month:bm,birth_day:bd,
     birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
     calendar:v('cal'),leap:false,gender:v('gender')||null,city:v('city')||null};
-  await dbSaveProfile(p); profile=p; buildSaju();
+  await dbSaveProfile(p); profile=p; corePrefill=null; buildSaju();
   const nums=await dbLoadNumbers();
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
   purchases=await dbLoadPurchases();
@@ -1733,7 +1817,7 @@ function daewoonSewoonHtml(){
 /* ---- 나 ---- */
 function viewMe(){
   const p=saju.pillars, d=saju.deep, dayGan=p.day.gan;
-  return `<div class="section on card">
+  return coreCardHtml()+`<div class="section on card">
     <h2 style="margin:0 0 8px">내 사주 만세력</h2>
     <div class="manse">
       ${manseCol('시주',p.hour,dayGan,false)}
