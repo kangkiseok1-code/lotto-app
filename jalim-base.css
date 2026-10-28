@@ -14,6 +14,7 @@
 
 /* ── 기본 ── */
 *{box-sizing:border-box}
+html,body{overflow-x:clip}
 body{margin:0;font-family:'Pretendard','IBM Plex Sans KR',system-ui,-apple-system,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
 h1{font-size:1.6rem;margin:.2em 0;font-weight:800;letter-spacing:-.02em}
 h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin:0 0 12px}
@@ -35,7 +36,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line-strong)}
 .btn.danger{background:var(--card);color:var(--danger);border:1px solid #e6c9c4}
 .btn.sm{padding:7px 14px;font-size:.85rem}
-.btn:disabled{opacity:.5;cursor:default}
+.btn:disabled,.btn:disabled:hover{background:var(--line-strong);color:var(--sub);cursor:not-allowed}
 .btn:active:not(:disabled){transform:scale(.97);transition:transform .1s ease-out}
 @media(hover:hover){.btn:hover{background:#2c2c2c}.btn.ghost:hover{background:#f0eeea}}
 
@@ -55,6 +56,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 :root{
   /* 의미 색: 같은 뜻은 앱이 달라도 같은 값. (--ok 성공 · --danger 위험 · --warn 경고는 위에 있음) */
   --ok-soft:#e5f4ed; --danger-soft:#fbe8ed; --warn-soft:#fdf0d9; --info:#2a49c8; --info-soft:#e8ecfb;
+  --gold-ink:#8a5a00; --ok-ink:#0a7350; /* 옅은 배경 위 작은 글자용(대비 4.5 이상) */
   /* 글자 3단 · 면 3단 */
   --text-1:var(--ink); --text-2:var(--sub); --text-3:var(--muted);
   --surface-1:var(--card); --surface-2:#f1ece1; --surface-3:var(--bg);
@@ -157,7 +159,7 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
 
 /* 칩·상태 표시 */
 .jn-chip{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:0 10px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--card);color:var(--text-2);font-size:12px;font-weight:600;white-space:nowrap}
-.jn-chip.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.jn-chip.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok-ink)}
 .jn-chip.warn{background:var(--warn-soft);border-color:transparent;color:#8a5a00}
 .jn-chip.bad{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
 .jn-chip.info{background:var(--info-soft);border-color:transparent;color:var(--info)}
