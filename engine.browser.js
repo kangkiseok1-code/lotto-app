@@ -2552,8 +2552,9 @@ var OhaengEngine = (() => {
         const out = [];
         PUNISH_SELF.forEach((ji) => {
           const occ = branches.filter((b) => b.ji === ji);
-          if (occ.length >= 2) {
-            out.push({ type: "\uC790\uD615", ids: occ.map((o) => o.id), jis: occ.map(() => ji) });
+          const used = occ.filter((o) => occ.some((p) => p !== o && (posGap([o.id, p.id]) === null || posGap([o.id, p.id]) === 1)));
+          if (used.length >= 2) {
+            out.push({ type: "\uC790\uD615", ids: used.map((o) => o.id), jis: used.map(() => ji) });
           }
         });
         return out;
@@ -2721,6 +2722,10 @@ var OhaengEngine = (() => {
       Object.keys(JIJANGGAN_ORDERED).forEach((ji) => {
         const l = JIJANGGAN_ORDERED[ji];
         JIJANGGAN[ji] = [l[l.length - 1]].concat(l.slice(0, -1));
+      });
+      var JIJANGGAN_INWON = {};
+      Object.keys(JIJANGGAN_ORDERED).forEach((ji) => {
+        JIJANGGAN_INWON[ji] = ["\uC790", "\uBB18", "\uC624", "\uC720"].includes(ji) ? JIJANGGAN_ORDERED[ji].slice(1) : JIJANGGAN_ORDERED[ji];
       });
       var SHENG = { \uBAA9: "\uD654", \uD654: "\uD1A0", \uD1A0: "\uAE08", \uAE08: "\uC218", \uC218: "\uBAA9" };
       var KE_ = { \uBAA9: "\uD1A0", \uD1A0: "\uC218", \uC218: "\uD654", \uD654: "\uAE08", \uAE08: "\uBAA9" };
@@ -3465,6 +3470,7 @@ var OhaengEngine = (() => {
         GAN_YIN_YANG,
         JIJANGGAN,
         JIJANGGAN_ORDERED,
+        JIJANGGAN_INWON,
         SHENG,
         KE_,
         GENERATED_BY_,
@@ -9795,8 +9801,32 @@ var OhaengEngine = (() => {
   // src/saju/sinsal.js
   var require_sinsal = __commonJS({
     "src/saju/sinsal.js"(exports, module) {
-      var { TRIO_COMBO } = require_relations();
+      var { TRIO_COMBO, CLASH } = require_relations();
       var Y = require_yupa_constants();
+      var { GAN, GAN_ELEM, JIJANGGAN, GENERATED_BY_ } = require_saju();
+      var SAMGI = [
+        { name: "\uCC9C\uC0C1\uC0BC\uAE30", gans: ["\uAC11", "\uBB34", "\uACBD"] },
+        { name: "\uC9C0\uD558\uC0BC\uAE30", gans: ["\uC744", "\uBCD1", "\uC815"] },
+        { name: "\uC778\uC911\uC0BC\uAE30", gans: ["\uC2E0", "\uC784", "\uACC4"] }
+      ];
+      function findSamgi(branches, dayGan) {
+        const by = Object.fromEntries(branches.map((b) => [b.id, b]));
+        const month = by.month;
+        if (!month) return [];
+        const dayE = GAN_ELEM[GAN.indexOf(dayGan)];
+        const monthE = GAN_ELEM[GAN.indexOf(JIJANGGAN[month.ji][0])];
+        if (!(monthE === dayE || GENERATED_BY_[dayE] === monthE)) return [];
+        const clashed = branches.some((b) => b.id !== "month" && ["year", "day", "hour"].includes(b.id) && CLASH.some(([a, c]) => a === month.ji && c === b.ji || c === month.ji && a === b.ji));
+        if (clashed) return [];
+        const out = [];
+        [["year", "month", "day"], ["month", "day", "hour"]].forEach((ids) => {
+          if (!ids.every((k) => by[k] && by[k].gan)) return;
+          SAMGI.forEach((s) => {
+            if (ids.every((k, i) => by[k].gan === s.gans[i])) out.push({ name: s.name, gans: s.gans.join(""), ids });
+          });
+        });
+        return out;
+      }
       var CHEONEUL = {
         \uAC11: ["\uCD95", "\uBBF8"],
         \uBB34: ["\uCD95", "\uBBF8"],
@@ -9869,6 +9899,7 @@ var OhaengEngine = (() => {
         if (dayBranch && Y.BOKRYEOK_YEOKMA.\uC77C\uAC04.includes(dayGan) && dayBranch.ji === Y.BOKRYEOK_YEOKMA.\uC77C\uC9C0) {
           result.bokryeok.push(dayBranch);
         }
+        result.samgi = findSamgi(branches, dayGan);
         return result;
       }
       var GAN_KO = ["\uAC11", "\uC744", "\uBCD1", "\uC815", "\uBB34", "\uAE30", "\uACBD", "\uC2E0", "\uC784", "\uACC4"];
@@ -9948,6 +9979,8 @@ var OhaengEngine = (() => {
         TRIO_TO_HWAGAE,
         YANGIN,
         findSinsal,
+        SAMGI,
+        findSamgi,
         TWELVE_SINSAL,
         twelveSinsalMap,
         find12Sinsal,
