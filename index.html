@@ -155,7 +155,8 @@
 <div id="root"><div class="wrap" style="padding-top:60px" role="status" aria-label="불러오는 중"><div class="jn-skel line" style="width:45%"></div><div class="jn-skel line"></div><div class="jn-skel block"></div></div></div>
 <div class="toast" id="toast"></div>
 
-<script src="/jalim-engine/v1.0.0/engine.js" integrity="sha384-7XdpymHBweGdT08+OrhD0qlQUNelsJR+Bi/bRvSnlPLH8Psj5GQxN8odmLegiQGA"></script>
+<script src="/jalim-engine/v2.0.0/engine.js" integrity="sha384-FZoqpEanXyTkeuaYz/3aHqJ7t65anISko358tUaXofQoxujyomMLUbibdjox85EW"></script>
+<script src="/jalim-engine/v2.0.0/judge-transport.js" integrity="sha384-/4TPGXa6tu9v68Dt4s/2L8yfCV+cJA5czYGBWJr0Y/BU3USEycTUdcqvPYFbZJsA"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="jsQR.min.js"></script>
 <input type="file" id="qrFile" accept="image/*" capture="environment" style="display:none" onchange="handleQRFile(this)">
@@ -169,6 +170,9 @@ const S = E.saju, T = E.transit, TL = E.timeline, TS = E.twelveStages, DW = E.da
 // 로컬 모드(=이 기기 저장, 로그인 안 함)가 기본. 클라우드 로그인하면 꺼짐. afterAuth/init에서 갱신.
 let DEMO = true;
 let sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+// 사주 판정은 서버가 한다(엔진 v2). 서버에는 간지 숫자만 가고, 로그인했으면 로그인 토큰으로, 아니면 공개 키로(IP별 좁은 한도) 부른다.
+if (sb && E && window.OhaengJudgeTransport) E.judge.configure({ send: window.OhaengJudgeTransport.create({ url: SUPABASE_URL + '/functions/v1/saju-judge', apikey: SUPABASE_ANON,
+  getToken: async () => { try { const { data } = await sb.auth.getSession(); if (data && data.session) return data.session.access_token; } catch (e) {} return SUPABASE_ANON; } }) });
 
 /* ============ 상태 ============ */
 let user=null, profile=null, saju=null, favorSet=new Set(), jaeElem=null, jaeFav=false;
@@ -232,9 +236,9 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 function seedFrom(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 
 /* ============ 엔진 계산 ============ */
-function buildSaju(){
+async function buildSaju(){
   const p=profile;
-  saju=S.computeSaju(p.birth_year,p.birth_month,p.birth_day,
+  saju=await E.judge.computeSaju(p.birth_year,p.birth_month,p.birth_day,
     (p.birth_hour==null?'':p.birth_hour),
     {minute:(p.birth_minute==null?'':p.birth_minute),calendar:p.calendar||'solar',leap:!!p.leap,city:p.city||undefined});
   const d=saju.deep;
@@ -268,13 +272,25 @@ function sewoonPillarAt(y){
   try{ const sw=SW.sewoon(saju.pillars,y); return _sewoonCache[y]={ganIdx:sw.ganIdx,jiIdx:sw.jiIdx}; }catch(e){ return null; }
 }
 // 특정 날짜의 재물운/발복 점수 (대운·세운·월운·일운 반영)
+// 운 점수는 서버에서 한 달씩 받아 와 _dayCache에 둔다. 화면을 그리는 renderTab이 필요한 달을 먼저 받아 두고 그린다.
+const _dayCache={}; let _probe=null;
+const dayExtra=(y,m,d)=>{ const t=T.transitPillars(y,m,d); return {t, extra:[
+  {label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
+  {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8},
+]}; };
+const monthCached=(y,m)=>!!_dayCache[dkey(y,m,1)];
+async function ensureMonths(list){   // list: [[y,m],...] — 같은 순간의 요청은 한 번의 서버 호출로 묶인다
+  await Promise.all(list.filter(([y,m])=>!monthCached(y,m)).map(async ([y,m])=>{
+    const days=new Date(y,m,0).getDate(), items=[];
+    for(let d=1;d<=days;d++) items.push({dw:daeunPillarAt(y,m,d),sw:sewoonPillarAt(y),extra:dayExtra(y,m,d).extra});
+    const res=await E.judge.scoreSeries(saju.pillars,saju.deep,items,['yongheeScore','incoming','rootClash']);
+    res.forEach((r,i)=>{ _dayCache[dkey(y,m,i+1)]=r; });
+  }));
+}
 function dayScore(y,m,d){
-  const t=T.transitPillars(y,m,d);
-  const extra=[
-    {label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
-    {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8},
-  ];
-  const r=TL.scoreTimeline(saju.pillars,saju.deep,daeunPillarAt(y,m,d),sewoonPillarAt(y),extra);
+  const {t,extra}=dayExtra(y,m,d);
+  let r=_dayCache[dkey(y,m,d)];
+  if(!r){ if(_probe) _probe.add(y+'-'+m); r={yongheeScore:0,incoming:[],rootClash:null}; }
   const jae=r.incoming.filter(x=>x.sibsin==='재성');
   const dayJae=jae.filter(x=>x.src.indexOf('일운')===0);          // 그날 축(일운)으로 들어온 재성
   const monthJae=jae.filter(x=>/^(대운|세운|월운)/.test(x.src));   // 한 달 내내 고정인 축의 재성
@@ -346,11 +362,8 @@ function transitFavor(){
   if(_tfKey===key && _tfCache) return _tfCache;
   let favor=new Set();
   try{
-    const t=T.transitPillars(y,mo,d);
-    const extra=[{label:'월운',ganIdx:t.month.ganIdx,jiIdx:t.month.jiIdx,weight:0.5},
-                 {label:'일운',ganIdx:t.day.ganIdx,jiIdx:t.day.jiIdx,weight:0.8}];
-    const r=TL.scoreTimeline(saju.pillars,saju.deep,daeunPillarAt(y,mo,d),sewoonPillarAt(y),extra);
-    favor=new Set(r.favorableElems||[]);
+    // 운 점수 결과의 favorableElems는 용신+희신+운 발현 용희신과 같다 — 서버를 부르지 않고 deep에서 바로 만든다
+    const dd=saju.deep; favor=new Set([...(dd.yongsin||[]),...(dd.heeshin||[]),...(dd.yongheeshin||[])]);
   }catch(e){}
   _tfCache=favor; _tfKey=key; return favor;
 }
@@ -500,7 +513,7 @@ async function syncFromCore(){
   if(!coreRow) return; const a=coreToLotto(coreRow);
   if(isMinorBirth(a.birth_year,a.birth_month,a.birth_day,a.calendar)){ toast('만 19세 이상만 이용할 수 있어요'); return; }
   const p=Object.assign({}, profile, a, { gender:a.gender||profile.gender||null, city:a.city||profile.city||null });
-  await dbSaveProfile(p); profile=p; buildSaju(); toast('자림에 저장된 정보로 맞췄어요'); renderTab();
+  await dbSaveProfile(p); profile=p; await buildSaju(); toast('자림에 저장된 정보로 맞췄어요'); renderTab();
 }
 function keepOwn(){ if(coreRow) lsSet('lotto_core_keep',coreSig(coreRow)); renderTab(); }
 // 분석 탭 맨 위 카드: 자림에 저장 안내 / 값이 다를 때 알림 / 윤달 안내
@@ -699,7 +712,7 @@ async function afterAuth(){
     corePrefill=a;
   }
   if(!profile){ renderProfileForm(); return; }   // 신규=사주 입력, 기존=메인
-  buildSaju();
+  try{ await buildSaju(); }catch(e){ toast('사주 계산 서버에 연결하지 못했어요. 잠시 뒤 새로고침해 주세요'); return; }
   const nums=await dbLoadNumbers();
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),
              favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
@@ -889,7 +902,7 @@ async function saveProfile(){
   const p={birth_year:by,birth_month:bm,birth_day:bd,
     birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
     calendar:v('cal'),leap:false,gender:v('gender')||null,city:v('city')||null};
-  await dbSaveProfile(p); profile=p; corePrefill=null; buildSaju();
+  await dbSaveProfile(p); profile=p; corePrefill=null; await buildSaju();
   const nums=await dbLoadNumbers();
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
   purchases=await dbLoadPurchases();
@@ -965,7 +978,20 @@ function dayChip(iso){
   const md=monthData(y,m); const s=md.scores[d-1]; const money=md.isMoney(s);
   return `<div class="daychip">일진 <b>${s.day.hangul}</b> · 재물 발복 <b>${s.score.toFixed(1)}</b>${money?' · <span class="m">錢 목돈일</span>':(s.jaePresent?' · 재물기운 O':'')}</div>`;
 }
+// 화면을 그리기 전에 필요한 달의 운 점수를 서버에서 받아 둔다. 먼저 한 번 그려 보며(결과는 버림) 부족한 달을 알아내고, 받은 뒤 진짜로 그린다.
+let _rtSeq=0;
 function renderTab(){
+  if(!saju) return renderTabNow();
+  const b=$('#body'), last=renderTab._last, my=++_rtSeq;
+  _probe=new Set(); let miss=null;
+  try{ renderTabNow(); }catch(e){ /* 빈 값으로 그리다 난 오류는 받은 뒤 다시 그릴 때 드러난다 */ }
+  finally{ miss=_probe; _probe=null; }
+  if(!miss.size) return;                       // 필요한 값이 이미 다 있었다 = 방금 그린 것이 진짜 화면
+  renderTab._last=last; b.innerHTML=SKEL;
+  ensureMonths([...miss].map(k=>k.split('-').map(Number))).then(()=>{ if(my===_rtSeq) renderTabNow(); })
+    .catch(e=>{ if(my!==_rtSeq) return; b.innerHTML='<div class="card"><b>운 점수를 불러오지 못했어요.</b><p class="sub">인터넷 연결을 확인하고 다시 시도해 주세요.</p><button class="btn" id="bRetryTab" type="button">다시 시도</button></div>'; const rb=$('#bRetryTab'); if(rb) rb.onclick=()=>renderTab(); });
+}
+function renderTabNow(){
   const b=$('#body');
   let h='';
   if(tab==='cal')h=viewCalendar();
@@ -1037,6 +1063,7 @@ function calMove(dir){let{y,m}=calView;m+=dir;if(m<1){m=12;y--}if(m>12){m=1;y++}
 const GILMONG=['돼지','대통령','조상','똥','대변','불','물','홍수','용','뱀','구렁이','돈','금','보석','연예인','아기','물고기','잉어','고래','호랑이','피','부처','신령','로또'];
 let editDream=null;
 function dayDetail(y,m,d){
+  if(!monthCached(y,m)){ ensureMonths([[y,m]]).then(()=>dayDetail(y,m,d)).catch(()=>toast('운 점수를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요')); return; }
   const md=monthData(y,m); const s=md.scores[d-1]; const money=md.isMoney(s);
   const dk=dkey(y,m,d), lucky=luckyDays.has(dk);
   const dayBuys=purchases.filter(p=>dkeyOf(p.purchased_at)===dk);
