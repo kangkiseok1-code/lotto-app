@@ -2,7 +2,7 @@
 // HTML은 network-first(항상 최신, 오프라인 시 캐시), 그 외 same-origin은 stale-while-revalidate.
 const CACHE = 'ohaeng-lotto-v45';
 const CORE = [
-  './', './index.html', './jalim-base.css', '/jalim-engine/v2.0.0/engine.js', '/jalim-engine/v2.0.0/judge-transport.js', './balbok.js', './cal-view.js',
+  './', './index.html', './jalim-base.css', './jalim-tokens.js', '/jalim-engine/v2.0.0/engine.js', '/jalim-engine/v2.0.0/judge-transport.js', './balbok.js', './cal-view.js',
   './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './myeongdang.json'
 ];

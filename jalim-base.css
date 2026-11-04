@@ -34,7 +34,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 /* ── 버튼 ── */
 .btn{background:var(--ink);color:#fff;border:none;padding:12px 22px;border-radius:999px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;touch-action:manipulation}
 .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line-strong)}
-.btn.danger{background:var(--card);color:var(--danger);border:1px solid #e6c9c4}
+.btn.danger{background:var(--card);color:var(--danger);border:1px solid var(--danger-line)}
 .btn.sm{padding:7px 14px;font-size:.85rem}
 .btn:disabled,.btn:disabled:hover{background:var(--line-strong);color:var(--sub);cursor:not-allowed}
 .btn:active:not(:disabled){transform:scale(.97);transition:transform .1s ease-out}
@@ -218,7 +218,17 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
   --shadow-sm:0 3px 10px rgba(120,96,60,.12);
   --shadow-in:inset 0 3px 6px rgba(255,255,255,.55),inset 0 -4px 8px rgba(0,0,0,.08);
   --shadow-ink:rgba(120,96,60,.22);   /* 그림자 색(SVG 필터용) */
-  --peer:#2a7d7d; --purple:#7b5cc4; --gold-line:#b08d34; --ok-tint:#f4fbf4;   /* 앱 안에서 쓰던 색을 토큰으로(값 그대로) — 지인 시선·합충·금빛 선·연한 민트 */
+  --peer:#2a7d7d; --purple:#7b5cc4; --gold-line:#b08d34; --ok-tint:#f4fbf4;
+  --peer-tint:#eef6f5; --peer-ink:#1f5f5f; --danger-line:#e6c9c4;
+  /* 데이터 색: 지도 분류·십이운성·막대처럼 '종류 구분'에 쓰는 색. 값을 바꾸면 앱 전체가 따라간다 */
+  --chart-green:#3f9d5a; --chart-amber:#d99a2b; --chart-violet:#8a6bc2; --chart-rose:#c2568a;
+  --chart-moss:#4a8c5e; --chart-sand:#c99a3c; --chart-brick:#c75146; --chart-plum:#7a5ca8; --chart-gold:#c8a24a;
+  /* 오행 상생·상극 선, 어두운 면 위 글자·선, 금빛 단계(램프), 안내 상자, 데스크톱 어두운 검색창 */
+  --sheng-line:#e6cccc; --ke-line:#c4d4e6; --ink-line:#3a3530; --ink-sub:#bdb4a5;
+  --ramp-1:#f3ecd9; --ramp-2:#e2cf9c; --ramp-3:#cbab5f; --note-bg:#fff6e6; --note-line:#ecd9a8;
+  --shell-bg:#2e2a25; --shell-faint:#8f877a;
+  /* 구분용 색 8가지(팀메이커 부서 등) */
+  --cat-1:#2f6fb5; --cat-2:#d9822b; --cat-3:#1f8a7a; --cat-4:#7a5ab5; --cat-5:#5f6368; --cat-6:#b4561f; --cat-7:#3e7d2e; --cat-8:#9c3d6b;   /* 앱 안에서 쓰던 색을 토큰으로(값 그대로) — 지인 시선·합충·금빛 선·연한 민트 */
 }
 .card{border-color:transparent;border-radius:var(--r-card);box-shadow:var(--shadow-sm)}
 .btn{box-shadow:var(--shadow-sm)}
