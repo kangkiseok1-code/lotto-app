@@ -181,7 +181,7 @@ let drawShown=null;   // 보고 있는 회차 번호 (없으면 최신)
 function drawCardHtml(){
   if(!latestDraw) return '';
   const no=drawShown||latestDraw.draw_no, dr=draws[no]||(no===latestDraw.draw_no?latestDraw:null);
-  const ball=n=>`<div class="ball" style="width:34px;height:34px;font-size:13px;background:${EL_COL[hadoElem(n)]}">${n}<span class="sub">${hadoElem(n)}</span></div>`;
+  const ball=n=>`<div class="ball" style="width:34px;height:34px;font-size:13px;${EL_FACE(hadoElem(n))}">${n}<span class="sub">${hadoElem(n)}</span></div>`;
   return `<div class="section on card">
     <div class="row" style="align-items:center;justify-content:space-between"><button class="btn ghost sm" aria-label="이전 회차" onclick="drawMove(-1)">‹</button>
       <b style="font-size:14px">${no}회 당첨 번호${dr&&dr.date?` <span class="muted" style="font-weight:400;font-size:12px">· ${esc(String(dr.date).slice(0,10))}</span>`:''}</b>
