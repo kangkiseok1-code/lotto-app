@@ -14,10 +14,18 @@ async function dbLoadDaylog(){
 }
 async function dbSaveDaylog(key,rec){
   const r=Balbok.cleanRec(rec); if(!r) return false;
-  if(DEMO){ daylog[key]=Object.assign({},r,{legacy:false}); localStorage.setItem(LS+'daylog',JSON.stringify(daylog)); return true; }
+  if(DEMO){ daylog[key]=Object.assign({},r,{legacy:false}); saveLuck(key); localStorage.setItem(LS+'daylog',JSON.stringify(daylog)); return true; }
   const {error}=await sb.from('daily_checkins').upsert(Balbok.toRow(user.id,key,r),{onConflict:'user_id,day'});
   if(error) throw error;
-  daylog[key]=Object.assign({},r,{legacy:false}); return true;
+  daylog[key]=Object.assign({},r,{legacy:false});
+  saveLuck(key); return true;
+}
+/* 기록한 날의 발복점수를 따로 남긴다(분석의 "예측 vs 내 기록" 비교용). luck 칸이 아직 없거나 실패해도 기록 저장에는 영향 없음 */
+function luckOf(key){ const p=key.split("-").map(Number), rng=yearRange(p[0]); return rng&&monthCached(p[0],p[1])?Balbok.scale(dayScore(p[0],p[1],p[2]).score,rng):null; }
+function saveLuck(key){
+  const luck=luckOf(key); if(!luck) return;
+  daylog[key].luck=luck;
+  if(!DEMO) sb.from("daily_checkins").update({luck}).eq("user_id",user.id).eq("day",key).then(()=>{},()=>{});
 }
 async function dbDeleteDaylog(key){
   if(DEMO){ delete daylog[key]; localStorage.setItem(LS+'daylog',JSON.stringify(daylog)); return; }
