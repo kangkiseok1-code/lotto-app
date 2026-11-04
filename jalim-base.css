@@ -218,6 +218,7 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
   --shadow-sm:0 3px 10px rgba(120,96,60,.12);
   --shadow-in:inset 0 3px 6px rgba(255,255,255,.55),inset 0 -4px 8px rgba(0,0,0,.08);
   --shadow-ink:rgba(120,96,60,.22);   /* 그림자 색(SVG 필터용) */
+  --peer:#2a7d7d; --purple:#7b5cc4; --gold-line:#b08d34; --ok-tint:#f4fbf4;   /* 앱 안에서 쓰던 색을 토큰으로(값 그대로) — 지인 시선·합충·금빛 선·연한 민트 */
 }
 .card{border-color:transparent;border-radius:var(--r-card);box-shadow:var(--shadow-sm)}
 .btn{box-shadow:var(--shadow-sm)}
