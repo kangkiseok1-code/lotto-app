@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>오행 로또 · 재물운 달력</title>
+<title>운세 체크인 달력</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="오행로또">
+<meta name="apple-mobile-web-app-title" content="운세 체크인 달력">
 <style>
   /* 색·글꼴 기본은 jalim-base.css. 여기엔 이 앱 고유 토큰만 둔다 */
   :root{
@@ -61,18 +61,30 @@
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
   .cal-dow{text-align:center;font-size:11px;color:var(--sub);padding:2px 0}
   .cal-cell{aspect-ratio:1/1.08;border-radius:10px;border:1px solid var(--line);background:var(--card);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;overflow:hidden;padding-bottom:7px}
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;overflow:hidden;padding-bottom:3px}
   .cal-cell.empty{border:none;background:transparent;cursor:default}
   .cal-cell .d{font-size:13px;font-weight:700;color:var(--ink)}
-  .cal-cell .heat{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);height:4px;
-    background:var(--gold);border-radius:2px;max-width:80%}
   .cal-cell.today{outline:2px solid var(--ink);outline-offset:-2px}
   .cal-cell.money{border-color:var(--gold)}
-  .cal-cell.money::after{content:"錢";position:absolute;top:2px;right:2px;background:var(--ink);color:#fff;
-    border-radius:4px;padding:0 3px;font-size:8px;font-family:serif;line-height:1.6}
+  .cal-cell.money::after{content:"錢";position:absolute;top:1px;right:1px;background:var(--ink);color:#fff;
+    border-radius:3px;padding:0 2px;font-size:7px;font-family:serif;line-height:1.5}
   .cal-cell.caution{border-color:var(--hwa)}
-  .cal-cell.caution::after{content:"⚠";position:absolute;top:1px;right:2px;font-size:9px;line-height:1.4}
+  .cal-cell.caution::after{content:"⚠";position:absolute;top:1px;right:1px;font-size:8px;line-height:1.4}
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
+  .cal-cell .sc{font-size:10px;color:var(--sub);line-height:1}
+  .cal-cell .rd{position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;background:var(--ink)}
+  .cal-cell.best{box-shadow:0 0 0 2.5px #d4a017,0 0 8px rgba(212,160,23,.5);z-index:1}
+  .cal-dow.sat{color:var(--gold);font-weight:700}
+  .cal-dow small{display:block;font-size:9px;font-weight:600;line-height:1}
+  .gframe{display:inline-block;width:11px;height:11px;border:2px solid #d4a017;border-radius:3px;vertical-align:-2px;margin-right:3px}
+  .tip{font-size:12px;color:var(--sub);margin-top:8px}
+  .tip summary{cursor:pointer;list-style:none;display:inline-block}
+  .tip summary::-webkit-details-marker{display:none}
+  .tip p{margin:6px 0 0;line-height:1.55}
+  input[type=range]{accent-color:var(--gold);width:100%}
+  .scale10{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:8px}
+  .scale10 i{height:9px;border-radius:3px;background:var(--line)}
+  .scale10 i.on{background:var(--gold)}
   .chip{display:inline-flex;align-items:center;gap:4px;background:var(--gold-soft);color:var(--gold);border-radius:16px;padding:3px 9px;font-size:12px;margin:0 4px 4px 0}
   .chip button{border:none;background:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0;line-height:1}
   textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:100%;resize:vertical;min-height:64px}
@@ -161,6 +173,8 @@
 <script src="jsQR.min.js"></script>
 <input type="file" id="qrFile" accept="image/*" capture="environment" style="display:none" onchange="handleQRFile(this)">
 <canvas id="qrCanvas" style="display:none"></canvas>
+<script src="balbok.js"></script>
+<script src="cal-view.js"></script>
 <script>
 /* ============ 설정 ============ */
 const SUPABASE_URL  = 'https://vdnbnuxhjhckzrryvezl.supabase.co';
@@ -719,6 +733,7 @@ async function afterAuth(){
   purchases=await dbLoadPurchases();
   luckyDays=await dbLoadLucky();
   dreams=await dbLoadDreams();
+  daylog=await dbLoadDaylog();
   feedbackInbox=await dbLoadFeedback();   // 개발자 계정만 실제 행이 옴(RLS)
   await loadLatestDraw();
   if(recOpts.pastWin) await loadWinCombos();   // 켜둔 상태면 새 회차까지 자동 최신화
@@ -730,7 +745,7 @@ async function afterAuth(){
 function renderLogin(){
   document.body.classList.remove('jn-on'); document.body.style.paddingBottom='';
   $('#root').innerHTML=`<div class="wrap">
-    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">오행 로또</div><div class="s">클라우드 로그인 (선택)</div></div></header>
+    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">운세 체크인 달력</div><div class="s">클라우드 로그인 (선택)</div></div></header>
     <div class="card" style="margin-top:16px">
       ${profile?'<button class="btn ghost sm" onclick="afterAuth()" style="margin-bottom:12px">‹ 뒤로</button>':''}
       <h2 style="margin:0 0 6px">여러 기기에서 동기화</h2>
@@ -765,13 +780,13 @@ function renderLanding(){
   $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px;max-width:440px">
     <div style="text-align:center">
       <div class="seal" style="width:68px;height:68px;border-radius:18px;margin:0 auto 14px">${SEAL}</div>
-      <h1 style="font-size:30px;margin:0 0 4px">오행 로또</h1>
+      <h1 style="font-size:30px;margin:0 0 4px">운세 체크인 달력</h1>
       <p class="muted" style="font-size:14px;margin:0 0 12px">사주 재물운으로 보는 나의 로또</p>
       <div>${RESP_BADGE}</div>
     </div>
     <div class="lp-quote">
       ${q.map(p=>`<span>${p}</span>`).join('')}
-      <span class="lp-sign">오행 로또</span>
+      <span class="lp-sign">운세 체크인 달력</span>
     </div>
     <button class="btn" style="display:block;width:100%;max-width:300px;height:52px;margin:24px auto 0;border-radius:14px;font-size:16px" onclick="afterAuth()">시작하기 →</button>
     <p class="muted" style="font-size:11.5px;text-align:center;margin:10px 0 0">먼저 내 사주(생년월일시)를 한 번만 입력하면 돼요.</p>
@@ -791,7 +806,7 @@ function renderMinorBlock(){
   $('#root').innerHTML=`<div class="wrap" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:28px 18px 40px;max-width:440px;text-align:center">
     <div>${RESP_BADGE}</div>
     <h2 style="margin:16px 0 8px">만 19세 이상만 이용할 수 있어요</h2>
-    <p class="muted" style="font-size:13px;margin:0">복권은 19세 미만에게 판매할 수 없어, 오행 로또도 성인만 이용할 수 있어요.</p>
+    <p class="muted" style="font-size:13px;margin:0">복권은 19세 미만에게 판매할 수 없어, 로또 기능은 성인만 이용할 수 있어요.</p>
     <button class="btn ghost" style="margin:20px auto 0" onclick="renderProfileForm()">생년월일 다시 입력</button>
   </div>`;
 }
@@ -922,7 +937,7 @@ const NAVSVG=(()=>{const w=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="curr
 function renderApp(){
   if(profile && isMinorBirth(profile.birth_year,profile.birth_month,profile.birth_day,profile.calendar)){ renderMinorBlock(); return; }
   $('#root').innerHTML=`<div class="wrap">
-    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">오행 로또</div><div class="s">${sajuLine()}</div></div><div class="sp"></div><a class="hubchip" href="${HUB}">‹ 자림</a></header>
+    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">운세 체크인 달력</div><div class="s">${sajuLine()}</div></div><div class="sp"></div><a class="hubchip" href="${HUB}">‹ 자림</a></header>
     <div id="body"></div>
   </div>
   <div class="dock">
@@ -931,7 +946,7 @@ function renderApp(){
   <nav class="jn-tabbar" aria-label="주 메뉴">
     <a class="jn-brand" href="${HUB}"><i>林</i>자림</a>
     ${NAV.map(([k,l])=>`<button type="button" class="jn-tab" data-k="${k}" onclick="goNav('${k}')"><span class="ic">${NAVSVG[k]}</span><span>${l}</span></button>`).join('')}
-    <div class="jn-side-foot">오행 로또</div>
+    <div class="jn-side-foot">운세 체크인 달력</div>
   </nav>`;
   document.body.classList.add('jn-on');
   renderTab();
@@ -1006,117 +1021,9 @@ function renderTabNow(){
   document.querySelectorAll('.jn-tab').forEach(x=>{const on=x.dataset.k===navOf(tab); x.classList.toggle('on',on); if(on) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current');});
 }
 
-/* ---- 달력 ---- */
-function viewCalendar(){
-  editDream=null;
-  const {y,m}=calView;
-  const first=new Date(y,m-1,1).getDay();
-  const {days,scores,norm,isMoney,moneyDays,monthMoney,monthMoneyAxes,jaeFav,isCaution,cautionDays,saturdays,bestSat}=monthData(y,m);
-  // 구매 이력이 있는 날 → 마커 (당첨 있으면 🎉, 아니면 🎫)
-  const buyByDay={};
-  purchases.forEach(p=>{const k=dkeyOf(p.purchased_at); if(!buyByDay[k])buyByDay[k]={won:false}; if(p.won)buyByDay[k].won=true;});
-  let cells='';
-  for(let i=0;i<first;i++)cells+=`<div class="cal-cell empty"></div>`;
-  for(let d=1;d<=days;d++){
-    const s=scores[d-1],t=norm(s.score);
-    const bg=`rgba(154,118,28,${(t*0.13).toFixed(2)})`;
-    const isToday=(y===now.getFullYear()&&m===now.getMonth()+1&&d===now.getDate());
-    const money=isMoney(s), caution=isCaution(s);
-    const dk=dkey(y,m,d), lucky=luckyDays.has(dk), hasDream=!!dreams[dk], buy=buyByDay[dk];
-    const marks=(buy?(buy.won?'🎉':'🎫'):'')+(lucky?'✨':'')+(hasDream?'💭':'');
-    cells+=`<div class="cal-cell${isToday?' today':''}${money?' money':caution?' caution':''}" style="background:${bg}" onclick="dayDetail(${y},${m},${d})">
-      <div class="d">${d}</div><div class="marks">${marks}</div>
-      <div class="heat" style="width:${Math.round((0.14+t*0.86)*80)}%"></div></div>`;
-  }
-  const luckyList=[],dreamList=[],buyList=[];
-  for(let d=1;d<=days;d++){const dk=dkey(y,m,d);if(luckyDays.has(dk))luckyList.push(d);if(dreams[dk])dreamList.push(d);if(buyByDay[dk])buyList.push(d);}
-  // 추첨일(토) 카드 — 목돈/주의/일반 + 최고일(⭐) + D-day
-  const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const satChips=saturdays.map(x=>{
-    const diff=Math.round((new Date(y,m-1,x.d)-today0)/86400000);
-    const dd=diff===0?'오늘':diff>0?`D-${diff}`:'지난';
-    const best=bestSat&&bestSat.d===x.d;
-    const c=x.money?{bg:'var(--gold-soft)',bd:'var(--gold)',fg:'var(--gold)',tag:'錢 목돈'}:x.caution?{bg:'var(--danger-soft)',bd:'var(--hwa)',fg:'var(--danger)',tag:'⚠ 주의'}:{bg:'#fff',bd:'var(--line)',fg:'var(--sub)',tag:'일반'};
-    return `<div style="flex:1 1 60px;text-align:center;border:1px solid ${c.bd};border-radius:10px;padding:7px 3px;background:${c.bg}${best?';box-shadow:0 0 0 2px var(--gold)':''}"><div style="font-size:13px;font-weight:800;color:var(--ink)">${best?'⭐':''}${x.d}일</div><div style="font-size:10px;font-weight:700;color:${c.fg};margin-top:2px">${c.tag}</div><div class="muted" style="font-size:9.5px;margin-top:1px">${dd}</div></div>`;
-  }).join('');
-  const bestTxt=bestSat?(bestSat.money?`${bestSat.d}일이 가장 유리해요 (목돈 기운)`:bestSat.caution?`이번 달 추첨일은 기운이 약한 편 — 그나마 ${bestSat.d}일`:`${bestSat.d}일이 무난해요`):'';
-  const satCard=saturdays.length?`<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 8px;font-size:15px">이번 달 로또 추첨일(토)</h3><div style="display:flex;gap:5px;flex-wrap:wrap">${satChips}</div>${bestTxt?`<p class="muted" style="font-size:12px;margin:8px 0 0">→ <b style="color:var(--ink)">${bestTxt}</b></p>`:''}</div>`:'';
-  return `${satCard}<div class="section on card">
-    <div class="cal-head">
-      <button class="btn ghost sm" onclick="calMove(-1)">‹</button>
-      <h2>${y}. ${m}</h2>
-      <button class="btn ghost sm" onclick="calMove(1)">›</button>
-    </div>
-    ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
-    <div class="cal-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
-    <div class="legend"><span>발복</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="height:4px;width:14px;background:var(--gold);border-radius:2px;display:inline-block"></span>약<span style="height:4px;width:44px;background:var(--gold);border-radius:2px;display:inline-block"></span>강</span><span style="margin-left:4px">· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · <b style="color:var(--hwa)">⚠</b> 주의일 · 🎫구매 · 🎉당첨 · ✨운좋은날 · 💭꿈</span></div>
-    ${buyList.length?`<p class="muted" style="font-size:12.5px;margin:10px 0 0">🎫 구매한 날: <b>${buyList.join(', ')}일</b></p>`:''}
-    ${moneyDays.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">錢 목돈 후보일(그날 기운): <b style="color:var(--gold)">${moneyDays.join(', ')}일</b></p>`:''}
-    ${cautionDays.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">⚠ 손재·지출 주의일: <b style="color:var(--hwa)">${cautionDays.join(', ')}일</b></p>`:''}
-    ${luckyList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">✨ 운 좋았던 날: <b>${luckyList.join(', ')}일</b></p>`:''}
-    ${dreamList.length?`<p class="muted" style="font-size:12.5px;margin:4px 0 0">💭 꿈 기록: <b>${dreamList.join(', ')}일</b></p>`:''}
-    <p class="muted" style="font-size:12px;margin:8px 0 0">날짜를 누르면 운 좋았던 날 체크·꿈 기록을 남길 수 있어요.</p>
-  </div>
-  <p class="disclaimer">색이 진할수록 사주상 재물 발복 기운이 큰 날입니다. 참고용이며 당첨 보장이 아닙니다.</p>`;
-}
 function calMove(dir){let{y,m}=calView;m+=dir;if(m<1){m=12;y--}if(m>12){m=1;y++}calView={y,m};renderTab();}
 const GILMONG=['돼지','대통령','조상','똥','대변','불','물','홍수','용','뱀','구렁이','돈','금','보석','연예인','아기','물고기','잉어','고래','호랑이','피','부처','신령','로또'];
 let editDream=null;
-function dayDetail(y,m,d){
-  if(!monthCached(y,m)){ ensureMonths([[y,m]]).then(()=>dayDetail(y,m,d)).catch(()=>toast('운 점수를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요')); return; }
-  const md=monthData(y,m); const s=md.scores[d-1]; const money=md.isMoney(s);
-  const dk=dkey(y,m,d), lucky=luckyDays.has(dk);
-  const dayBuys=purchases.filter(p=>dkeyOf(p.purchased_at)===dk);
-  const dayWon=dayBuys.filter(p=>p.won);
-  if(!editDream||editDream.day!==dk){ const ex=dreams[dk]; editDream={day:dk,note:ex?(ex.note||''):'',tags:ex?[...(ex.tags||[])]:[]}; }
-  const hits=[...new Set(GILMONG.filter(k=>(editDream.note+' '+editDream.tags.join(' ')).includes(k)))];
-  const sijinNames=['자(23~01)','축(01~03)','인(03~05)','묘(05~07)','진(07~09)','사(09~11)','오(11~13)','미(13~15)','신(15~17)','유(17~19)','술(19~21)','해(21~23)'];
-  const JI_ELEM=S.JI_ELEM, JI=S.JI;
-  const sijin=sijinNames.map((nm,idx)=>{const el=JI_ELEM[idx];const good=favorSet.has(el);return `<div class="s${good?' good':''}">${nm}<br><span style="opacity:.7">${el}</span></div>`;}).join('');
-  const bestSijin=sijinNames.map((nm,idx)=>({nm,good:favorSet.has(JI_ELEM[idx])})).filter(x=>x.good).map(x=>x.nm.split('(')[0]);
-  // 방위 오행: 동=목·남=화·서=금·북=수·중앙=토 → 용희신 방향을 유리하게 표시
-  const DIRW=[{d:'북',e:'수'},{d:'서',e:'금'},{d:'중앙',e:'토'},{d:'동',e:'목'},{d:'남',e:'화'}];
-  const favDirs=DIRW.filter(x=>favorSet.has(x.e)).map(x=>x.d);
-  const dcell=(dir)=>{ const it=DIRW.find(x=>x.d===dir), good=favorSet.has(it.e);
-    return `<div style="text-align:center;padding:9px 0;border-radius:8px;border:1px solid ${good?'var(--gold)':'var(--line)'};background:${good?'var(--gold-soft)':'var(--card)'}"><div style="font-size:12.5px;font-weight:${good?'800':'600'};color:${good?'var(--gold)':'var(--ink)'}">${dir}${good?' ★':''}</div><div class="muted" style="font-size:10.5px">${it.e}</div></div>`; };
-  const sp='<span></span>';
-  const compass=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:220px;margin:10px auto 0">${sp}${dcell('북')}${sp}${dcell('서')}${dcell('중앙')}${dcell('동')}${sp}${dcell('남')}${sp}</div>`;
-  const html=`<div class="section on">
-    <button class="btn ghost sm" onclick="renderTab()">‹ 달력으로</button>
-    <div class="card" style="margin-top:12px">
-      <h2 style="margin:0 0 2px">${y}. ${m}. ${d}</h2>
-      <p class="muted" style="margin:0 0 8px;font-size:13px">일진 <b>${s.day.hangul}</b> · 월운 <b>${s.month.hangul}</b></p>
-      <div class="row" style="gap:14px">
-        <div><div class="muted" style="font-size:11px">재물 발복 점수</div><div style="font-size:26px;font-weight:800;color:var(--gold)">${s.score.toFixed(1)}</div></div>
-        <div>${money?'<span class="pill">錢 목돈 후보일</span>':'<span class="muted" style="font-size:12px">일반일</span>'}</div>
-      </div>
-      ${money?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 날은 <b>일운(그날 기운)</b>에 ${md.jaeFav?'재성이 용희신으로 들어와요':'인성·비겁(신 돕는 용희신)이 들어와 많은 재를 감당해요'}.</p>`:(md.monthMoney?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 달은 <b>${md.monthMoneyAxes.join('·')}</b> ${md.jaeFav?'재물 기운':'재 감당 기운'}이 좋아요(달 전체 공통).</p>`:'')}
-      ${s.rootClash?`<p style="color:var(--hwa);font-size:12px;margin:8px 0 0">⚠ 뿌리충(${esc(s.rootClash.detail)}) — 변동/지출 주의 날</p>`:''}
-      ${dayBuys.length?`<p style="font-size:12.5px;margin:10px 0 0">🎫 이 날 구매 <b>${dayBuys.length}건</b>${dayWon.length?` · <b style="color:var(--gold)">🎉 당첨 ${dayWon.length}건</b>`:''}</p>`:''}
-      <h3 style="margin:16px 0 2px;font-size:16px">추천 시간대</h3>
-      <p class="muted" style="font-size:12px;margin:0">용희신(${[...favorSet].join('·')}) 기운의 시진이 재물 기운에 유리합니다${bestSijin.length?` → <b style="color:var(--mok)">${bestSijin.join(', ')}시</b>`:''}</p>
-      <div class="sijin">${sijin}</div>
-      <h3 style="margin:16px 0 2px;font-size:16px">유리한 방향</h3>
-      <p class="muted" style="font-size:12px;margin:0">용희신 ${[...favorSet].join('·')} 기운의 방위가 재물 기운에 유리합니다${favDirs.length?` → <b style="color:var(--gold)">${favDirs.join('·')}쪽</b>`:''}</p>
-      ${compass}
-    </div>
-    <div class="card">
-      <div class="row"><h3 style="margin:0;flex:1;font-size:16px">이 날의 기록</h3>
-        <button class="btn ${lucky?'':'ghost'} sm" onclick="toggleLuckyDay(${y},${m},${d})">${lucky?'✨ 운 좋았던 날':'운 좋았던 날 체크'}</button></div>
-      <label class="f" style="margin-top:12px">💭 꿈 기록</label>
-      <textarea id="dreamNote" placeholder="꿈 내용 (예: 돼지가 품에 안겼다)" oninput="editDream.note=this.value">${esc(editDream.note)}</textarea>
-      <label class="f" style="margin-top:10px">태그 (동물·사물·인물·종류)</label>
-      <div>${editDream.tags.map((t,i)=>`<span class="chip">${esc(t)}<button onclick="removeDreamTag(${i},${y},${m},${d})">×</button></span>`).join('')||'<span class="muted" style="font-size:12px">태그 없음</span>'}</div>
-      <div class="row" style="margin-top:6px"><input id="dreamTag" placeholder="예: 돼지, 물, 조상" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addDreamTag(${y},${m},${d})}"><button class="btn sm" onclick="addDreamTag(${y},${m},${d})">추가</button></div>
-      ${hits.length?`<p style="font-size:12.5px;color:var(--gold);margin:10px 0 0">✨ 길몽 기운: <b>${hits.join(' · ')}</b> — 전통 해몽상 재물·행운 상징이에요(참고용).</p>`:''}
-      <div class="row" style="margin-top:12px">
-        <button class="btn sm" onclick="saveDreamEntry(${y},${m},${d})">꿈 저장</button>
-        ${dreams[dk]?`<button class="btn ghost sm" onclick="removeDreamEntry(${y},${m},${d})">꿈 삭제</button>`:''}
-      </div>
-    </div>
-  </div>`;
-  $('#body').innerHTML=html;
-}
 function toggleLuckyDay(y,m,d){ (async()=>{ await dbToggleLucky(dkey(y,m,d)); dayDetail(y,m,d); })(); }
 function addDreamTag(y,m,d){
   const el=$('#dreamTag'), v=el.value.trim(); editDream.note=$('#dreamNote').value;
@@ -1158,7 +1065,7 @@ function viewRec(){
   const desc=sajuOn
     ? `기본은 <b>사주 기반</b> — 내 용희신 ${[...favorSet].join('·')} 숫자에 가중치를 줍니다. ${jaeFav?`재성(${jaeElem})이 길신이라 재물 숫자를 더 실었습니다.`:`신약이라 신(身)을 돕는 숫자를 우선했습니다.`} 여기에 <b>대운·세운·월운·일운(오늘 기운)</b>${(()=>{const tf=[...transitFavor()];return tf.length?` — 지금 유리한 <b>${tf.join('·')}</b>`:'';})()}까지 반영합니다.`
     : `지금은 <b>사주 미반영</b> — 기운과 무관하게 <b>무작위</b>로 뽑습니다.${hasMyNum?' 단, ‘내 숫자’ 가중치는 그대로 유지됩니다.':''} 패턴·회피 설정은 계속 적용돼요.`;
-  return `<div class="section on card">
+  return `${drawCardHtml()}<div class="section on card">
     <div class="row"><h2 style="margin:0;flex:1;font-size:22px">${m}월 추천 (${prev7?'A~G 7줄':'A~E 5줄'})</h2><button class="btn ghost sm" onclick="reroll()">다시 뽑기</button></div>
     <div class="row" style="align-items:center;gap:8px;margin-top:8px">
       <span style="font-size:13px;font-weight:700;color:var(--ink)">사주 반영</span>
