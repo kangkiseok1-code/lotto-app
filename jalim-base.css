@@ -5,7 +5,7 @@
 :root{
   --gold:#a8670a; --gold-soft:#fbf0dc; --gold-deco:#e0951b;
   --ink:#121212; --sub:#66615a; --muted:#8e887f;
-  --line:#ebe8e2; --line-strong:#d9d5cd; --bg:#f7f6f3; --card:#ffffff;
+  --line:#eee7da; --line-strong:#e2d9c8; --bg:#fbf7ef; --card:#ffffff;
   --danger:#c8264f; --warn:#e0951b; --ok:#0e8a5f;
   --wood:#0e8a5f; --fire:#c8264f; --earth:#e0951b; --metal:#9aa4ae; --water:#1a1a1a;
   --m:#0e8a5f; --h:#c8264f; --t:#e0951b; --g:#9aa4ae; --s:#1a1a1a;
@@ -59,13 +59,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
   --gold-ink:#8a5a00; --ok-ink:#0a7350; /* 옅은 배경 위 작은 글자용(대비 4.5 이상) */
   /* 글자 3단 · 면 3단 */
   --text-1:var(--ink); --text-2:var(--sub); --text-3:var(--muted);
-  --surface-1:var(--card); --surface-2:#f1ece1; --surface-3:var(--bg);
+  --surface-1:var(--card); --surface-2:#f3ede1; --surface-3:var(--bg);
   /* 간격 */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
   /* 글자 크기: 제목 · 소제목 · 본문 · 보조 · 캡션 */
   --fs-title:27px; --fs-h2:1.05rem; --fs-body:.95rem; --fs-sub:.85rem; --fs-cap:.75rem;
   /* 모서리 */
-  --r-card:20px; --r-list:16px; --r-ctl:12px; --r-pill:999px;
+  --r-card:22px; --r-list:16px; --r-ctl:12px; --r-pill:999px;
   /* 내비 */
   --jn-nav-w:232px; --jn-tab-h:62px; --jn-nav-off:#857d70;
   /* 모션: 길이 3단 · 이징 3종 */
@@ -201,3 +201,33 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
   ::view-transition-old(root){animation:jm-vt-out var(--dur-fast) var(--ease-in) both}
   ::view-transition-new(root){animation:jm-vt-in var(--dur-base) var(--ease-out) both}
 }
+
+/* ============================================================================
+   v4 (2026-11-04) — 통일 톤: 따뜻한 크림 바탕 · 파스텔 오행 면 · 부드러운 그림자 · 둥근 모서리
+   - 파스텔(-soft)은 '면을 채우는 색', 진한 오행색(--wood 등)은 글자·테두리용 그대로. 파스텔 위 글자는 -ink
+   - 새 값은 모두 이 토큰에서만 정의한다(앱 코드에 색을 직접 쓰지 않는다)
+   ============================================================================ */
+:root{
+  --accent:#6fae8a; --accent-ink:#3f7d5c;
+  --wood-soft:#a9ddbb;  --wood-ink:#2f6b4a;
+  --fire-soft:#f3736f;  --fire-ink:#ffffff;  --fire-tint:#fbe0dd; --fire-deep:#a2312c;
+  --earth-soft:#ebc766; --earth-ink:#6b4a05;
+  --metal-soft:#bcd0de; --metal-ink:#35566d; --metal-tint:#d3e0ea;
+  --water-soft:#34312f; --water-ink:#ffffff;
+  --shadow:0 8px 22px rgba(120,96,60,.14),0 2px 5px rgba(120,96,60,.10);
+  --shadow-sm:0 3px 10px rgba(120,96,60,.12);
+  --shadow-in:inset 0 3px 6px rgba(255,255,255,.55),inset 0 -4px 8px rgba(0,0,0,.08);
+  --shadow-ink:rgba(120,96,60,.22);   /* 그림자 색(SVG 필터용) */
+}
+.card{border-color:transparent;border-radius:var(--r-card);box-shadow:var(--shadow-sm)}
+.btn{box-shadow:var(--shadow-sm)}
+.btn.ghost{box-shadow:none}
+.btn.sm{box-shadow:none}
+.tabs button{border-radius:var(--r-ctl);border-color:transparent;background:var(--surface-2)}
+.tabs button.on{background:var(--ink);border-color:var(--ink);box-shadow:var(--shadow-sm)}
+.jn-chip{background:var(--surface-2);border-color:transparent}
+.jn-chip.ok{background:var(--wood-soft);color:var(--wood-ink)}
+.jn-chip.warn{background:var(--earth-soft);color:var(--earth-ink)}
+.jn-chip.bad{background:var(--fire-tint);color:var(--fire-deep)}
+.jn-chip.info{background:var(--metal-soft);color:var(--metal-ink)}
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]):not([type=color]),select,textarea{border-color:var(--line-strong);background:var(--card)}
