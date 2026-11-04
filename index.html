@@ -920,7 +920,6 @@ async function saveProfile(){
   purchases=await dbLoadPurchases();
   await loadLatestDraw(); await autoCheckWins();
   toast('저장했어요');
-  if(coreRow&&coreDiff(p,coreRow).length&&lsGet('lotto_core_keep')!==coreSig(coreRow)) tab='ins';   // 공용 정보와 다르면 비교 카드가 있는 분석 탭으로
   renderApp();
 }
 
@@ -954,7 +953,7 @@ function renderApp(){
   });
 }
 // 아래 탭 4칸: 달력 · 추천(추천+명당, 추천 맨 아래에 내 숫자) · 내 로또 · 내 정보(+의견). 사주 풀이는 자림 허브 분석에서 본다
-const NAV=[['cal','달력'],['rec','추천'],['mine','내 로또'],['ins','내 정보']];
+const NAV=[['cal','달력'],['rec','추천']];   // 내 로또·내 정보 탭은 당분간 숨김(화면 코드는 그대로 둠)
 const SUBS={rec:[['rec','추천'],['md','명당']]};
 const lastSub={rec:'rec'};
 const navOf=t=>t==='md'?'rec':t==='lotto'?'mine':t;
@@ -1115,7 +1114,7 @@ function viewRec(){
       ${mc?`<button class="btn ghost sm" style="flex:1" onclick="importMurphyFromLatest()">📥 최신 티켓 다시 불러오기</button>`:''}
     </div>`
     :(mc?`<button class="btn wide" onclick="importMurphyFromLatest()">📥 구매한 최신 티켓 불러오기${mc.round?` · ${mc.round}회`:''} <span style="opacity:.85">(${mc.nums.length}개)</span></button>`
-    :`<p class="muted" style="font-size:12px;margin:0 0 8px">‘내 로또’ 탭에서 산 번호를 먼저 입력해 주세요.</p>`)}
+    :`<p class="muted" style="font-size:12px;margin:0 0 8px">내 로또 기록이 생기면 여기서 불러올 수 있어요.</p>`)}
   </div>`;})()}
   ${numCardHtml()}
   <p class="disclaimer">사주 기반 참고용 추천이며 당첨을 보장하지 않습니다.</p>`;
