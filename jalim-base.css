@@ -231,3 +231,30 @@ body.jn-on .jn-tabbar{position:fixed;left:16px;right:16px;bottom:calc(10px + env
 .jn-chip.bad{background:var(--fire-tint);color:var(--fire-deep)}
 .jn-chip.info{background:var(--metal-soft);color:var(--metal-ink)}
 input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]):not([type=color]),select,textarea{border-color:var(--line-strong);background:var(--card)}
+
+/* ============================================================================
+   v4.1 (2026-11-04) — 공통 부품(하단 바·사이드바·목록·상단 칩)을 통일 톤으로. 색은 모두 위 토큰.
+   ============================================================================ */
+.btn.soft{background:var(--wood-soft);color:var(--wood-ink);box-shadow:var(--shadow-sm)}
+@media(hover:hover){.btn.soft:hover{background:var(--accent);color:#fff}}
+.jn-hub,.jn-iconbtn{border-color:transparent;box-shadow:var(--shadow-sm)}
+.jn-list{border-color:transparent;border-radius:var(--r-card);box-shadow:var(--shadow-sm)}
+.jn-row .ic{color:var(--accent-ink)}
+.jn-badge{background:var(--fire-soft)}
+/* 하단 바(모바일): 켜진 칸이 흰 알약 + 초록 아이콘 */
+@media(max-width:1023px){
+  body.jn-on .jn-tabbar{background:rgba(255,255,255,.82);box-shadow:var(--shadow)}
+  .jn-tab{border-radius:26px;margin:2px 0}
+  .jn-tab.on{background:var(--card);color:var(--accent-ink);box-shadow:var(--shadow-sm)}
+}
+/* 사이드바(PC): 어두운 면 대신 크림 면 */
+@media(min-width:1024px){
+  body.jn-on .jn-tabbar{background:var(--card);border-right:1px solid var(--line)}
+  body.jn-on .jn-brand{color:var(--ink)}
+  body.jn-on .jn-brand i{background:var(--wood-soft);color:var(--wood-ink)}
+  body.jn-on .jn-tab{color:var(--sub)}
+  body.jn-on .jn-tab:hover{background:var(--surface-2)}
+  body.jn-on .jn-tab.on{background:var(--surface-2);color:var(--accent-ink);box-shadow:none}
+  body.jn-on .jn-tab.on .ic{stroke:var(--accent-ink)}
+  body.jn-on .jn-side-foot{background:var(--surface-2);color:var(--sub)}
+}
