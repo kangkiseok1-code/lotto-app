@@ -61,7 +61,7 @@ function recFormHtml(key,ctx){
     <div class="row" style="justify-content:space-between;font-size:11px;color:var(--sub)"><span>1 힘들었어요</span><span>10 아주 좋았어요</span></div>
     <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px">${Balbok.TAGS.map(t=>`<button type="button" class="tgl ${dlEdit.tags.includes(t)?'on':''}" onclick="dlTag('${t}',this)">${t}</button>`).join('')}</div>
     <input id="dlMemo" maxlength="${Balbok.MEMO_MAX}" placeholder="한 줄 메모 (${Balbok.MEMO_MAX}자)" value="${esc(dlEdit.memo)}" oninput="dlSet('memo',this.value)" style="margin-top:10px">
-    <div class="row" style="gap:8px;margin-top:10px"><button class="btn wide" style="flex:1" onclick="dlSave()">${ex&&!ex.legacy?'수정':'입력'}</button>${ex?`<button class="btn ghost" onclick="dlRemove()">지우기</button>`:''}</div>`;
+    <div class="row" style="gap:8px;margin-top:10px"><button class="btn soft wide" style="flex:1" onclick="dlSave()">${ex&&!ex.legacy?'수정':'입력'}</button>${ex?`<button class="btn ghost" onclick="dlRemove()">지우기</button>`:''}</div>`;
 }
 function dlSet(k,v){ dlEdit[k]=v; if(k==='score'){ const t=$('#dlScoreTxt'); if(t) t.textContent=v+'점'; } }
 function dlTag(t,el){ const i=dlEdit.tags.indexOf(t); if(i>=0) dlEdit.tags.splice(i,1); else dlEdit.tags.push(t); el.classList.toggle('on',i<0); }
