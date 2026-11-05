@@ -175,6 +175,7 @@
 <script src="/jalim-engine/v2.0.0/judge-transport.js" integrity="sha384-/4TPGXa6tu9v68Dt4s/2L8yfCV+cJA5czYGBWJr0Y/BU3USEycTUdcqvPYFbZJsA"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="balbok.js"></script>
+<script src="birth-check.js"></script>
 <script src="cal-view.js"></script>
 <script>
 /* ============ 설정 ============ */
@@ -786,7 +787,7 @@ function renderProfileForm(){
   const p=profile||corePrefill||{};
   if(_birthMap){ try{_birthMap.remove();}catch(e){} _birthMap=null; _birthMarkers=null; _selCity=null; }   // 재렌더 시 지도 재초기화
   $('#root').innerHTML=`<div class="wrap">
-    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div></header>
+    <header class="app"><div class="seal">${SEAL}</div><div><div class="t">내 사주 입력</div><div class="s">한 번만 입력하면 됩니다</div></div><div class="sp"></div><a class="hubchip" href="${HUB}">‹ 자림</a></header>
     ${(!profile&&corePrefill)?`<div class="card" style="border-color:var(--gold)"><b>자림에 저장된 내 정보로 채웠어요</b><p class="muted" style="font-size:12.5px;margin:6px 0 0">맞는지 확인하고 아래 버튼을 누르면 바로 시작해요.${coreRow&&coreRow.leap?'<br>'+LEAP_NOTE:''}</p></div>`:''}
     <div class="card">
       <div class="grid3">
@@ -813,7 +814,7 @@ function renderProfileForm(){
       <div id="birthMap" style="display:none;height:280px;border-radius:10px;overflow:hidden;margin-top:8px;border:1px solid var(--line)"></div>
       <p id="birthMapLabel" class="muted" style="font-size:11.5px;margin:6px 0 0"></p>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
-      <p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. ‘나’ 탭에서 <b>클라우드 로그인</b>을 켤 때만 여러 기기 동기화를 위해 Supabase에 저장됩니다(선택).</p>
+      ${user?'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 자림 계정으로 로그인 중이에요. 여기서 입력한 생년월일시는 이 기기에 저장돼요. 분석 앱에서 <b>‘자림에 저장’</b>에 동의하면 다음부터 자동으로 채워져요.</p>':'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. 자림 허브에서 로그인하면 여러 기기 동기화를 위해 저장할 수 있어요(선택).</p>'}
     </div>
   </div>`;
 }
@@ -881,7 +882,7 @@ async function openBirthMap(){
 async function saveProfile(){
   const v=id=>$('#'+id).value.trim();
   const by=+v('by'),bm=+v('bm'),bd=+v('bd');
-  if(!by||!bm||!bd){toast('생년월일을 입력해주세요');return;}
+  const bad=BirthCheck.msg(by,bm,bd,v('bh'),v('bmin')); if(bad){toast(bad);return;}
   if(isMinorBirth(by,bm,bd,v('cal'))){ toast('만 19세 이상만 이용할 수 있어요'); return; }
   const p={birth_year:by,birth_month:bm,birth_day:bd,
     birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
