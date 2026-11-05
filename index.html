@@ -64,15 +64,15 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative;overflow:hidden;padding-bottom:3px}
   .cal-cell.empty{border:none;background:transparent;cursor:default}
   .cal-cell .d{font-size:13px;font-weight:700;color:var(--ink)}
-  .cal-cell.today{outline:2px solid var(--ink);outline-offset:-2px}
+  .cal-cell.today{outline:2px solid var(--accent-ink);outline-offset:-2px}
   .cal-cell.money{border-color:var(--gold)}
-  .cal-cell.money::after{content:"錢";position:absolute;top:1px;right:1px;background:var(--ink);color:#fff;
+  .cal-cell.money::after{content:"錢";position:absolute;top:1px;right:1px;background:var(--wood-ink);color:#fff;
     border-radius:3px;padding:0 2px;font-size:7px;font-family:serif;line-height:1.5}
   .cal-cell.caution{border-color:var(--hwa)}
   .cal-cell.caution::after{content:"⚠";position:absolute;top:1px;right:1px;font-size:8px;line-height:1.4}
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
   .cal-cell .sc{font-size:10px;color:var(--sub);line-height:1}
-  .cal-cell .rd{position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;background:var(--ink)}
+  .cal-cell .rd{position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;background:var(--accent-ink)}
   .cal-cell.best{box-shadow:0 0 0 2.5px var(--gold-deco),0 0 8px var(--gold-soft);z-index:1}
   .cal-dow.sat{color:var(--gold);font-weight:700}
   .cal-dow small{display:block;font-size:9px;font-weight:600;line-height:1}
@@ -82,6 +82,9 @@
   .tip summary::-webkit-details-marker{display:none}
   .tip p{margin:6px 0 0;line-height:1.55}
   input[type=range]{accent-color:var(--accent);width:100%}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:8px;border-radius:6px;background:var(--surface-2)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid var(--card);box-shadow:var(--shadow-sm)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);border:3px solid var(--card)}
   .scale10{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:8px}
   .scale10 i{height:9px;border-radius:3px;background:var(--line)}
   .scale10 i.on{background:var(--gold)}
@@ -136,7 +139,7 @@
   .plist .it.won{background:linear-gradient(90deg,var(--gold-soft),var(--card));border-left:4px solid var(--gold);border-bottom:none;border-radius:8px;padding:10px 10px 10px 9px;margin:4px 0}
   .winbadge{display:inline-flex;align-items:center;gap:4px;background:var(--gold);color:#fff;font-weight:800;font-size:12.5px;border-radius:8px;padding:4px 11px;margin-top:4px;box-shadow:0 1px 4px rgba(184,145,46,.4)}
   .winrow{background:linear-gradient(90deg,var(--gold-soft),var(--card));border:1px solid var(--gold);border-radius:10px;padding:8px 10px;margin:8px 0}
-  .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+  .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--card);color:var(--ink);box-shadow:var(--shadow);
     padding:10px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity var(--dur-base) var(--ease-in);z-index:40;pointer-events:none;white-space:nowrap}
   .toast.show{opacity:.95;animation:jm-toast-in var(--dur-base) var(--ease-out)}
   .sijin{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
@@ -1233,7 +1236,7 @@ function viewLotto(){
       </div>`:''}
     </div>`;
   }).join('');
-  const chip=(f,label,n)=>`<span onclick="setLottoFilter('${f}')" style="cursor:pointer;font-size:11.5px;font-weight:${lottoFilter===f?'700':'400'};background:${lottoFilter===f?'var(--ink)':'var(--card)'};color:${lottoFilter===f?'#fff':'var(--sub)'};border:1px solid ${lottoFilter===f?'var(--ink)':'var(--line)'};border-radius:20px;padding:4px 12px">${label} ${n}</span>`;
+  const chip=(f,label,n)=>`<span onclick="setLottoFilter('${f}')" style="cursor:pointer;font-size:11.5px;font-weight:${lottoFilter===f?'700':'400'};background:${lottoFilter===f?'var(--accent)':'var(--card)'};color:${lottoFilter===f?'#fff':'var(--sub)'};border:1px solid ${lottoFilter===f?'var(--accent)':'var(--line)'};border-radius:20px;padding:4px 12px">${label} ${n}</span>`;
   const summary=tickets.length?`<div style="display:flex;align-items:center;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--ink)">전체 ${cnt.all}장</span><span style="flex:1"></span><span style="font-size:11.5px;color:var(--sub)">당첨 ${cnt.win} · 대기 ${cnt.wait}</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${chip('all','전체',cnt.all)}${chip('win','당첨',cnt.win)}${chip('wait','대기',cnt.wait)}${chip('nodate','미입력',cnt.nodate)}</div>`:'';
   const list=tickets.length?(summary+(rows||'<p class="muted" style="font-size:12.5px;text-align:center;padding:8px 0">이 조건에 해당하는 티켓이 없어요.</p>'))

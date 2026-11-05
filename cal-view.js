@@ -105,7 +105,7 @@ function viewCalendar(){
     </div>
     ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
     <div class="cal-grid">${['일','월','화','수','목','금'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}<div class="cal-dow sat">토<small>추첨</small></div>${cells}</div>
-    <div class="legend"><span>발복점수 1 낮음 → 10 높음</span><span>· <b style="background:var(--ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · <b style="color:var(--hwa)">⚠</b> 주의일 · <span class="gframe"></span>이달 최고일 · ● 내 기록</span></div>
+    <div class="legend"><span>발복점수 1 낮음 → 10 높음</span><span>· <b style="background:var(--wood-ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · <b style="color:var(--hwa)">⚠</b> 주의일 · <span class="gframe"></span>이달 최고일 · ● 내 기록</span></div>
     <details class="tip"><summary>ⓘ 표시 보는 법</summary><p>발복점수는 내 한 해 안에서 정해요. 내 가장 좋은 날이 10, 가장 약한 날이 1이에요. 다른 사람과 점수를 견주는 용도는 아니에요. 토 표시가 있는 열은 로또 추첨일이고, 錢이 붙은 토요일이 좋은 추첨일, ⚠가 붙은 토요일은 조심할 추첨일이에요. 칸 아래 작은 그림은 🎫구매 · 🎉당첨 · ✨운 좋았던 날 · 💭꿈 기록이에요. 날짜를 누르면 자세한 기운을 볼 수 있어요.</p></details>
   </div>
   <div class="section on card">${recFormHtml(tk,'cal')}</div>
