@@ -1,8 +1,8 @@
 // 운세 체크인 달력 서비스워커 — 앱 셸 오프라인 캐시
 // HTML은 network-first(항상 최신, 오프라인 시 캐시), 그 외 same-origin은 stale-while-revalidate.
-const CACHE = 'ohaeng-lotto-v47';
+const CACHE = 'ohaeng-lotto-v48';
 const CORE = [
-  './', './index.html', './jalim-base.css', './jalim-tokens.js', '/jalim-engine/v2.0.0/engine.js', '/jalim-engine/v2.0.0/judge-transport.js', './balbok.js', './birth-check.js', './cal-view.js',
+  './', './index.html', './jalim-base.css', './jalim-tokens.js', '/jalim-engine/v2.0.0/engine.js', '/jalim-engine/v2.0.0/judge-transport.js', './balbok.js', './birth-check.js', './core-sync.js', './cal-view.js',
   './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './myeongdang.json'
 ];

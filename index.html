@@ -176,6 +176,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="balbok.js"></script>
 <script src="birth-check.js"></script>
+<script src="core-sync.js"></script>
 <script src="cal-view.js"></script>
 <script>
 /* ============ 설정 ============ */
@@ -728,7 +729,7 @@ async function afterAuth(){
     if(isMinorBirth(a.birth_year,a.birth_month,a.birth_day,a.calendar)){ renderMinorBlock(); return; }   // 복권은 만 19세 미만 불가 — 공용 정보라도 같은 규칙
     try{ await dbSaveProfile(a); profile=await dbLoadProfile(); if(!profile) throw new Error('save'); toast('자림에 저장된 정보로 시작했어요'); }   // 동의해 둔 정보면 확인 단계 없이 바로 시작
     catch(e){ corePrefill=a; }   // 저장에 실패하면 채운 입력칸으로 확인받는다
-  }
+  }else if(profile&&coreRow&&coreDiff(profile,coreRow).length) await coreQuietSync();   // 동의한 공용 정보가 기준 — 다르면 조용히 맞춘다
   if(!profile){ renderProfileForm(); return; }   // 신규=사주 입력, 기존=메인
   try{ await buildSaju(); }catch(e){ toast('사주 계산 서버에 연결하지 못했어요. 잠시 뒤 새로고침해 주세요'); return; }
   const nums=await dbLoadNumbers();
@@ -888,7 +889,7 @@ async function saveProfile(){
   const p={birth_year:by,birth_month:bm,birth_day:bd,
     birth_hour:v('bh')===''?null:+v('bh'),birth_minute:v('bmin')===''?null:+v('bmin'),
     calendar:v('cal'),leap:false,gender:v('gender')||null,city:v('city')||null};
-  await dbSaveProfile(p); profile=p; corePrefill=null; await buildSaju();
+  await dbSaveProfile(p); profile=p; corePrefill=null; await pushCoreQuiet(p); await buildSaju();
   const nums=await dbLoadNumbers();
   myNumbers={fate:nums.filter(x=>x.kind==='fate').map(x=>x.number),favorite:nums.filter(x=>x.kind==='favorite').map(x=>x.number)};
   purchases=await dbLoadPurchases();
