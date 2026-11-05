@@ -105,12 +105,16 @@ function viewCalendar(){
     </div>
     ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
     <div class="cal-grid">${['일','월','화','수','목','금'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}<div class="cal-dow sat">토<small>추첨</small></div>${cells}</div>
-    <div class="legend"><span>발복점수 1 낮음 → 10 높음</span><span>· <b style="background:var(--wood-ink);color:#fff;border-radius:3px;padding:0 3px;font-family:serif;font-size:10px">錢</b> 목돈일 · <b style="color:var(--hwa)">⚠</b> 주의일 · <span class="gframe"></span>이달 최고일 · ● 내 기록</span></div>
-    <details class="tip"><summary>ⓘ 표시 보는 법</summary><p>발복점수는 내 한 해 안에서 정해요. 내 가장 좋은 날이 10, 가장 약한 날이 1이에요. 다른 사람과 점수를 견주는 용도는 아니에요. 토 표시가 있는 열은 로또 추첨일이고, 錢이 붙은 토요일이 좋은 추첨일, ⚠가 붙은 토요일은 조심할 추첨일이에요. 칸 아래 작은 그림은 🎫구매 · 🎉당첨 · ✨운 좋았던 날 · 💭꿈 기록이에요. 날짜를 누르면 자세한 기운을 볼 수 있어요.</p></details>
+    <details class="tip"><summary>ⓘ 표시 보는 법</summary><p><b>칸 색</b>이 진할수록 발복점수가 높아요(1 낮음 → 10 높음). <span style="color:var(--gold)">●</span> 금색 점 = 錢 목돈일, <span style="color:var(--hwa)">●</span> 빨간 점 = 주의일, <span class="gframe"></span>이달 최고일, <span style="color:var(--accent-ink)">●</span> 왼쪽 점 = 내 기록. 발복점수는 내 한 해 안에서 정해요. 내 가장 좋은 날이 10, 가장 약한 날이 1이에요. 다른 사람과 점수를 견주는 용도는 아니에요. 토 표시가 있는 열은 로또 추첨일이고, 금색 점이 있는 토요일이 좋은 추첨일, 빨간 점이 있는 토요일은 조심할 추첨일이에요. 칸 아래 작은 그림은 🎫구매 · 🎉당첨 · ✨운 좋았던 날 · 💭꿈 기록이에요. 날짜를 누르면 자세한 기운을 볼 수 있어요.</p></details>
   </div>
-  <div class="section on card">${recFormHtml(tk,'cal')}</div>
+  <div class="cal-sticky" id="cal-sticky"><button type="button" class="btn" onclick="calGoRec()">오늘 기록하기</button></div>
+  <div class="section on card" id="cal-rec">${recFormHtml(tk,'cal')}</div>
   <p class="disclaimer">참고용이며 당첨을 보장하지 않습니다.</p>`;
 }
+
+/* 달력 아래 '오늘 기록하기' — 기록 카드가 화면에 보이면 숨기고, 누르면 그 카드로 이동 */
+function calGoRec(){ const e=document.getElementById('cal-rec'); if(e) e.scrollIntoView({behavior:'smooth',block:'center'}); }
+function calStickyWatch(){ const s=document.getElementById('cal-sticky'), r=document.getElementById('cal-rec'); if(!s||!r||!window.IntersectionObserver) return; new IntersectionObserver(es=>s.classList.toggle('off',es[0].isIntersecting),{threshold:.3}).observe(r); }
 
 /* ---- 일 페이지 ---- */
 function dayDetail(y,m,d){
@@ -140,7 +144,7 @@ function dayDetail(y,m,d){
       <p class="muted" style="margin:0 0 8px;font-size:13px">일진 <b>${s.day.hangul}</b> · 월운 <b>${s.month.hangul}</b></p>
       <div class="row" style="gap:14px">
         <div><div class="muted" style="font-size:11px">발복점수</div><div style="font-size:30px;font-weight:800;color:var(--gold);line-height:1.1">${sc}<span class="muted" style="font-size:14px;font-weight:500"> / 10</span></div></div>
-        <div>${money?'<span class="pill">錢 목돈 후보일</span>':'<span class="muted" style="font-size:12px">일반일</span>'}</div>
+        <div>${money?'<span class="pill">錢 목돈 후보일</span>':md.isCaution(s)?'<span class="pill" style="color:var(--hwa)">⚠ 주의일</span>':'<span class="muted" style="font-size:12px">일반일</span>'}</div>
       </div>
       <div class="scale10" aria-hidden="true">${Array.from({length:10},(_,i)=>`<i${i<sc?' class="on"':''}></i>`).join('')}</div>
       ${money?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 날은 <b>일운(그날 기운)</b>에 ${md.jaeFav?'재성이 용희신으로 들어와요':'인성·비겁(신 돕는 용희신)이 들어와 많은 재를 감당해요'}.</p>`:(md.monthMoney?`<p class="muted" style="font-size:11.5px;margin:6px 0 0">이 달은 <b>${md.monthMoneyAxes.join('·')}</b> ${md.jaeFav?'재물 기운':'재 감당 기운'}이 좋아요(달 전체 공통).</p>`:'')}

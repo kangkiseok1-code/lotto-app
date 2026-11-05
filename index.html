@@ -65,13 +65,13 @@
   .cal-cell.empty{border:none;background:transparent;cursor:default}
   .cal-cell .d{font-size:13px;font-weight:700;color:var(--ink)}
   .cal-cell.today{outline:2px solid var(--accent-ink);outline-offset:-2px}
-  .cal-cell.money{border-color:var(--gold)}
-  .cal-cell.money::after{content:"錢";position:absolute;top:1px;right:1px;background:var(--wood-ink);color:#fff;
-    border-radius:3px;padding:0 2px;font-size:7px;font-family:serif;line-height:1.5}
-  .cal-cell.caution{border-color:var(--hwa)}
-  .cal-cell.caution::after{content:"⚠";position:absolute;top:1px;right:1px;font-size:8px;line-height:1.4}
+  /* 칸에는 날짜·점수 색·작은 점만 — 錢(금색 점)·주의(빨간 점) 설명은 날짜를 눌렀을 때 */
+  .cal-cell.money::after,.cal-cell.caution::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%}
+  .cal-cell.money::after{background:var(--gold-deco)}
+  .cal-cell.caution::after{background:var(--hwa)}
   .cal-cell .marks{display:flex;gap:1px;align-items:center;justify-content:center;font-size:10px;line-height:1;min-height:10px}
-  .cal-cell .sc{font-size:10px;color:var(--sub);line-height:1}
+  .cal-cell .sc{display:none}   /* 점수는 칸 색으로, 숫자는 날짜를 누르면 */
+  .cal-sticky{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:5;margin:0 0 12px;transition:opacity .2s}.cal-sticky.off{opacity:0;pointer-events:none}.cal-sticky .btn{width:100%;box-shadow:var(--shadow)}
   .cal-cell .rd{position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;background:var(--accent-ink)}
   .cal-cell.best{box-shadow:0 0 0 2.5px var(--gold-deco),0 0 8px var(--gold-soft);z-index:1}
   .cal-dow.sat{color:var(--gold);font-weight:700}
@@ -983,7 +983,7 @@ function renderTabNow(){
   else if(tab==='lotto')h=viewLotto();
   else if(tab==='ins')h=coreCardHtml()+viewInfo();
   const fresh=tab!==renderTab._last; renderTab._last=tab;   // 탭을 바꿨을 때만 등장 모션(달력 월 이동·다시 뽑기 등 같은 탭 갱신은 제외)
-  b.innerHTML=subTabsHtml()+h;
+  b.innerHTML=subTabsHtml()+h; if(tab==='cal') calStickyWatch();
   if(fresh){ b.classList.remove('jm-rise'); void b.offsetWidth; b.classList.add('jm-rise'); }
   document.querySelectorAll('.jn-tab').forEach(x=>{const on=x.dataset.k===navOf(tab); x.classList.toggle('on',on); if(on) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current');});
 }
