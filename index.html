@@ -466,7 +466,7 @@ async function dbSaveProfile(p){
   await sb.from('lotto_profile').upsert(p);
 }
 /* ---- 자림에 저장된 내 정보(공용 출생정보, core_profiles) ----
-   읽기는 로그인했을 때만, 실패하면 없는 것처럼. 값은 입력칸을 채우는 데만 쓰고 확인(저장 버튼) 없이 이 앱 프로필에 쓰지 않는다. */
+   읽기는 로그인했을 때만, 실패하면 없는 것처럼. 동의해 저장해 둔 정보라 이 앱이 처음이면 확인 단계 없이 그대로 이 앱 프로필로 쓴다(실패하면 입력칸을 채워 확인받음). */
 const CORE_VER='v1';
 let coreRow=null, corePrefill=null;
 async function dbLoadCore(){
@@ -726,7 +726,8 @@ async function afterAuth(){
   if(!profile&&coreRow){   // 이 앱은 처음 + 자림에 저장된 정보 있음 → 입력칸을 채워 확인만 받는다
     const a=coreToLotto(coreRow);
     if(isMinorBirth(a.birth_year,a.birth_month,a.birth_day,a.calendar)){ renderMinorBlock(); return; }   // 복권은 만 19세 미만 불가 — 공용 정보라도 같은 규칙
-    corePrefill=a;
+    try{ await dbSaveProfile(a); profile=await dbLoadProfile(); if(!profile) throw new Error('save'); toast('자림에 저장된 정보로 시작했어요'); }   // 동의해 둔 정보면 확인 단계 없이 바로 시작
+    catch(e){ corePrefill=a; }   // 저장에 실패하면 채운 입력칸으로 확인받는다
   }
   if(!profile){ renderProfileForm(); return; }   // 신규=사주 입력, 기존=메인
   try{ await buildSaju(); }catch(e){ toast('사주 계산 서버에 연결하지 못했어요. 잠시 뒤 새로고침해 주세요'); return; }
@@ -814,7 +815,7 @@ function renderProfileForm(){
       <div id="birthMap" style="display:none;height:280px;border-radius:10px;overflow:hidden;margin-top:8px;border:1px solid var(--line)"></div>
       <p id="birthMapLabel" class="muted" style="font-size:11.5px;margin:6px 0 0"></p>
       <button class="btn wide" style="margin-top:14px" onclick="saveProfile()">저장하고 시작</button>
-      ${user?'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 자림 계정으로 로그인 중이에요. 여기서 입력한 생년월일시는 이 기기에 저장돼요. 분석 앱에서 <b>‘자림에 저장’</b>에 동의하면 다음부터 자동으로 채워져요.</p>':'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. 자림 허브에서 로그인하면 여러 기기 동기화를 위해 저장할 수 있어요(선택).</p>'}
+      ${corePrefill?'':user?'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 자림 계정으로 로그인 중이에요. 여기서 입력한 생년월일시는 이 기기에 저장돼요. 분석 앱에서 <b>‘자림에 저장’</b>에 동의하면 다음부터 자동으로 채워져요.</p>':'<p class="muted" style="font-size:11px;line-height:1.6;margin:12px 0 0">🔒 생년월일시는 <b>기본적으로 이 기기(브라우저)에만 저장</b>됩니다. 서버로 전송되지 않아요. 자림 허브에서 로그인하면 여러 기기 동기화를 위해 저장할 수 있어요(선택).</p>'}
     </div>
   </div>`;
 }
