@@ -94,7 +94,7 @@ function viewCalendar(){
     const s=scores[d-1], sc=Balbok.scale(s.score,rng), dk=dkey(y,m,d);
     const money=isMoney(s), caution=isCaution(s), buy=buyByDay[dk];
     const marks=(buy?(buy.won?'🎉':'🎫'):'')+(luckyDays.has(dk)?'✨':'')+(dreams[dk]?'💭':'');
-    cells+=`<div class="cal-cell${dk===tk?' today':''}${money?' money':caution?' caution':''}${d===best?' best':''}" style="background:rgba(154,118,28,${(0.04+(sc-1)/9*0.30).toFixed(2)})" onclick="dayDetail(${y},${m},${d})">
+    cells+=`<div class="cal-cell${dk===tk?' today':''}${money?' money':caution?' caution':''}${d===best?' best':''}" style="background:rgba(154,118,28,${(0.03+(sc-1)/9*0.52).toFixed(2)})" onclick="dayDetail(${y},${m},${d})">
       ${daylog[dk]?'<i class="rd"></i>':''}<div class="d">${d}</div><div class="sc">${sc}</div><div class="marks">${marks}</div></div>`;
   }
   return `<div class="section on card">
@@ -105,7 +105,7 @@ function viewCalendar(){
     </div>
     ${monthMoney?`<p style="text-align:center;margin:0 0 8px"><span class="pill">錢 ${jaeFav?'이 달 재물 기운 좋음':'이 달 재물 감당 기운'} · ${monthMoneyAxes.join('·')}에 ${jaeFav?'재성':'인성·비겁'} 용희신</span></p>`:''}
     <div class="cal-grid">${['일','월','화','수','목','금'].map(w=>`<div class="cal-dow">${w}</div>`).join('')}<div class="cal-dow sat">토<small>추첨</small></div>${cells}</div>
-    <details class="tip"><summary>ⓘ 표시 보는 법</summary><p><b>칸 색</b>이 진할수록 발복점수가 높아요(1 낮음 → 10 높음). <span style="color:var(--gold)">●</span> 금색 점 = 錢 목돈일, <span style="color:var(--hwa)">●</span> 빨간 점 = 주의일, <span class="gframe"></span>이달 최고일, <span style="color:var(--accent-ink)">●</span> 왼쪽 점 = 내 기록. 발복점수는 내 한 해 안에서 정해요. 내 가장 좋은 날이 10, 가장 약한 날이 1이에요. 다른 사람과 점수를 견주는 용도는 아니에요. 토 표시가 있는 열은 로또 추첨일이고, 금색 점이 있는 토요일이 좋은 추첨일, 빨간 점이 있는 토요일은 조심할 추첨일이에요. 칸 아래 작은 그림은 🎫구매 · 🎉당첨 · ✨운 좋았던 날 · 💭꿈 기록이에요. 날짜를 누르면 자세한 기운을 볼 수 있어요.</p></details>
+    <details class="tip"><summary>ⓘ 표시 보는 법 · 진할수록 좋은 날</summary><p><b>칸 색</b>이 진할수록 발복점수가 높아요(1 낮음 → 10 높음). <span style="color:var(--gold)">●</span> 금색 점 = 錢 목돈일, <span style="color:var(--hwa)">●</span> 빨간 점 = 주의일, <span class="gframe"></span>이달 최고일, <span style="color:var(--accent-ink)">●</span> 왼쪽 점 = 내 기록. 발복점수는 내 한 해 안에서 정해요. 내 가장 좋은 날이 10, 가장 약한 날이 1이에요. 다른 사람과 점수를 견주는 용도는 아니에요. 토 표시가 있는 열은 로또 추첨일이고, 금색 점이 있는 토요일이 좋은 추첨일, 빨간 점이 있는 토요일은 조심할 추첨일이에요. 칸 아래 작은 그림은 🎫구매 · 🎉당첨 · ✨운 좋았던 날 · 💭꿈 기록이에요. 날짜를 누르면 자세한 기운을 볼 수 있어요.</p></details>
   </div>
   <div class="cal-sticky" id="cal-sticky"><button type="button" class="btn" onclick="calGoRec()">오늘 기록하기</button></div>
   <div class="section on card" id="cal-rec">${recFormHtml(tk,'cal')}</div>
