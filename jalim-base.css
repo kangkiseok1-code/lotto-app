@@ -269,3 +269,15 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):
   body.jn-on .jn-tab.on .ic{stroke:var(--accent-ink)}
   body.jn-on .jn-side-foot{background:var(--surface-2);color:var(--sub)}
 }
+
+/* ============================================================================
+   v5 (2026-11-05) — 검정 면·테두리를 파스텔로: 주 버튼·켜진 탭·선택 상태 = 초록(--pick), 토스트·안내 상자 = 파스텔 면
+   앱 안에서 '선택됨'을 먹색으로 칠하던 곳은 var(--pick) / var(--pick-ink) 를 쓴다
+   ============================================================================ */
+:root{ --pick:var(--accent); --pick-ink:#ffffff; --pick-soft:var(--wood-soft); --pick-soft-ink:var(--wood-ink); }
+.btn{background:var(--pick);color:var(--pick-ink)}
+.btn.ghost{background:var(--card);color:var(--accent-ink);border:1px solid var(--wood-soft)}
+.btn.soft{background:var(--wood-soft);color:var(--wood-ink)}
+.tabs button.on{background:var(--pick);color:var(--pick-ink);border-color:var(--pick);font-weight:700}
+input:focus,select:focus,textarea:focus,:focus-visible{border-color:var(--accent)}
+.jn-toast{background:var(--card);color:var(--ink);box-shadow:var(--shadow);border:1px solid var(--wood-soft)}
